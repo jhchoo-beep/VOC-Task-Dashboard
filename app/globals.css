@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg:        #090B12;
+  --bg-card:   #111420;
+  --bg-hover:  #161B2A;
+  --bg-input:  #161B2A;
+  --border:    #1E2438;
+  --border-2:  #2A3050;
+  --text-1:    #E8EAF2;
+  --text-2:    #7A82A0;
+  --text-3:    #424B68;
+
+  --critical:  #FF3B5C;
+  --high:      #FF7A35;
+  --medium:    #F5C518;
+  --low:       #4A5270;
+
+  --done:      #2ECC8A;
+  --progress:  #4A9EFF;
+  --hold:      #8B6FFF;
+  --todo:      #4A5270;
+
+  --jeju:      #00C9E0;
+  --ddm:       #9B6FFF;
+  --sinseol:   #00D4A0;
+  --goseong:   #FF9B3B;
+
+  --accent:    #4A9EFF;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+
+.font-display { font-family: 'Syne', sans-serif; }
+.font-mono    { font-family: 'JetBrains Mono', monospace; }
+
+/* 카드 */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--border-2); }
+
+/* 배지 공통 */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  white-space: nowrap;
+}
+.badge-critical { background: rgba(255,59,92,.15);  color: var(--critical); border: 1px solid rgba(255,59,92,.25); }
+.badge-high     { background: rgba(255,122,53,.15); color: var(--high);     border: 1px solid rgba(255,122,53,.25); }
+.badge-medium   { background: rgba(245,197,24,.15); color: var(--medium);   border: 1px solid rgba(245,197,24,.25); }
+.badge-low      { background: rgba(74,82,112,.2);   color: var(--low);      border: 1px solid rgba(74,82,112,.3); }
+
+.badge-done     { background: rgba(46,204,138,.15); color: var(--done); }
+.badge-progress { background: rgba(74,158,255,.15); color: var(--progress); }
+.badge-hold     { background: rgba(139,111,255,.15);color: var(--hold); }
+.badge-todo     { background: rgba(74,82,112,.2);   color: var(--todo); }
+
+.badge-jeju     { background: rgba(0,201,224,.15);  color: var(--jeju); }
+.badge-ddm      { background: rgba(155,111,255,.15);color: var(--ddm); }
+.badge-sinseol  { background: rgba(0,212,160,.15);  color: var(--sinseol); }
+.badge-goseong  { background: rgba(255,155,59,.15); color: var(--goseong); }
+
+/* Task 카드 왼쪽 severity 줄 */
+.task-critical { border-left: 3px solid var(--critical) !important; }
+.task-high     { border-left: 3px solid var(--high) !important; }
+.task-medium   { border-left: 3px solid var(--medium) !important; }
+.task-low      { border-left: 3px solid var(--low) !important; }
+
+/* 입력 */
+.input {
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-1);
+  padding: 8px 12px; font-family: inherit;
+  font-size: 13px; width: 100%; outline: none;
+  transition: border-color 0.15s;
+}
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--text-3); }
+
+/* 버튼 */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; font-family: inherit;
+  transition: all 0.15s; border: none;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #6BB5FF; }
+.btn-ghost {
+  background: transparent; color: var(--text-2);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-1); border-color: var(--border-2); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 진행률 바 */
+.progress { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.5s; }
+
+/* 애니메이션 */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.35s ease forwards; }
+.delay-1 { animation-delay: 0.05s; opacity: 0; }
+.delay-2 { animation-delay: 0.10s; opacity: 0; }
+.delay-3 { animation-delay: 0.15s; opacity: 0; }
+.delay-4 { animation-delay: 0.20s; opacity: 0; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.7s linear infinite; }
+
+/* ─── 스켈레톤 로딩 ─────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--border)    0%,
+    var(--border-2)  50%,
+    var(--border)    100%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
