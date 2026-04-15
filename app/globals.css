@@ -132,6 +132,11 @@ html, body {
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.7s linear infinite; }
 
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(1.5); }
+}
+
 /* ─── 스켈레톤 로딩 ─────────────────────────────────────── */
 @keyframes shimmer {
   0%   { background-position: -600px 0; }

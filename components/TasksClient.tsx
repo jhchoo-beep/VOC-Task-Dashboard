@@ -4,6 +4,13 @@ import { useRouter } from 'next/navigation'
 import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink } from 'lucide-react'
 import { formatMonth, generateMonthOptions } from '@/lib/utils'
 
+const STATUS_STYLES: Record<string, { bg: string; color: string; border: string }> = {
+  '시작전': { bg: 'rgba(74,82,112,0.25)',   color: 'var(--todo)',     border: 'rgba(74,82,112,0.5)'   },
+  '진행중': { bg: 'rgba(74,158,255,0.18)',  color: 'var(--progress)', border: 'rgba(74,158,255,0.55)' },
+  '완료':   { bg: 'rgba(46,204,138,0.18)',  color: 'var(--done)',     border: 'rgba(46,204,138,0.55)' },
+  '보류':   { bg: 'rgba(139,111,255,0.18)', color: 'var(--hold)',     border: 'rgba(139,111,255,0.55)'},
+}
+
 const SEV_BADGE: Record<string, string> = { Critical:'badge-critical', High:'badge-high', Medium:'badge-medium', Low:'badge-low' }
 const SEV_CARD:  Record<string, string> = { Critical:'task-critical', High:'task-high', Medium:'task-medium', Low:'task-low' }
 const BRANCH_BADGE: Record<string, string> = { '제주시티':'badge-jeju','제주':'badge-jeju','동대문':'badge-ddm','신설':'badge-sinseol','고성':'badge-goseong' }
@@ -135,6 +142,72 @@ export default function TasksClient({ tasks, months, currentMonth }: any) {
   )
 }
 
+/* ─── 상태 배지 드롭다운 ─── */
+function StatusBadge({ status, onChange, updating }: { status: string; onChange: (s: string) => void; updating: boolean }) {
+  const [open, setOpen] = useState(false)
+  const st = STATUS_STYLES[status] ?? STATUS_STYLES['시작전']
+
+  if (updating) return <Loader2 size={15} className="spin" style={{ color: 'var(--text-3)' }} />
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '5px 11px', borderRadius: 20,
+          background: st.bg, color: st.color,
+          border: `1px solid ${st.border}`,
+          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          fontFamily: 'inherit', transition: 'all 0.15s', whiteSpace: 'nowrap',
+        }}
+      >
+        {status === '진행중' && (
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--progress)', display: 'inline-block', animation: 'statusPulse 1.4s ease-in-out infinite', flexShrink: 0 }} />
+        )}
+        {status === '완료' && <span style={{ fontSize: 11 }}>✓</span>}
+        {status}
+        <ChevronDown size={10} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', opacity: 0.7 }} />
+      </button>
+
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+            background: 'var(--bg-card)', border: '1px solid var(--border-2)',
+            borderRadius: 10, overflow: 'hidden', zIndex: 50,
+            boxShadow: '0 8px 28px rgba(0,0,0,0.45)', minWidth: 110,
+          }}>
+            {STATUS_LIST.map(s => {
+              const ss = STATUS_STYLES[s] ?? STATUS_STYLES['시작전']
+              const isActive = s === status
+              return (
+                <button key={s} onClick={() => { onChange(s); setOpen(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '9px 14px',
+                    background: isActive ? ss.bg : 'none',
+                    border: 'none', color: isActive ? ss.color : 'var(--text-2)',
+                    fontSize: 12, fontWeight: isActive ? 700 : 400,
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                    transition: 'all 0.1s',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = ss.bg; (e.currentTarget as HTMLElement).style.color = ss.color }}
+                  onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)' } }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: ss.color, flexShrink: 0 }} />
+                  {s}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 /* ─── 수행과제 카드 ─── */
 function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, updating, delay }: any) {
   const router = useRouter()
@@ -226,13 +299,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-            {updating
-              ? <Loader2 size={15} className="spin" style={{ color: 'var(--text-3)' }} />
-              : <select value={task.status} className="input" style={{ width: 'auto', padding: '4px 8px', fontSize: 12 }}
-                  onChange={e => onStatusChange(task.id, e.target.value)}>
-                  {STATUS_LIST.map(s => <option key={s}>{s}</option>)}
-                </select>
-            }
+            <StatusBadge status={task.status} onChange={s => onStatusChange(task.id, s)} updating={updating} />
             <button onClick={onEdit} title="수정"
               style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
