@@ -36,6 +36,28 @@ export default function Sidebar({ userName, userEmail, userImage }: { userName: 
 
       {/* 네비 */}
       <nav style={{ flex: 1, padding: '10px 8px' }}>
+        {NAV.map(({ href, icon: Icon, label }) => {
+          const active = path === href || path.startsWith(href + '/')
+          return (
+            <Link key={href} href={href} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '9px 12px', borderRadius: 8, marginBottom: 2,
+              color: active ? 'var(--text-1)' : 'var(--text-2)',
+              background: active ? 'var(--bg-card)' : 'transparent',
+              border: active ? '1px solid var(--border)' : '1px solid transparent',
+              textDecoration: 'none', fontSize: 13,
+              fontWeight: active ? 600 : 400,
+              transition: 'all 0.15s',
+            }}>
+              <Icon size={15} />
+              {label}
+            </Link>
+          )
+        })}
+
+        {/* 구분선 */}
+        <div style={{ height: 1, background: 'var(--border)', margin: '8px 4px 6px' }} />
+
         {/* 외부 링크 탭 */}
         {EXTERNAL_LINKS.map(({ href, icon: Icon, label }) => (
           <a key={href} href={href} target="_blank" rel="noopener noreferrer" style={{
@@ -64,28 +86,6 @@ export default function Sidebar({ userName, userEmail, userImage }: { userName: 
             {label}
           </a>
         ))}
-
-        {/* 구분선 */}
-        <div style={{ height: 1, background: 'var(--border)', margin: '6px 4px 8px' }} />
-
-        {NAV.map(({ href, icon: Icon, label }) => {
-          const active = path === href || path.startsWith(href + '/')
-          return (
-            <Link key={href} href={href} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '9px 12px', borderRadius: 8, marginBottom: 2,
-              color: active ? 'var(--text-1)' : 'var(--text-2)',
-              background: active ? 'var(--bg-card)' : 'transparent',
-              border: active ? '1px solid var(--border)' : '1px solid transparent',
-              textDecoration: 'none', fontSize: 13,
-              fontWeight: active ? 600 : 400,
-              transition: 'all 0.15s',
-            }}>
-              <Icon size={15} />
-              {label}
-            </Link>
-          )
-        })}
       </nav>
 
       {/* 유저 */}
