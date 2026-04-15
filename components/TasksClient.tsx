@@ -447,6 +447,8 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
   const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [filterBranch, setFilterBranch] = useState('전체')
+  const [filterMonth, setFilterMonth] = useState('전체')
 
   const openPicker = async () => {
     setOpen(true)
@@ -459,13 +461,28 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
     }
   }
 
-  const filtered = reviews.filter(r => {
-    if (!search.trim()) return true
-    const q = search.toLowerCase()
-    return (r.content_ko ?? r.content ?? '').toLowerCase().includes(q) ||
-           (r.branch ?? '').toLowerCase().includes(q) ||
-           (r.ota_site ?? '').toLowerCase().includes(q)
+  const close = () => { setOpen(false); setSearch(''); setFilterBranch('전체'); setFilterMonth('전체') }
+
+  const months = ['전체', ...Array.from(new Set(reviews.map((r: any) => r.review_month).filter(Boolean))).sort().reverse()] as string[]
+
+  const filtered = reviews.filter((r: any) => {
+    if (filterBranch !== '전체' && r.branch !== filterBranch) return false
+    if (filterMonth !== '전체' && r.review_month !== filterMonth) return false
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      if (!(r.content_ko ?? r.content ?? '').toLowerCase().includes(q) &&
+          !(r.ota_site ?? '').toLowerCase().includes(q)) return false
+    }
+    return true
   })
+
+  const pickerProps = {
+    reviews: filtered, loading, search, onSearch: setSearch,
+    filterBranch, onFilterBranch: setFilterBranch,
+    filterMonth, onFilterMonth: setFilterMonth, months,
+    onSelect: (r: any) => { onSelect(r); close() },
+    onClose: close,
+  }
 
   if (selectedReview) {
     return (
@@ -483,8 +500,7 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
           {selectedReview.content_ko ?? selectedReview.content}
         </div>
         <button onClick={openPicker} style={{ marginTop: 8, background: 'none', border: 'none', fontSize: 11, color: 'var(--accent)', cursor: 'pointer', padding: 0 }}>다른 리뷰로 변경</button>
-
-        {open && <ReviewPickerModal reviews={filtered} loading={loading} search={search} onSearch={setSearch} onSelect={(r: any) => { onSelect(r); setOpen(false); setSearch('') }} onClose={() => { setOpen(false); setSearch('') }} />}
+        {open && <ReviewPickerModal {...pickerProps} />}
       </div>
     )
   }
@@ -501,29 +517,65 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
         style={{ width: '100%', justifyContent: 'center', padding: '11px', fontSize: 13 }}>
         <Search size={13} /> 리뷰 데이터에서 선택
       </button>
-      {open && <ReviewPickerModal reviews={filtered} loading={loading} search={search} onSearch={setSearch} onSelect={(r: any) => { onSelect(r); setOpen(false); setSearch('') }} onClose={() => { setOpen(false); setSearch('') }} />}
+      {open && <ReviewPickerModal {...pickerProps} />}
     </div>
   )
 }
 
-function ReviewPickerModal({ reviews, loading, search, onSearch, onSelect, onClose }: any) {
+function ReviewPickerModal({ reviews, loading, search, onSearch, filterBranch, onFilterBranch, filterMonth, onFilterMonth, months, onSelect, onClose }: any) {
+  const branches = ['전체', '제주시티', '동대문', '신설', '고성']
   return (
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} />
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        width: '90%', maxWidth: 640, maxHeight: '75vh',
+        width: '90%', maxWidth: 660, maxHeight: '80vh',
         background: 'var(--bg-card)', border: '1px solid var(--border-2)',
         borderRadius: 12, zIndex: 200, boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
+        {/* 헤더 */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>리뷰 선택</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
-          <input className="input" placeholder="내용·지점·OTA로 검색..." value={search} onChange={e => onSearch(e.target.value)} autoFocus />
+
+        {/* 필터 영역 */}
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* 텍스트 검색 */}
+          <input className="input" placeholder="내용·OTA로 검색..." value={search} onChange={e => onSearch(e.target.value)} autoFocus />
+
+          {/* 지점 필터 */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, minWidth: 28 }}>지점</span>
+            {branches.map((b: string) => (
+              <button key={b} type="button"
+                className={`btn ${filterBranch === b ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ padding: '3px 10px', fontSize: 11 }}
+                onClick={() => onFilterBranch(b)}>{b}</button>
+            ))}
+          </div>
+
+          {/* 월 필터 */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, minWidth: 28 }}>월</span>
+            {months.map((m: string) => (
+              <button key={m} type="button"
+                className={`btn ${filterMonth === m ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ padding: '3px 10px', fontSize: 11 }}
+                onClick={() => onFilterMonth(m)}>{m === '전체' ? '전체' : m}</button>
+            ))}
+          </div>
         </div>
+
+        {/* 결과 카운트 */}
+        {!loading && (
+          <div style={{ padding: '6px 20px', fontSize: 11, color: 'var(--text-3)', borderBottom: '1px solid var(--border)', background: 'var(--bg-hover)' }}>
+            {reviews.length}건 표시됨
+          </div>
+        )}
+
+        {/* 리뷰 목록 */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading
             ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)' }}><Loader2 size={22} className="spin" /></div>
