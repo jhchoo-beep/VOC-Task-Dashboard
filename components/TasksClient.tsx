@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink, Search } from 'lucide-react'
 import { formatMonth, generateMonthOptions } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; border: string }> = {
   '시작전': { bg: 'rgba(74,82,112,0.25)',   color: 'var(--todo)',     border: 'rgba(74,82,112,0.5)'   },
@@ -454,9 +455,12 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
     setOpen(true)
     if (reviews.length === 0) {
       setLoading(true)
-      const res = await fetch('/api/reviews?limit=5000')
-      const data = await res.json()
-      // 최신 월 → 높은 평점 순으로 정렬 (낮은 평점 리뷰가 전체를 가리지 않도록)
+      // API 라우트 우회 — Supabase 클라이언트 직접 사용 + range로 최대 5000건 요청
+      const { data } = await supabase
+        .from('reviews')
+        .select('*')
+        .range(0, 4999)
+      // 최신 월 → 높은 평점 순 정렬
       const sorted = (Array.isArray(data) ? data : []).sort((a: any, b: any) => {
         if (b.review_month > a.review_month) return 1
         if (b.review_month < a.review_month) return -1
