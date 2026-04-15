@@ -484,7 +484,7 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
         </div>
         <button onClick={openPicker} style={{ marginTop: 8, background: 'none', border: 'none', fontSize: 11, color: 'var(--accent)', cursor: 'pointer', padding: 0 }}>다른 리뷰로 변경</button>
 
-        {open && <ReviewPickerModal reviews={filtered} loading={loading} search={search} onSearch={setSearch} onSelect={r => { onSelect(r); setOpen(false); setSearch('') }} onClose={() => { setOpen(false); setSearch('') }} />}
+        {open && <ReviewPickerModal reviews={filtered} loading={loading} search={search} onSearch={setSearch} onSelect={(r: any) => { onSelect(r); setOpen(false); setSearch('') }} onClose={() => { setOpen(false); setSearch('') }} />}
       </div>
     )
   }
@@ -501,7 +501,7 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
         style={{ width: '100%', justifyContent: 'center', padding: '11px', fontSize: 13 }}>
         <Search size={13} /> 리뷰 데이터에서 선택
       </button>
-      {open && <ReviewPickerModal reviews={filtered} loading={loading} search={search} onSearch={setSearch} onSelect={r => { onSelect(r); setOpen(false); setSearch('') }} onClose={() => { setOpen(false); setSearch('') }} />}
+      {open && <ReviewPickerModal reviews={filtered} loading={loading} search={search} onSearch={setSearch} onSelect={(r: any) => { onSelect(r); setOpen(false); setSearch('') }} onClose={() => { setOpen(false); setSearch('') }} />}
     </div>
   )
 }
