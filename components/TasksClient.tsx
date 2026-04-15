@@ -454,9 +454,15 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
     setOpen(true)
     if (reviews.length === 0) {
       setLoading(true)
-      const res = await fetch('/api/reviews')
+      const res = await fetch('/api/reviews?limit=5000')
       const data = await res.json()
-      setReviews(Array.isArray(data) ? data : [])
+      // 최신 월 → 높은 평점 순으로 정렬 (낮은 평점 리뷰가 전체를 가리지 않도록)
+      const sorted = (Array.isArray(data) ? data : []).sort((a: any, b: any) => {
+        if (b.review_month > a.review_month) return 1
+        if (b.review_month < a.review_month) return -1
+        return (b.rating ?? 0) - (a.rating ?? 0)
+      })
+      setReviews(sorted)
       setLoading(false)
     }
   }
@@ -557,14 +563,14 @@ function ReviewPickerModal({ reviews, loading, search, onSearch, filterBranch, o
           </div>
 
           {/* 월 필터 */}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, minWidth: 28 }}>월</span>
-            {months.map((m: string) => (
-              <button key={m} type="button"
-                className={`btn ${filterMonth === m ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '3px 10px', fontSize: 11 }}
-                onClick={() => onFilterMonth(m)}>{m === '전체' ? '전체' : m}</button>
-            ))}
+            <select className="input" value={filterMonth} onChange={e => onFilterMonth(e.target.value)}
+              style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}>
+              {months.map((m: string) => (
+                <option key={m} value={m}>{m === '전체' ? '전체 월' : m}</option>
+              ))}
+            </select>
           </div>
         </div>
 

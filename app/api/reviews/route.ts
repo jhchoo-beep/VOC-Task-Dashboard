@@ -11,11 +11,14 @@ export async function GET(req: NextRequest) {
   const branch   = searchParams.get('branch')
   const severity = searchParams.get('severity')
 
+  const limitParam = searchParams.get('limit')
+  const limit = limitParam ? parseInt(limitParam) : 1000
+
   let q = supabase.from('reviews').select('*')
   if (month)    q = q.eq('review_month', month)
   if (branch)   q = q.eq('branch', branch)
   if (severity) q = q.eq('severity', severity)
-  q = q.order('severity').order('rating')
+  q = q.order('severity').order('rating').limit(limit)
 
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
