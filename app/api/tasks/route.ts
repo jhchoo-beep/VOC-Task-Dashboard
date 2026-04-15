@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const {
     branch, task_month, title, severity, churn_trigger,
     problem_definition, solution, category, assignee, due_date,
-    priority_score, link_url, link_label, review_content,
+    priority_score, link_url, link_label, review_content, linked_review_ids,
   } = body
 
   if (!title?.trim() || !branch) {
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     link_url: link_url ?? null,
     link_label: link_label ?? null,
     review_content: review_content ?? null,
+    linked_review_ids: linked_review_ids ?? [],
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

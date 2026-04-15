@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink } from 'lucide-react'
+import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink, Search } from 'lucide-react'
 import { formatMonth, generateMonthOptions } from '@/lib/utils'
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; border: string }> = {
@@ -29,11 +29,19 @@ function Field({ label, children }: any) {
   )
 }
 
-export default function TasksClient({ tasks, months, currentMonth }: any) {
+export default function TasksClient({ tasks, months, currentMonth, highlightTaskId }: any) {
   const router = useRouter()
   const [branch, setBranch] = useState('전체')
   const [status, setStatus] = useState('전체')
-  const [expanded, setExpanded] = useState<string|null>(null)
+  const [expanded, setExpanded] = useState<string|null>(highlightTaskId ?? null)
+
+  useEffect(() => {
+    if (highlightTaskId) {
+      setTimeout(() => {
+        document.getElementById(`task-${highlightTaskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 400)
+    }
+  }, [highlightTaskId])
   const [showAdd, setShowAdd] = useState(false)
   const [editTask, setEditTask] = useState<any>(null)
   const [updatingId, setUpdatingId] = useState<string|null>(null)
@@ -131,6 +139,7 @@ export default function TasksClient({ tasks, months, currentMonth }: any) {
                 onDelete={() => handleDelete(task.id)}
                 updating={updatingId === task.id}
                 delay={i * 0.03}
+                highlight={highlightTaskId === task.id}
               />
             ))}
           </div>
@@ -209,7 +218,7 @@ function StatusBadge({ status, onChange, updating }: { status: string; onChange:
 }
 
 /* ─── 수행과제 카드 ─── */
-function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, updating, delay }: any) {
+function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, updating, delay, highlight }: any) {
   const router = useRouter()
   const [comment, setComment] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
@@ -263,7 +272,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   const taskLink = task.link_url?.trim()
 
   return (
-    <div className={`card fade-up ${SEV_CARD[task.severity] ?? 'task-low'}`} style={{ animationDelay: `${delay}s`, opacity: 0 }}>
+    <div id={`task-${task.id}`} className={`card fade-up ${SEV_CARD[task.severity] ?? 'task-low'}`} style={{ animationDelay: `${delay}s`, opacity: 0, outline: highlight ? '2px solid var(--accent)' : 'none', outlineOffset: 3 }}>
       {/* 카드 헤더 */}
       <div style={{ padding: '16px 20px', cursor: 'pointer' }} onClick={handleToggle}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -432,6 +441,119 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   )
 }
 
+/* ─── 리뷰 피커 ─── */
+function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear }: any) {
+  const [open, setOpen] = useState(false)
+  const [reviews, setReviews] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState('')
+
+  const openPicker = async () => {
+    setOpen(true)
+    if (reviews.length === 0) {
+      setLoading(true)
+      const res = await fetch('/api/reviews')
+      const data = await res.json()
+      setReviews(Array.isArray(data) ? data : [])
+      setLoading(false)
+    }
+  }
+
+  const filtered = reviews.filter(r => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return (r.content_ko ?? r.content ?? '').toLowerCase().includes(q) ||
+           (r.branch ?? '').toLowerCase().includes(q) ||
+           (r.ota_site ?? '').toLowerCase().includes(q)
+  })
+
+  if (selectedReview) {
+    return (
+      <div style={{ background: 'var(--bg-input)', borderRadius: 8, padding: '12px 14px', borderLeft: '3px solid var(--accent)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>✓ 리뷰 연결됨</span>
+            <span className={`badge ${BRANCH_BADGE[selectedReview.branch] ?? 'badge-low'}`} style={{ fontSize: 10 }}>{selectedReview.branch}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{selectedReview.ota_site}</span>
+            <span style={{ fontSize: 11, color: selectedReview.rating < 5 ? 'var(--critical)' : selectedReview.rating < 7 ? 'var(--medium)' : 'var(--done)' }}>★ {selectedReview.rating}</span>
+          </div>
+          <button onClick={onClear} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, color: 'var(--text-3)', cursor: 'pointer' }}>연결 해제</button>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {selectedReview.content_ko ?? selectedReview.content}
+        </div>
+        <button onClick={openPicker} style={{ marginTop: 8, background: 'none', border: 'none', fontSize: 11, color: 'var(--accent)', cursor: 'pointer', padding: 0 }}>다른 리뷰로 변경</button>
+
+        {open && <ReviewPickerModal reviews={filtered} loading={loading} search={search} onSearch={setSearch} onSelect={r => { onSelect(r); setOpen(false); setSearch('') }} onClose={() => { setOpen(false); setSearch('') }} />}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {existingContent && (
+        <div style={{ background: 'var(--bg-input)', borderRadius: 8, padding: '10px 14px', marginBottom: 8, borderLeft: '3px solid var(--border-2)', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, fontStyle: 'italic' }}>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', fontStyle: 'normal', marginBottom: 5 }}>기존 리뷰 내용 (리뷰 데이터와 미연결)</div>
+          {existingContent.slice(0, 200)}{existingContent.length > 200 ? '...' : ''}
+        </div>
+      )}
+      <button type="button" className="btn btn-ghost" onClick={openPicker}
+        style={{ width: '100%', justifyContent: 'center', padding: '11px', fontSize: 13 }}>
+        <Search size={13} /> 리뷰 데이터에서 선택
+      </button>
+      {open && <ReviewPickerModal reviews={filtered} loading={loading} search={search} onSearch={setSearch} onSelect={r => { onSelect(r); setOpen(false); setSearch('') }} onClose={() => { setOpen(false); setSearch('') }} />}
+    </div>
+  )
+}
+
+function ReviewPickerModal({ reviews, loading, search, onSearch, onSelect, onClose }: any) {
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        width: '90%', maxWidth: 640, maxHeight: '75vh',
+        background: 'var(--bg-card)', border: '1px solid var(--border-2)',
+        borderRadius: 12, zIndex: 200, boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>리뷰 선택</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
+          <input className="input" placeholder="내용·지점·OTA로 검색..." value={search} onChange={e => onSearch(e.target.value)} autoFocus />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {loading
+            ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)' }}><Loader2 size={22} className="spin" /></div>
+            : reviews.length === 0
+              ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)' }}>검색 결과가 없습니다</div>
+              : reviews.map((r: any) => (
+                  <div key={r.id} onClick={() => onSelect(r)}
+                    style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.1s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                  >
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span className={`badge ${BRANCH_BADGE[r.branch] ?? 'badge-low'}`} style={{ fontSize: 10 }}>{r.branch}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{r.ota_site}</span>
+                      <span style={{ fontSize: 11, color: r.rating < 5 ? 'var(--critical)' : r.rating < 7 ? 'var(--medium)' : 'var(--done)', fontWeight: 600 }}>★ {r.rating}</span>
+                      <span className={`badge ${SEV_BADGE[r.severity] ?? 'badge-low'}`} style={{ fontSize: 10 }}>{r.severity}</span>
+                      <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{r.review_month}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {r.content_ko ?? r.content}
+                    </div>
+                  </div>
+                ))
+          }
+        </div>
+      </div>
+    </>
+  )
+}
+
 /* ─── 수행과제 추가/수정 모달 ─── */
 function TaskModal({ task, currentMonth, months, onClose, onSuccess }: any) {
   const isEdit = !!task
@@ -448,12 +570,14 @@ function TaskModal({ task, currentMonth, months, onClose, onSuccess }: any) {
     problem_definition: task?.problem_definition ?? '',
     solution:           task?.solution ?? '',
     review_content:     task?.review_content ?? '',
+    linked_review_ids:  Array.isArray(task?.linked_review_ids) ? task.linked_review_ids : [] as string[],
     category:           Array.isArray(task?.category) ? task.category : [] as string[],
     assignee:           task?.assignee ?? '',
     due_date:           task?.due_date ?? '',
     link_url:           task?.link_url ?? '',
     link_label:         task?.link_label ?? '',
   })
+  const [selectedReview, setSelectedReview] = useState<any>(null)
   const [saving, setSaving] = useState(false)
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
   const toggleArr = (k: string, v: string) => {
@@ -524,13 +648,22 @@ function TaskModal({ task, currentMonth, months, onClose, onSuccess }: any) {
             <textarea className="input" rows={3} placeholder="해결 방안을 구체적으로" value={form.solution} onChange={e => set('solution', e.target.value)} style={{ resize: 'vertical' }} />
           </Field>
 
-          {/* 리뷰 본문 */}
-          <Field label="📝 관련 리뷰 본문 (선택)">
-            <textarea className="input" rows={3}
-              placeholder="관련된 고객 리뷰 본문을 붙여넣으세요"
-              value={form.review_content}
-              onChange={e => set('review_content', e.target.value)}
-              style={{ resize: 'vertical', fontStyle: form.review_content ? 'italic' : 'normal' }} />
+          {/* 리뷰 연결 */}
+          <Field label="📝 관련 리뷰 연결 (선택)">
+            <ReviewPickerField
+              selectedReview={selectedReview}
+              existingContent={form.review_content}
+              onSelect={(r: any) => {
+                setSelectedReview(r)
+                set('review_content', r.content_ko ?? r.content ?? '')
+                set('linked_review_ids', [r.id])
+              }}
+              onClear={() => {
+                setSelectedReview(null)
+                set('review_content', '')
+                set('linked_review_ids', [])
+              }}
+            />
           </Field>
 
           <Field label="카테고리">

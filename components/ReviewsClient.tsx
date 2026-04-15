@@ -56,7 +56,7 @@ function SortArrow({ col, sortCol, sortDir }: { col: string; sortCol: string; so
   )
 }
 
-export default function ReviewsClient({ reviews, months, currentMonth }: any) {
+export default function ReviewsClient({ reviews, months, currentMonth, reviewTaskMap = {} }: any) {
   const router = useRouter()
   const [branch, setBranch] = useState('전체')
   const [severity, setSeverity] = useState('전체')
@@ -221,9 +221,25 @@ export default function ReviewsClient({ reviews, months, currentMonth }: any) {
                         {r.severity ?? '-'}
                       </span>
                     </div>
-                    <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {(r.content_ko ?? r.content ?? '').slice(0, 80)}
-                    </span>
+                    <div style={{ overflow: 'hidden', minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {(r.content_ko ?? r.content ?? '').slice(0, 80)}
+                      </div>
+                      {(reviewTaskMap[r.id] ?? []).length > 0 && (
+                        <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                          {(reviewTaskMap[r.id] as any[]).map((t: any) => (
+                            <a key={t.id} href={`/tasks?month=${t.task_month}&task=${t.id}`}
+                              onClick={e => e.stopPropagation()}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: 'var(--progress)', background: 'rgba(74,158,255,0.1)', border: '1px solid rgba(74,158,255,0.3)', borderRadius: 4, padding: '2px 7px', textDecoration: 'none', whiteSpace: 'nowrap', transition: 'all 0.15s' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(74,158,255,0.22)' }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(74,158,255,0.1)' }}
+                            >
+                              📋 수행과제 연결
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
                       <span className={`badge ${SEG_BADGE[r.customer_segment] ?? 'badge-low'}`} style={{ fontSize: 10, whiteSpace: 'nowrap', maxWidth: 44, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {r.customer_segment ?? '-'}
