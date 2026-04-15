@@ -594,9 +594,21 @@ function ReviewPickerModal({ reviews, loading, search, onSearch, filterBranch, o
                       <span className={`badge ${SEV_BADGE[r.severity] ?? 'badge-low'}`} style={{ fontSize: 10 }}>{r.severity}</span>
                       <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 'auto' }}>{r.review_month}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {r.content_ko ?? r.content}
-                    </div>
+                    {r.content_ko && (
+                      <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {r.content_ko}
+                      </div>
+                    )}
+                    {r.content && r.content !== r.content_ko && (
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {r.content}
+                      </div>
+                    )}
+                    {!r.content_ko && r.content && (
+                      <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {r.content}
+                      </div>
+                    )}
                   </div>
                 ))
           }
