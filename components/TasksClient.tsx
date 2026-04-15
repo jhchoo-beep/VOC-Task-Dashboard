@@ -263,7 +263,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   const taskLink = task.link_url?.trim()
 
   return (
-    <div className={`card fade-up ${SEV_CARD[task.severity] ?? 'task-low'}`} style={{ overflow: 'hidden', animationDelay: `${delay}s`, opacity: 0 }}>
+    <div className={`card fade-up ${SEV_CARD[task.severity] ?? 'task-low'}`} style={{ animationDelay: `${delay}s`, opacity: 0 }}>
       {/* 카드 헤더 */}
       <div style={{ padding: '16px 20px', cursor: 'pointer' }} onClick={handleToggle}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
