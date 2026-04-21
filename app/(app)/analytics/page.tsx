@@ -4,7 +4,7 @@ import { supabase, calcCLX } from '@/lib/supabase'
 import AnalyticsClient from '@/components/AnalyticsClient'
 
 export default async function AnalyticsPage() {
-  const { data: reviews = [] } = await supabase.from('reviews').select('*').order('review_month')
+  const { data: reviews = [] } = await supabase.from('reviews').select('*').order('review_month').range(0, 4999)
   const rv = reviews ?? []
 
   const months  = [...new Set(rv.map((r: any) => r.review_month).filter(Boolean))].sort() as string[]

@@ -1,14 +1,24 @@
 'use client'
+import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 const BRANCH_COLORS: Record<string, string> = {
   '제주시티':'#00C9E0','제주':'#00C9E0',
   '동대문':'#9B6FFF','신설':'#00D4A0','고성':'#FF9B3B',
 }
+const RANGE_OPTIONS = [
+  { label: '최근 6개월',  value: 6 },
+  { label: '최근 12개월', value: 12 },
+  { label: '최근 24개월', value: 24 },
+  { label: '전체',        value: 0 },
+]
 
 export default function AnalyticsClient({ monthlyRaw, catData }: any) {
-  const months   = [...new Set(monthlyRaw.map((d: any) => d.review_month))].sort() as string[]
-  const branches = [...new Set(monthlyRaw.map((d: any) => d.branch))] as string[]
+  const allMonths = [...new Set(monthlyRaw.map((d: any) => d.review_month))].sort() as string[]
+  const branches  = [...new Set(monthlyRaw.map((d: any) => d.branch))] as string[]
+  const [range, setRange] = useState(12)
+
+  const months = range === 0 ? allMonths : allMonths.slice(-range)
 
   const clxChart = months.map(month => {
     const entry: any = { month }
@@ -44,7 +54,17 @@ export default function AnalyticsClient({ monthlyRaw, catData }: any) {
 
       {/* CLX 추이 */}
       <div className="card" style={{ padding: 24, marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 20, color: 'var(--text-2)' }}>📈 지점별 CLX 월별 추이</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>📈 지점별 CLX 월별 추이</div>
+          <select
+            value={range}
+            onChange={e => setRange(Number(e.target.value))}
+            className="input"
+            style={{ width: 'auto', fontSize: 12, padding: '4px 10px' }}
+          >
+            {RANGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
         {clxChart.length < 2
           ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>2개월 이상 데이터가 필요합니다</div>
           : <ResponsiveContainer width="100%" height={300}>
