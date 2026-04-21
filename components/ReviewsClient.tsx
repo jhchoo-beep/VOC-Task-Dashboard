@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, ChevronUp, Star, Plus, Loader2, Trash2, Pencil } from 'lucide-react'
 import { formatMonth } from '@/lib/utils'
@@ -56,12 +56,20 @@ function SortArrow({ col, sortCol, sortDir }: { col: string; sortCol: string; so
   )
 }
 
-export default function ReviewsClient({ reviews, months, currentMonth, reviewTaskMap = {} }: any) {
+export default function ReviewsClient({ reviews, months, currentMonth, reviewTaskMap = {}, highlightReviewId }: any) {
   const router = useRouter()
   const [branch, setBranch] = useState('전체')
   const [severity, setSeverity] = useState('전체')
   const [otaSite, setOtaSite] = useState('전체')
-  const [expanded, setExpanded] = useState<string|null>(null)
+  const [expanded, setExpanded] = useState<string|null>(highlightReviewId ?? null)
+
+  useEffect(() => {
+    if (highlightReviewId) {
+      setTimeout(() => {
+        document.getElementById(`review-${highlightReviewId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 400)
+    }
+  }, [highlightReviewId])
   const [showAdd, setShowAdd] = useState(false)
   const [editReview, setEditReview] = useState<any>(null)
   // 정렬 상태 - 기본값: severity 오름차순 (Critical→High→Medium→Low)
@@ -200,9 +208,9 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
             {sorted.map((r: any) => {
               const isOpen = expanded === r.id
               return (
-                <div key={r.id}>
+                <div key={r.id} id={`review-${r.id}`}>
                   <div
-                    style={{ display: 'grid', gridTemplateColumns: '90px 80px 58px 72px 1fr 66px 72px', padding: '11px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.15s', background: isOpen ? 'var(--bg-hover)' : 'transparent' }}
+                    style={{ display: 'grid', gridTemplateColumns: '90px 80px 58px 72px 1fr 66px 72px', padding: '11px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.15s', background: isOpen ? 'var(--bg-hover)' : 'transparent', outline: highlightReviewId === r.id ? '2px solid var(--accent)' : 'none', outlineOffset: -2 }}
                     onClick={() => setExpanded(isOpen ? null : r.id)}
                     onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
                     onMouseLeave={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = 'transparent' }}

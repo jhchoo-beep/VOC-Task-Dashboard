@@ -217,7 +217,7 @@ function CriticalList({ criticals: initial, completedCriticals = [] }: any) {
               {items.slice(0, 5).map((c: any) => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 8, border: '1px solid var(--border)' }}>
                   <span className={`badge ${SEV_BADGE[c.severity] ?? 'badge-low'}`} style={{ flexShrink: 0, marginTop: 1 }}>{c.severity}</span>
-                  <a href="/reviews" style={{ flex: 1, textDecoration: 'none' }}>
+                  <a href={`/reviews?month=${c.review_month}&review=${c.id}`} style={{ flex: 1, textDecoration: 'none' }}>
                     <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.4 }}>{(c.content_ko ?? c.content ?? '').slice(0, 60)}...</div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>{c.branch} · {c.ota_site} · ★{c.rating}</div>
                   </a>

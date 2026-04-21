@@ -56,18 +56,19 @@ export default async function DashboardPage({
   }).sort((a: any, b: any) => b.clx - a.clx)
 
   // Critical/High 미처리
+  const sevSort = (a: any, b: any) => (a.severity === 'Critical' ? 0 : 1) - (b.severity === 'Critical' ? 0 : 1)
   const criticals = (reviews ?? []).filter((r: any) =>
     ['Critical', 'High'].includes(r.severity) &&
     r.review_month === currentMonth &&
     !['완료', '문서화완료'].includes(r.status)
-  ).sort((a: any, b: any) => (a.severity === 'Critical' ? -1 : 1)).slice(0, 10)
+  ).sort(sevSort).slice(0, 10)
 
   // Critical/High 처리완료 (되돌리기용) - 항상 내려보냄
   const completedCriticals = (reviews ?? []).filter((r: any) =>
     ['Critical', 'High'].includes(r.severity) &&
     r.review_month === currentMonth &&
     ['완료', '문서화완료'].includes(r.status)
-  ).sort((a: any, b: any) => (a.severity === 'Critical' ? -1 : 1)).slice(0, 10)
+  ).sort(sevSort).slice(0, 10)
 
   // 수행과제 진행률 - currentMonth 필터링
   const monthTasks = (allTasks ?? []).filter((t: any) => t.task_month === currentMonth)

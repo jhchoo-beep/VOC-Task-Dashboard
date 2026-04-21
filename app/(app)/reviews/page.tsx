@@ -3,8 +3,8 @@ export const revalidate = 60 // 60초 캐시
 import { supabase } from '@/lib/supabase'
 import ReviewsClient from '@/components/ReviewsClient'
 
-export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ month?: string; branch?: string; severity?: string }> }) {
-  const { month, branch, severity } = await searchParams
+export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ month?: string; branch?: string; severity?: string; review?: string }> }) {
+  const { month, branch, severity, review } = await searchParams
 
   const { data: all = [] } = await supabase.from('reviews').select('review_month').order('review_month', { ascending: false })
   const months = [...new Set((all ?? []).map((r: any) => r.review_month).filter(Boolean))] as string[]
@@ -32,5 +32,5 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     }
   }
 
-  return <ReviewsClient reviews={reviews ?? []} months={months} currentMonth={currentMonth} reviewTaskMap={reviewTaskMap} />
+  return <ReviewsClient reviews={reviews ?? []} months={months} currentMonth={currentMonth} reviewTaskMap={reviewTaskMap} highlightReviewId={review ?? null} />
 }
