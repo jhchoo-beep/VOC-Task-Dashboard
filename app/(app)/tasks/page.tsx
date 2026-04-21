@@ -13,7 +13,6 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const { data: tasks = [] } = await supabase
     .from('tasks').select('*')
     .eq('task_month', currentMonth)
-    .order('severity', { ascending: true })
     .order('priority_score', { ascending: false })
 
   return <TasksClient tasks={tasks ?? []} months={months} currentMonth={currentMonth} highlightTaskId={task ?? null} />

@@ -12,6 +12,7 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; border: string 
   '보류':   { bg: 'rgba(139,111,255,0.18)', color: 'var(--hold)',     border: 'rgba(139,111,255,0.55)'},
 }
 
+const SEV_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
 const SEV_BADGE: Record<string, string> = { Critical:'badge-critical', High:'badge-high', Medium:'badge-medium', Low:'badge-low' }
 const SEV_CARD:  Record<string, string> = { Critical:'task-critical', High:'task-high', Medium:'task-medium', Low:'task-low' }
 const BRANCH_BADGE: Record<string, string> = { '제주시티':'badge-jeju','제주':'badge-jeju','동대문':'badge-ddm','신설':'badge-sinseol','고성':'badge-goseong' }
@@ -47,11 +48,17 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
   const [editTask, setEditTask] = useState<any>(null)
   const [updatingId, setUpdatingId] = useState<string|null>(null)
 
-  const filtered = tasks.filter((t: any) => {
-    if (branch !== '전체' && t.branch !== branch) return false
-    if (status !== '전체' && t.status !== status) return false
-    return true
-  })
+  const filtered = tasks
+    .filter((t: any) => {
+      if (branch !== '전체' && t.branch !== branch) return false
+      if (status !== '전체' && t.status !== status) return false
+      return true
+    })
+    .sort((a: any, b: any) => {
+      const sevDiff = (SEV_ORDER[a.severity] ?? 99) - (SEV_ORDER[b.severity] ?? 99)
+      if (sevDiff !== 0) return sevDiff
+      return (b.priority_score ?? 0) - (a.priority_score ?? 0)
+    })
   const done = filtered.filter((t: any) => t.status === '완료').length
   const pct  = filtered.length ? Math.round(done / filtered.length * 100) : 0
 
