@@ -6,7 +6,7 @@ import ReportClient from '@/components/ReportClient'
 export default async function ReportPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const { month } = await searchParams
 
-  const { data: all = [] } = await supabase.from('reviews').select('review_month').range(0, 4999)
+  const { data: all = [] } = await supabase.from('reviews').select('review_month').range(0, 9999)
   const months = [...new Set((all ?? []).map((r: any) => r.review_month).filter(Boolean))].sort().reverse() as string[]
   const currentMonth = month ?? months[0] ?? ''
 
