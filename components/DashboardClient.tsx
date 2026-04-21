@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatMonth } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckSquare, CheckCircle2 } from 'lucide-react'
@@ -160,10 +160,15 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
 /* ─── 미처리 이슈 카드 (번역 표시 + 처리완료/되돌리기 버튼) ─── */
 function CriticalList({ criticals: initial, completedCriticals = [] }: any) {
   const router = useRouter()
-  const [items, setItems]         = useState<any[]>(initial)
-  const [done,  setDone]          = useState<any[]>(completedCriticals)   // 처리완료된 항목
+  const [items, setItems]         = useState<any[]>(initial ?? [])
+  const [done,  setDone]          = useState<any[]>(completedCriticals)
   const [loading, setLoading]     = useState<string|null>(null)
   const [showDone, setShowDone]   = useState(false)
+
+  useEffect(() => {
+    setItems(initial ?? [])
+    setDone(completedCriticals ?? [])
+  }, [initial, completedCriticals])
 
   const handleComplete = async (e: React.MouseEvent, item: any) => {
     e.preventDefault(); e.stopPropagation()
