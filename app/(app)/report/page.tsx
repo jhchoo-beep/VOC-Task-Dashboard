@@ -42,7 +42,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
   })
   const cci = Object.entries(catMap)
     .map(([category, { cnt, sevTotal }]) => ({ category, cnt, avg_severity: Math.round(sevTotal / cnt * 10) / 10 }))
-    .sort((a, b) => b.cnt - a.cnt).slice(0, 5)
+    .sort((a, b) => (b.cnt * b.avg_severity) - (a.cnt * a.avg_severity)).slice(0, 5)
 
   // 변심 트리거
   const trigMap: Record<string, { cnt: number; rTotal: number }> = {}
