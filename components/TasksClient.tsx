@@ -297,8 +297,8 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
     <div id={`task-${task.id}`} className={`card fade-up ${SEV_CARD[task.severity] ?? 'task-low'}`} style={{ animationDelay: `${delay}s`, opacity: 0, outline: highlight ? '2px solid var(--accent)' : 'none', outlineOffset: 3 }}>
       {/* 카드 헤더 */}
       <div style={{ padding: '16px 20px', cursor: 'pointer' }} onClick={handleToggle}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="task-card-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div className="task-card-left" style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
               {task.severity && <span className={`badge ${SEV_BADGE[task.severity] ?? 'badge-low'}`}>{task.severity}</span>}
               {task.branch && <span className={`badge ${BRANCH_BADGE[task.branch] ?? 'badge-low'}`}>{task.branch}</span>}
@@ -329,7 +329,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          <div className="task-card-right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             <StatusBadge status={task.status} onChange={s => onStatusChange(task.id, s)} updating={updating} />
             <button onClick={onEdit} title="수정"
               style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}

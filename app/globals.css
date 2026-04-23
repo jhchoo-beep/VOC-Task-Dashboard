@@ -147,8 +147,11 @@ html, body {
   .filter-desktop { display: none !important; }
   .filter-mobile  { display: flex !important; }
 
-  /* 수행과제 제목 한 줄 */
-  .task-title { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+  /* 수행과제 카드: 버튼을 제목 위 독립 행으로 → 제목이 전체 너비 사용 */
+  .task-card-header { flex-wrap: wrap !important; align-items: flex-start !important; }
+  .task-card-right  { order: -1 !important; width: 100% !important; justify-content: flex-end !important; margin-bottom: 4px; }
+  .task-card-left   { width: 100% !important; flex: none !important; min-width: 0 !important; }
+  .task-title       { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
 
   /* 1. 대시보드: 하단 2컬럼 → 1컬럼 세로 배치 */
   .dashboard-bottom-grid { grid-template-columns: 1fr !important; }
