@@ -19,7 +19,7 @@ export default function ReportClient({ metrics, cci, triggers, months, currentMo
   const router = useRouter()
 
   return (
-    <div style={{ padding: '32px 36px' }}>
+    <div className="page-pad" style={{ padding: '32px 36px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>월간 리포트</h1>
@@ -37,11 +37,11 @@ export default function ReportClient({ metrics, cci, triggers, months, currentMo
           🏆 종합 성과 ({currentMonth})
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className="report-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['순위','지점','리뷰','평점','CLX','진단','충성','만족','위험','이탈'].map(h => (
-                  <th key={h} style={{ padding: '9px 14px', textAlign: 'left', color: 'var(--text-3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
+                {['순위','지점','리뷰','평점','CLX','진단','충성','만족','위험','이탈'].map((h, i) => (
+                  <th key={h} className={i >= 6 ? 'report-col-pct' : ''} style={{ padding: '9px 14px', textAlign: 'left', color: 'var(--text-3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -77,7 +77,7 @@ export default function ReportClient({ metrics, cci, triggers, months, currentMo
                           <span className="badge" style={{ background: `${color}20`, color, border: `1px solid ${color}40` }}>{text}</span>
                         </td>
                         {[m.loyal_pct, m.satisfied_pct, m.at_risk_pct, m.churned_pct].map((p: number, j: number) => (
-                          <td key={j} style={{ padding: '12px 14px', color: j === 3 && p > 5 ? 'var(--critical)' : 'var(--text-2)' }}>{p}%</td>
+                          <td key={j} className="report-col-pct" style={{ padding: '12px 14px', color: j === 3 && p > 5 ? 'var(--critical)' : 'var(--text-2)' }}>{p}%</td>
                         ))}
                       </tr>
                     )
@@ -108,7 +108,7 @@ export default function ReportClient({ metrics, cci, triggers, months, currentMo
       </div>
 
       {/* 하단 2컬럼 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="report-bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* CCI Top 5 */}
         <div className="card" style={{ padding: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>📊 CCI Top 5 — 변심 기여 카테고리</div>

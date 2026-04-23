@@ -28,7 +28,7 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
   const router = useRouter()
 
   return (
-    <div style={{ padding: '32px 36px' }}>
+    <div className="page-pad" style={{ padding: '32px 36px' }}>
       {/* 헤더 */}
       <div className="fade-up" style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
@@ -122,7 +122,7 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
       </div>
 
       {/* 하단 2컬럼 */}
-      <div className="fade-up delay-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="fade-up delay-3 dashboard-bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* 수행과제 진행률 */}
         <div className="card" style={{ padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>

@@ -139,6 +139,25 @@ html, body {
   .sidebar-desktop { display: none !important; }
   .bottom-nav      { display: flex !important; }
   .main-content    { margin-left: 0 !important; padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+
+  /* 페이지 패딩 축소 */
+  .page-pad { padding: 20px 14px !important; }
+
+  /* 1. 대시보드: 하단 2컬럼 → 1컬럼 세로 배치 */
+  .dashboard-bottom-grid { grid-template-columns: 1fr !important; }
+
+  /* 2. 리뷰: OTA·세그먼트·액션 컬럼 숨김, 그리드 4컬럼으로 축소 */
+  .review-col-ota,
+  .review-col-seg,
+  .review-col-act  { display: none !important; }
+  .review-header   { grid-template-columns: 80px 48px 62px 1fr !important; padding: 8px 12px !important; }
+  .review-row-grid { grid-template-columns: 80px 48px 62px 1fr !important; padding: 10px 12px !important; }
+
+  /* 3. 리포트: 충성·만족·위험·이탈 컬럼 숨김, 셀 패딩 축소, 하단 2컬럼 → 1컬럼 */
+  .report-col-pct  { display: none !important; }
+  .report-table th,
+  .report-table td { padding: 9px 8px !important; font-size: 12px !important; }
+  .report-bottom-grid { grid-template-columns: 1fr !important; }
 }
 
 @keyframes statusPulse {

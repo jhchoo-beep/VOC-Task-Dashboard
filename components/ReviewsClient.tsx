@@ -140,7 +140,7 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
   )
 
   return (
-    <div style={{ padding: '32px 36px' }}>
+    <div className="page-pad" style={{ padding: '32px 36px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>리뷰 데이터</h1>
@@ -195,14 +195,14 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
           </div>
         : <div className="card" style={{ overflow: 'hidden' }}>
             {/* 테이블 헤더 - 정렬 화살표 포함 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '90px 80px 58px 72px 1fr 66px 72px', padding: '9px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div className="review-header" style={{ display: 'grid', gridTemplateColumns: '90px 80px 58px 72px 1fr 66px 72px', padding: '9px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               <SortHeader col="branch"   label="지점" />
-              <SortHeader col="ota"      label="OTA" />
+              <span className="review-col-ota"><SortHeader col="ota" label="OTA" /></span>
               <SortHeader col="rating"   label="평점" />
               <SortHeader col="severity" label="Severity" />
               <span>내용</span>
-              <span>세그먼트</span>
-              <span></span>
+              <span className="review-col-seg">세그먼트</span>
+              <span className="review-col-act"></span>
             </div>
 
             {sorted.map((r: any) => {
@@ -210,6 +210,7 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
               return (
                 <div key={r.id} id={`review-${r.id}`}>
                   <div
+                    className="review-row-grid"
                     style={{ display: 'grid', gridTemplateColumns: '90px 80px 58px 72px 1fr 66px 72px', padding: '11px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.15s', background: isOpen ? 'var(--bg-hover)' : 'transparent', outline: highlightReviewId === r.id ? '2px solid var(--accent)' : 'none', outlineOffset: -2 }}
                     onClick={() => setExpanded(isOpen ? null : r.id)}
                     onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
@@ -220,7 +221,7 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
                         {r.branch}
                       </span>
                     </div>
-                    <span style={{ fontSize: 11, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.ota_site}</span>
+                    <span className="review-col-ota" style={{ fontSize: 11, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.ota_site}</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 12, color: r.rating < 5 ? 'var(--critical)' : r.rating < 7 ? 'var(--medium)' : 'var(--done)' }}>
                       <Star size={10} fill="currentColor" />{r.rating}
                     </span>
@@ -248,13 +249,13 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
                         </div>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+                    <div className="review-col-seg" style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
                       <span className={`badge ${SEG_BADGE[r.customer_segment] ?? 'badge-low'}`} style={{ fontSize: 10, whiteSpace: 'nowrap', maxWidth: 44, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {r.customer_segment ?? '-'}
                       </span>
                       {isOpen ? <ChevronUp size={11} color="var(--text-3)" style={{ flexShrink: 0 }} /> : <ChevronDown size={11} color="var(--text-3)" style={{ flexShrink: 0 }} />}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
+                    <div className="review-col-act" style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
                       <button onClick={() => setEditReview(r)} title="수정"
                         style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 6px', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
