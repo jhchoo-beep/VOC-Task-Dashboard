@@ -123,18 +123,18 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
       </div>
 
       {/* 진행률 */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20 }}>
+      <div className="card tasks-progress-card" style={{ padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 20 }}>
         <div style={{ textAlign: 'center', minWidth: 60 }}>
           <div className="font-display" style={{ fontSize: 28, fontWeight: 800, color: pct === 100 ? 'var(--done)' : 'var(--accent)' }}>{pct}%</div>
           <div style={{ fontSize: 11, color: 'var(--text-3)' }}>완료율</div>
         </div>
-        <div style={{ flex: 1 }}>
+        <div className="tasks-progress-bar" style={{ flex: 1 }}>
           <div className="progress" style={{ height: 8 }}>
             <div className="progress-fill" style={{ width: `${pct}%`, background: pct === 100 ? 'var(--done)' : 'var(--accent)' }} />
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 6 }}>{done}/{filtered.length}건 완료 · {formatMonth(currentMonth)}</div>
         </div>
-        <div style={{ display: 'flex', gap: 20 }}>
+        <div className="tasks-progress-counts" style={{ display: 'flex', gap: 20 }}>
           {STATUS_LIST.map(s => (
             <div key={s} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700 }}>{filtered.filter((t: any) => t.status === s).length}</div>

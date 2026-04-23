@@ -165,6 +165,14 @@ html, body {
   .report-table th,
   .report-table td { padding: 9px 8px !important; font-size: 12px !important; }
   .report-bottom-grid { grid-template-columns: 1fr !important; }
+
+  /* 4. 수행과제 진행률 카드: 세로 배치 */
+  .tasks-progress-card   { flex-direction: column !important; gap: 12px !important; }
+  .tasks-progress-bar    { width: 100% !important; }
+  .tasks-progress-counts { justify-content: space-around !important; gap: 8px !important; width: 100% !important; }
+
+  /* 가로 스크롤 방지 */
+  .main-content { overflow-x: hidden !important; }
 }
 
 @keyframes statusPulse {
