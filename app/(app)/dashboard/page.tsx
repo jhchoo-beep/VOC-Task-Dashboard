@@ -12,7 +12,7 @@ export default async function DashboardPage({
 
   // 리뷰 + 수행과제 병렬 조회
   const [{ data: reviews = [] }, { data: allTasks = [] }] = await Promise.all([
-    supabase.from('reviews').select('*').order('review_month', { ascending: false }),
+    supabase.from('reviews').select('id, branch, ota_site, rating, review_month, content_ko, content, severity, status').order('review_month', { ascending: false }),
     supabase.from('tasks').select('branch, status, task_month'),
   ])
 

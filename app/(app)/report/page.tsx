@@ -3,15 +3,38 @@ export const revalidate = 60 // 60초 캐시
 import { supabase, calcCLX } from '@/lib/supabase'
 import ReportClient from '@/components/ReportClient'
 
-export default async function ReportPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function ReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>
+}) {
   const { month } = await searchParams
 
-  const { data: all = [] } = await supabase.from('reviews').select('review_month').order('review_month', { ascending: false }).range(0, 9999)
-  const months = [...new Set((all ?? []).map((r: any) => r.review_month).filter(Boolean))].sort().reverse() as string[]
-  const currentMonth = month ?? months[0] ?? ''
+  const monthsQuery = supabase.from('reviews').select('review_month').order('review_month', { ascending: false })
 
-  const { data: reviews = [] } = await supabase.from('reviews').select('*').eq('review_month', currentMonth)
-  const rv = reviews ?? []
+  let months: string[]
+  let currentMonth: string
+  let rv: any[]
+
+  if (month) {
+    // month가 URL에 있으면 2개 쿼리 병렬 실행
+    const [{ data: all }, { data: reviews }] = await Promise.all([
+      monthsQuery,
+      supabase.from('reviews').select('branch, rating, severity, categories, churn_triggers').eq('review_month', month),
+    ])
+    months = [...new Set((all ?? []).map((r: any) => r.review_month).filter(Boolean))].sort().reverse() as string[]
+    currentMonth = month
+    rv = reviews ?? []
+  } else {
+    const { data: all = [] } = await monthsQuery
+    months = [...new Set((all ?? []).map((r: any) => r.review_month).filter(Boolean))].sort().reverse() as string[]
+    currentMonth = months[0] ?? ''
+    const { data: reviews = [] } = await supabase
+      .from('reviews')
+      .select('branch, rating, severity, categories, churn_triggers')
+      .eq('review_month', currentMonth)
+    rv = reviews ?? []
+  }
 
   const branches = [...new Set(rv.map((r: any) => r.branch).filter(Boolean))] as string[]
 
