@@ -143,6 +143,13 @@ html, body {
   /* 페이지 패딩 축소 */
   .page-pad { padding: 20px 14px !important; }
 
+  /* 필터: 데스크탑용 숨김, 모바일용 표시 */
+  .filter-desktop { display: none !important; }
+  .filter-mobile  { display: flex !important; }
+
+  /* 수행과제 제목 한 줄 */
+  .task-title { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+
   /* 1. 대시보드: 하단 2컬럼 → 1컬럼 세로 배치 */
   .dashboard-bottom-grid { grid-template-columns: 1fr !important; }
 

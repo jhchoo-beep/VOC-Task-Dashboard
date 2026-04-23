@@ -151,7 +151,8 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* 필터 — 데스크탑 */}
+      <div className="filter-desktop" style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={currentMonth} onChange={e => router.push(`/reviews?month=${e.target.value}`)} className="input" style={{ width: 'auto', padding: '7px 12px' }}>
           {months.map((m: string) => <option key={m} value={m}>{formatMonth(m)}</option>)}
         </select>
@@ -165,12 +166,41 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
         ))}
       </div>
 
-      {/* OTA 필터 */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* OTA 필터 — 데스크탑 */}
+      <div className="filter-desktop" style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: 4 }}>OTA</span>
         {otaSites.map(ota => (
           <button key={ota} className={`btn ${otaSite === ota ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setOtaSite(ota)}>{ota}</button>
         ))}
+      </div>
+
+      {/* 필터 — 모바일 (4줄) */}
+      <div className="filter-mobile" style={{ display: 'none', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+        {/* 1줄: 날짜 */}
+        <div>
+          <select value={currentMonth} onChange={e => router.push(`/reviews?month=${e.target.value}`)} className="input" style={{ width: 'auto', padding: '7px 12px' }}>
+            {months.map((m: string) => <option key={`mob-${m}`} value={m}>{formatMonth(m)}</option>)}
+          </select>
+        </div>
+        {/* 2줄: 지점 */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {BRANCHES.map(b => (
+            <button key={`mob-br-${b}`} className={`btn ${branch === b ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setBranch(b)}>{b}</button>
+          ))}
+        </div>
+        {/* 3줄: Severity */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {SEVERITIES.map(s => (
+            <button key={`mob-sv-${s}`} className={`btn ${severity === s ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setSeverity(s)}>{s}</button>
+          ))}
+        </div>
+        {/* 4줄: OTA */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>OTA</span>
+          {otaSites.map(ota => (
+            <button key={`mob-ota-${ota}`} className={`btn ${otaSite === ota ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setOtaSite(ota)}>{ota}</button>
+          ))}
+        </div>
       </div>
 
       {/* 요약 통계 */}

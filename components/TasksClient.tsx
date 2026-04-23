@@ -85,18 +85,10 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={14} /> 추가</button>
       </div>
 
-      {/* 필터 */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* 월 선택 - 2026년 4월 형식 */}
-        <select
-          value={currentMonth}
-          onChange={e => router.push(`/tasks?month=${e.target.value}`)}
-          className="input"
-          style={{ width: 'auto', padding: '7px 12px' }}
-        >
-          {months.map((m: string) => (
-            <option key={m} value={m}>{formatMonth(m)}</option>
-          ))}
+      {/* 필터 — 데스크탑 (한 줄) */}
+      <div className="filter-desktop" style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <select value={currentMonth} onChange={e => router.push(`/tasks?month=${e.target.value}`)} className="input" style={{ width: 'auto', padding: '7px 12px' }}>
+          {months.map((m: string) => <option key={m} value={m}>{formatMonth(m)}</option>)}
         </select>
         <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
         {BRANCHES.map(b => (
@@ -106,6 +98,28 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
         {STATUSES.map(s => (
           <button key={s} className={`btn ${status === s ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setStatus(s)}>{s}</button>
         ))}
+      </div>
+
+      {/* 필터 — 모바일 (3줄) */}
+      <div className="filter-mobile" style={{ display: 'none', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+        {/* 1줄: 날짜 */}
+        <div>
+          <select value={currentMonth} onChange={e => router.push(`/tasks?month=${e.target.value}`)} className="input" style={{ width: 'auto', padding: '7px 12px' }}>
+            {months.map((m: string) => <option key={`mob-${m}`} value={m}>{formatMonth(m)}</option>)}
+          </select>
+        </div>
+        {/* 2줄: 지점 */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {BRANCHES.map(b => (
+            <button key={`mob-br-${b}`} className={`btn ${branch === b ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setBranch(b)}>{b}</button>
+          ))}
+        </div>
+        {/* 3줄: 상태 */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {STATUSES.map(s => (
+            <button key={`mob-st-${s}`} className={`btn ${status === s ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setStatus(s)}>{s}</button>
+          ))}
+        </div>
       </div>
 
       {/* 진행률 */}
@@ -296,7 +310,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                 <span key={c} className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>{c}</span>
               ))}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.4 }}>{task.title}</div>
+            <div className="task-title" style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.4 }}>{task.title}</div>
 
             {/* 수행과제 자체 링크 */}
             {taskLink && (
