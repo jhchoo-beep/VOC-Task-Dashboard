@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userEmail={session.user?.email ?? ''}
         userImage={session.user?.image ?? ''}
       />
-      <main style={{ marginLeft: 220, flex: 1, minHeight: '100vh' }}>
+      <main className="main-content" style={{ flex: 1, minHeight: '100vh' }}>
         {children}
       </main>
     </div>

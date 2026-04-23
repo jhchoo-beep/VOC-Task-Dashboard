@@ -132,6 +132,15 @@ html, body {
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.7s linear infinite; }
 
+/* ─── 반응형 레이아웃 ─────────────────────────────────────── */
+.main-content { margin-left: 220px; }
+
+@media (max-width: 767px) {
+  .sidebar-desktop { display: none !important; }
+  .bottom-nav      { display: flex !important; }
+  .main-content    { margin-left: 0 !important; padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+}
+
 @keyframes statusPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.4; transform: scale(1.5); }
