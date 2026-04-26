@@ -146,6 +146,7 @@ export default function RawDataClient({ rawReviews, months, currentMonth }: any)
                         {r.travel_type && <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>🧳 {r.travel_type}</span>}
                         {r.room_type   && <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>🛏 {r.room_type}</span>}
                         {r.has_response && <span className="badge" style={{ background: 'rgba(0,229,102,0.1)', color: 'var(--done)' }}>✅ 답변완료</span>}
+                        {r.created_at && <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>📅 수집일 {new Date(r.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>}
                       </div>
                     </div>
                   )}
