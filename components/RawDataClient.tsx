@@ -96,15 +96,15 @@ export default function RawDataClient({ rawReviews, months, currentMonth }: any)
             <div style={{ color: 'var(--text-2)' }}>Raw 리뷰 데이터가 없습니다.<br/>오른쪽 상단 버튼으로 텍스트/CSV/엑셀을 추가해주세요.</div>
           </div>
         : <div className="card" style={{ overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '90px 75px 60px 70px 80px 1fr 44px', padding: '9px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {['지점','OTA','평점','날짜','리뷰어','내용',''].map(h => <span key={h}>{h}</span>)}
+            <div style={{ display: 'grid', gridTemplateColumns: '90px 75px 60px 70px 80px 1fr 80px 44px', padding: '9px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {['지점','OTA','평점','날짜','리뷰어','내용','수집일',''].map(h => <span key={h}>{h}</span>)}
             </div>
             {filtered.map((r: any) => {
               const isOpen = expanded === r.id
               return (
                 <div key={r.id}>
                   <div
-                    style={{ display: 'grid', gridTemplateColumns: '90px 75px 60px 70px 80px 1fr 44px', padding: '10px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.15s', background: isOpen ? 'var(--bg-hover)' : 'transparent' }}
+                    style={{ display: 'grid', gridTemplateColumns: '90px 75px 60px 70px 80px 1fr 80px 44px', padding: '10px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.15s', background: isOpen ? 'var(--bg-hover)' : 'transparent' }}
                     onClick={() => setExpanded(isOpen ? null : r.id)}
                     onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
                     onMouseLeave={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
@@ -126,6 +126,9 @@ export default function RawDataClient({ rawReviews, months, currentMonth }: any)
                       </span>
                       {isOpen ? <ChevronUp size={11} color="var(--text-3)" style={{ flexShrink: 0 }} /> : <ChevronDown size={11} color="var(--text-3)" style={{ flexShrink: 0 }} />}
                     </div>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                      {r.created_at ? new Date(r.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) : '-'}
+                    </span>
                     <div style={{ display: 'flex', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
                       <button onClick={() => handleDelete(r.id)} title="삭제"
                         style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 6px', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
