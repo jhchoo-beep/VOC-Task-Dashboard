@@ -22,6 +22,7 @@ export default function RawDataClient({ rawReviews, months, currentMonth }: any)
   const [ota, setOta]       = useState('전체')
   const [expanded, setExpanded] = useState<string|null>(null)
   const [showAdd, setShowAdd]   = useState(false)
+  const [sortDir, setSortDir]   = useState<'desc'|'asc'>('desc')
 
   const otaSites = ['전체', ...Array.from(new Set(rawReviews.map((r: any) => r.ota_site).filter(Boolean))) as string[]]
 
@@ -31,11 +32,17 @@ export default function RawDataClient({ rawReviews, months, currentMonth }: any)
     router.refresh()
   }
 
-  const filtered = rawReviews.filter((r: any) => {
-    if (branch !== '전체' && r.branch !== branch) return false
-    if (ota !== '전체' && r.ota_site !== ota) return false
-    return true
-  })
+  const filtered = rawReviews
+    .filter((r: any) => {
+      if (branch !== '전체' && r.branch !== branch) return false
+      if (ota !== '전체' && r.ota_site !== ota) return false
+      return true
+    })
+    .sort((a: any, b: any) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0
+      return sortDir === 'desc' ? tb - ta : ta - tb
+    })
 
   const avgRating = filtered.length && filtered.some((r: any) => r.rating != null)
     ? (filtered.filter((r: any) => r.rating != null).reduce((s: number, r: any) => s + r.rating, 0) / filtered.filter((r: any) => r.rating != null).length).toFixed(2)
@@ -97,7 +104,14 @@ export default function RawDataClient({ rawReviews, months, currentMonth }: any)
           </div>
         : <div className="card" style={{ overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '90px 75px 60px 70px 80px 1fr 80px 44px', padding: '9px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {['지점','OTA','평점','날짜','리뷰어','내용','수집일',''].map(h => <span key={h}>{h}</span>)}
+              {['지점','OTA','평점','날짜','리뷰어','내용'].map(h => <span key={h}>{h}</span>)}
+              <span
+                onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+                style={{ cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 3, userSelect: 'none' }}
+              >
+                수집일{sortDir === 'desc' ? ' ↓' : ' ↑'}
+              </span>
+              <span />
             </div>
             {filtered.map((r: any) => {
               const isOpen = expanded === r.id
@@ -126,7 +140,7 @@ export default function RawDataClient({ rawReviews, months, currentMonth }: any)
                       </span>
                       {isOpen ? <ChevronUp size={11} color="var(--text-3)" style={{ flexShrink: 0 }} /> : <ChevronDown size={11} color="var(--text-3)" style={{ flexShrink: 0 }} />}
                     </div>
-                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)' }}>
                       {r.created_at ? new Date(r.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) : '-'}
                     </span>
                     <div style={{ display: 'flex', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
