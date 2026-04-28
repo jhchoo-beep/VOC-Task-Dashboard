@@ -4,7 +4,7 @@ import { supabase, calcCLX } from '@/lib/supabase'
 import AnalyticsClient from '@/components/AnalyticsClient'
 
 export default async function AnalyticsPage() {
-  const { data: reviews = [] } = await supabase.from('reviews').select('review_month, branch, rating, categories').order('review_month', { ascending: false }).range(0, 9999)
+  const { data: reviews = [] } = await supabase.from('reviews').select('review_month, branch, rating, categories, severity').order('review_month', { ascending: false }).range(0, 9999)
   const rv = reviews ?? []
 
   const months  = [...new Set(rv.map((r: any) => r.review_month).filter(Boolean))].sort() as string[]
@@ -29,5 +29,17 @@ export default async function AnalyticsPage() {
   rv.forEach((r: any) => (r.categories ?? []).forEach((c: string) => { catMap[c] = (catMap[c] ?? 0) + 1 }))
   const catData = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([category, cnt]) => ({ category, cnt }))
 
-  return <AnalyticsClient monthlyRaw={monthlyRaw} catData={catData} />
+  // 월별 severity 트렌드
+  const severityData = months.map(month => {
+    const mr = rv.filter((r: any) => r.review_month === month)
+    return {
+      month,
+      Critical: mr.filter((r: any) => r.severity === 'Critical').length,
+      High:     mr.filter((r: any) => r.severity === 'High').length,
+      Medium:   mr.filter((r: any) => r.severity === 'Medium').length,
+      Low:      mr.filter((r: any) => r.severity === 'Low').length,
+    }
+  })
+
+  return <AnalyticsClient monthlyRaw={monthlyRaw} catData={catData} severityData={severityData} />
 }
