@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronUp, Star, Plus, Loader2, Trash2, Pencil } from 'lucide-react'
+import { ChevronDown, ChevronUp, Star, Plus, Loader2, Trash2, Pencil, Download } from 'lucide-react'
 import { formatMonth } from '@/lib/utils'
 
 const SEV_BADGE: Record<string, string> = { Critical:'badge-critical', High:'badge-high', Medium:'badge-medium', Low:'badge-low' }
@@ -78,6 +78,32 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
 
   const otaSites = ['전체', ...Array.from(new Set(reviews.map((r: any) => r.ota_site).filter(Boolean))) as string[]]
 
+  const handleDownloadCsv = () => {
+    const headers = ['지점', 'OTA', '평점', 'Severity', '세그먼트', '리뷰월', '카테고리', '변심트리거', '내용(한국어)', '내용(원문)']
+    const rows = sorted.map((r: any) => [
+      r.branch ?? '',
+      r.ota_site ?? '',
+      r.rating ?? '',
+      r.severity ?? '',
+      r.customer_segment ?? '',
+      r.review_month ?? '',
+      (r.categories ?? []).join('|'),
+      (r.churn_triggers ?? []).join('|'),
+      r.content_ko ?? '',
+      r.content ?? '',
+    ])
+    const csv = [headers, ...rows]
+      .map(row => row.map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `reviews_${currentMonth}${branch !== '전체' ? '_' + branch : ''}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('이 리뷰를 삭제할까요?')) return
     await fetch('/api/reviews/delete', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
@@ -146,9 +172,14 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
           <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>리뷰 데이터</h1>
           <div style={{ color: 'var(--text-2)', fontSize: 13 }}>OTA 원본 리뷰 · Claude Code로 자동 수집</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-          <Plus size={14} /> 리뷰 추가
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={handleDownloadCsv} title="현재 필터 기준 CSV 다운로드">
+            <Download size={14} /> CSV
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+            <Plus size={14} /> 리뷰 추가
+          </button>
+        </div>
       </div>
 
       {/* 필터 — 데스크탑 */}
