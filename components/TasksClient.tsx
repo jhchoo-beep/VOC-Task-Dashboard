@@ -822,6 +822,7 @@ function TaskModal({ task, currentMonth, months, onClose, onSuccess }: any) {
   })
   const [selectedReview, setSelectedReview] = useState<any>(null)
   const [saving, setSaving] = useState(false)
+  const [customTriggerInput, setCustomTriggerInput] = useState('')
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
   const toggleArr = (k: string, v: string) => {
     const arr = (form as any)[k] as string[]
@@ -876,10 +877,59 @@ function TaskModal({ task, currentMonth, months, onClose, onSuccess }: any) {
           </Field>
 
           <Field label="변심 트리거">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-              {TRIGGERS.map(t => (
-                <button key={t} type="button" className={`btn ${form.churn_trigger.includes(t) ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => toggleArr('churn_trigger', t)}>{t}</button>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+              {/* 사전 정의 트리거 */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {TRIGGERS.map(t => (
+                  <button key={t} type="button" className={`btn ${form.churn_trigger.includes(t) ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => toggleArr('churn_trigger', t)}>{t}</button>
+                ))}
+              </div>
+              {/* 직접 입력한 커스텀 트리거 태그 */}
+              {form.churn_trigger.filter((t: string) => !TRIGGERS.includes(t)).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {form.churn_trigger.filter((t: string) => !TRIGGERS.includes(t)).map((t: string) => (
+                    <span key={t} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '3px 8px 3px 10px', borderRadius: 20, fontSize: 11,
+                      background: 'rgba(74,158,255,0.18)', color: 'var(--progress)',
+                      border: '1px solid rgba(74,158,255,0.45)',
+                    }}>
+                      {t}
+                      <button type="button" onClick={() => toggleArr('churn_trigger', t)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'flex', alignItems: 'center', padding: 0, opacity: 0.7 }}>
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {/* 직접 입력 */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  className="input"
+                  placeholder="직접 입력 후 Enter (예: 와이파이 불량, 주차 불편)"
+                  value={customTriggerInput}
+                  onChange={e => setCustomTriggerInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const v = customTriggerInput.trim()
+                      if (v && !form.churn_trigger.includes(v)) toggleArr('churn_trigger', v)
+                      setCustomTriggerInput('')
+                    }
+                  }}
+                  style={{ flex: 1, fontSize: 12 }}
+                />
+                <button type="button" className="btn btn-ghost"
+                  style={{ padding: '6px 12px', fontSize: 12 }}
+                  onClick={() => {
+                    const v = customTriggerInput.trim()
+                    if (v && !form.churn_trigger.includes(v)) toggleArr('churn_trigger', v)
+                    setCustomTriggerInput('')
+                  }}>
+                  추가
+                </button>
+              </div>
             </div>
           </Field>
 
