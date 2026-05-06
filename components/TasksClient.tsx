@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink, Search } from 'lucide-react'
 import { formatMonth, generateMonthOptions } from '@/lib/utils'
@@ -36,6 +36,8 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
   const [branch, setBranch] = useState('전체')
   const [status, setStatus] = useState('전체')
   const [expanded, setExpanded] = useState<string|null>(highlightTaskId ?? null)
+  const [viewMode, setViewMode] = useState<'trigger' | 'list'>('trigger')
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (highlightTaskId) {
@@ -62,6 +64,38 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
   const done = filtered.filter((t: any) => t.status === '완료').length
   const pct  = filtered.length ? Math.round(done / filtered.length * 100) : 0
 
+  const triggerGroups = useMemo(() => {
+    const map = new Map<string, any[]>()
+    for (const task of filtered) {
+      const triggers = Array.isArray(task.churn_trigger) ? task.churn_trigger : []
+      if (triggers.length === 0) {
+        const arr = map.get('미분류') ?? []; arr.push(task); map.set('미분류', arr)
+      } else {
+        for (const t of triggers) {
+          const arr = map.get(t) ?? []; arr.push(task); map.set(t, arr)
+        }
+      }
+    }
+    return Array.from(map.entries())
+      .map(([trigger, tasks]) => ({ trigger, tasks }))
+      .sort((a, b) => {
+        if (a.trigger === '미분류') return 1
+        if (b.trigger === '미분류') return -1
+        const aMin = Math.min(...a.tasks.map((t: any) => SEV_ORDER[t.severity] ?? 99))
+        const bMin = Math.min(...b.tasks.map((t: any) => SEV_ORDER[t.severity] ?? 99))
+        if (aMin !== bMin) return aMin - bMin
+        return b.tasks.length - a.tasks.length
+      })
+  }, [filtered])
+
+  const toggleGroup = (trigger: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(trigger)) next.delete(trigger); else next.add(trigger)
+      return next
+    })
+  }
+
   const handleStatus = async (id: string, s: string) => {
     setUpdatingId(id)
     await fetch('/api/tasks/status', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status: s }) })
@@ -82,7 +116,21 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
           <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>수행과제</h1>
           <div style={{ color: 'var(--text-2)', fontSize: 13 }}>변심 트리거 기반 문제 정의 & 해결 트래킹</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={14} /> 추가</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: 8, padding: 3, border: '1px solid var(--border)', gap: 2 }}>
+            <button
+              className={`btn ${viewMode === 'trigger' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ padding: '4px 11px', fontSize: 12, borderRadius: 6 }}
+              onClick={() => setViewMode('trigger')}
+            >📌 트리거별</button>
+            <button
+              className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ padding: '4px 11px', fontSize: 12, borderRadius: 6 }}
+              onClick={() => setViewMode('list')}
+            >목록</button>
+          </div>
+          <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={14} /> 추가</button>
+        </div>
       </div>
 
       {/* 필터 — 데스크탑 (한 줄) */}
@@ -150,25 +198,125 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
             <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
             <div style={{ color: 'var(--text-2)' }}>수행과제가 없습니다.<br/>Claude Code로 리뷰를 분석하면 자동 생성됩니다.</div>
           </div>
-        : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {filtered.map((task: any, i: number) => (
-              <TaskCard
-                key={task.id} task={task}
-                expanded={expanded === task.id}
-                onToggle={() => setExpanded(expanded === task.id ? null : task.id)}
-                onStatusChange={handleStatus}
-                onEdit={() => setEditTask(task)}
-                onDelete={() => handleDelete(task.id)}
-                updating={updatingId === task.id}
-                delay={i * 0.03}
-                highlight={highlightTaskId === task.id}
-              />
-            ))}
-          </div>
+        : viewMode === 'trigger'
+          ? <div>
+              {triggerGroups.map(({ trigger, tasks }) => (
+                <TriggerGroupSection
+                  key={trigger}
+                  trigger={trigger}
+                  tasks={tasks}
+                  collapsed={collapsedGroups.has(trigger)}
+                  onToggleCollapse={() => toggleGroup(trigger)}
+                  expandedTaskId={expanded}
+                  onToggleTask={(id: string) => setExpanded(expanded === id ? null : id)}
+                  onStatusChange={handleStatus}
+                  onEdit={(task: any) => setEditTask(task)}
+                  onDelete={(id: string) => handleDelete(id)}
+                  updatingId={updatingId}
+                  highlightTaskId={highlightTaskId}
+                />
+              ))}
+            </div>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {filtered.map((task: any, i: number) => (
+                <TaskCard
+                  key={task.id} task={task}
+                  expanded={expanded === task.id}
+                  onToggle={() => setExpanded(expanded === task.id ? null : task.id)}
+                  onStatusChange={handleStatus}
+                  onEdit={() => setEditTask(task)}
+                  onDelete={() => handleDelete(task.id)}
+                  updating={updatingId === task.id}
+                  delay={i * 0.03}
+                  highlight={highlightTaskId === task.id}
+                />
+              ))}
+            </div>
       }
 
       {showAdd && <TaskModal currentMonth={currentMonth} months={months} onClose={() => setShowAdd(false)} onSuccess={() => { setShowAdd(false); router.refresh() }} />}
       {editTask && <TaskModal task={editTask} currentMonth={currentMonth} months={months} onClose={() => setEditTask(null)} onSuccess={() => { setEditTask(null); router.refresh() }} />}
+    </div>
+  )
+}
+
+/* ─── 트리거 그룹 섹션 ─── */
+function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expandedTaskId, onToggleTask, onStatusChange, onEdit, onDelete, updatingId, highlightTaskId }: any) {
+  const done = tasks.filter((t: any) => t.status === '완료').length
+  const pct  = tasks.length ? Math.round(done / tasks.length * 100) : 0
+  const hasCritical = tasks.some((t: any) => t.severity === 'Critical')
+  const hasHigh     = tasks.some((t: any) => t.severity === 'High')
+  const borderColor = hasCritical ? 'var(--critical)' : hasHigh ? 'var(--high)' : 'var(--accent)'
+
+  const sevCounts: Record<string, number> = {}
+  tasks.forEach((t: any) => { sevCounts[t.severity] = (sevCounts[t.severity] ?? 0) + 1 })
+
+  const isMisc = trigger === '미분류'
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {/* 트리거 헤더 */}
+      <div
+        onClick={onToggleCollapse}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '13px 18px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-2)',
+          borderLeft: `4px solid ${borderColor}`,
+          borderRadius: collapsed ? 10 : '10px 10px 0 0',
+          cursor: 'pointer',
+        }}
+      >
+        <span style={{ fontSize: 14 }}>{isMisc ? '📁' : '📌'}</span>
+        <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>
+          {trigger}
+          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-3)', marginLeft: 8 }}>{tasks.length}건</span>
+        </span>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          {(['Critical','High','Medium','Low'] as const).map(sev => sevCounts[sev] ? (
+            <span key={sev} className={`badge ${SEV_BADGE[sev]}`} style={{ fontSize: 10, padding: '2px 7px' }}>
+              {sev[0]} {sevCounts[sev]}
+            </span>
+          ) : null)}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8, minWidth: 120 }}>
+          <div style={{ flex: 1, height: 5, background: 'var(--bg-input)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? 'var(--done)' : 'var(--accent)', borderRadius: 3, transition: 'width 0.4s' }} />
+          </div>
+          <span style={{ fontSize: 11, color: pct === 100 ? 'var(--done)' : 'var(--text-2)', minWidth: 36, fontWeight: pct === 100 ? 700 : 400 }}>
+            {done}/{tasks.length}
+          </span>
+        </div>
+        <ChevronDown size={14} color="var(--text-3)" style={{ transform: collapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s', flexShrink: 0 }} />
+      </div>
+
+      {/* 과제 목록 */}
+      {!collapsed && (
+        <div style={{
+          border: '1px solid var(--border-2)', borderTop: 'none',
+          borderLeft: `4px solid ${borderColor}`,
+          borderRadius: '0 0 10px 10px',
+          padding: '10px 10px',
+          display: 'flex', flexDirection: 'column', gap: 8,
+          background: 'rgba(0,0,0,0.10)',
+        }}>
+          {tasks.map((task: any, i: number) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              expanded={expandedTaskId === task.id}
+              onToggle={() => onToggleTask(task.id)}
+              onStatusChange={onStatusChange}
+              onEdit={() => onEdit(task)}
+              onDelete={() => onDelete(task.id)}
+              updating={updatingId === task.id}
+              delay={i * 0.03}
+              highlight={highlightTaskId === task.id}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
