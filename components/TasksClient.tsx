@@ -37,7 +37,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
   const [status, setStatus] = useState('전체')
   const [expanded, setExpanded] = useState<string|null>(highlightTaskId ?? null)
   const [viewMode, setViewMode] = useState<'trigger' | 'list'>('trigger')
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (highlightTaskId) {
@@ -89,7 +89,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
   }, [filtered])
 
   const toggleGroup = (trigger: string) => {
-    setCollapsedGroups(prev => {
+    setExpandedGroups(prev => {
       const next = new Set(prev)
       if (next.has(trigger)) next.delete(trigger); else next.add(trigger)
       return next
@@ -205,7 +205,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
                   key={trigger}
                   trigger={trigger}
                   tasks={tasks}
-                  collapsed={collapsedGroups.has(trigger)}
+                  collapsed={!expandedGroups.has(trigger)}
                   onToggleCollapse={() => toggleGroup(trigger)}
                   expandedTaskId={expanded}
                   onToggleTask={(id: string) => setExpanded(expanded === id ? null : id)}
