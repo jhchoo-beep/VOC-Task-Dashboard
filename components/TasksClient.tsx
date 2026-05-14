@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink, Search } from 'lucide-react'
 import { formatMonth, generateMonthOptions } from '@/lib/utils'
@@ -324,24 +325,33 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
 /* ─── 상태 배지 드롭다운 ─── */
 function StatusBadge({ status, onChange, updating }: { status: string; onChange: (s: string) => void; updating: boolean }) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState({ top: 0, right: 0 })
-  const btnRef = useRef<HTMLButtonElement>(null)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const st = STATUS_STYLES[status] ?? STATUS_STYLES['시작전']
 
   if (updating) return <Loader2 size={15} className="spin" style={{ color: 'var(--text-3)' }} />
 
   const handleOpen = () => {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect()
-      setPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right })
-    }
+    if (wrapRef.current) setRect(wrapRef.current.getBoundingClientRect())
     setOpen(o => !o)
   }
 
+  const dropdownStyle: React.CSSProperties = rect ? {
+    position: 'fixed',
+    top: rect.bottom + 6,
+    left: Math.max(4, rect.right - 120),
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-2)',
+    borderRadius: 10,
+    overflow: 'hidden',
+    zIndex: 9999,
+    boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
+    minWidth: 110,
+  } : {}
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={wrapRef} style={{ position: 'relative' }}>
       <button
-        ref={btnRef}
         onClick={handleOpen}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -360,15 +370,10 @@ function StatusBadge({ status, onChange, updating }: { status: string; onChange:
         <ChevronDown size={10} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', opacity: 0.7 }} />
       </button>
 
-      {open && (
+      {open && rect && createPortal(
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
-          <div style={{
-            position: 'fixed', top: pos.top, right: pos.right,
-            background: 'var(--bg-card)', border: '1px solid var(--border-2)',
-            borderRadius: 10, overflow: 'hidden', zIndex: 50,
-            boxShadow: '0 8px 28px rgba(0,0,0,0.45)', minWidth: 110,
-          }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setOpen(false)} />
+          <div style={dropdownStyle}>
             {STATUS_LIST.map(s => {
               const ss = STATUS_STYLES[s] ?? STATUS_STYLES['시작전']
               const isActive = s === status
@@ -392,7 +397,8 @@ function StatusBadge({ status, onChange, updating }: { status: string; onChange:
               )
             })}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )
