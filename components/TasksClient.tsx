@@ -252,6 +252,9 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
   const sevCounts: Record<string, number> = {}
   tasks.forEach((t: any) => { sevCounts[t.severity] = (sevCounts[t.severity] ?? 0) + 1 })
 
+  const statusCounts: Record<string, number> = {}
+  tasks.forEach((t: any) => { statusCounts[t.status] = (statusCounts[t.status] ?? 0) + 1 })
+
   const isMisc = trigger === '미분류'
 
   return (
@@ -281,7 +284,26 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
             </span>
           ) : null)}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8, minWidth: 120 }}>
+        {/* 상태별 카운트 */}
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginLeft: 4 }}>
+          {STATUS_LIST.map(s => {
+            const cnt = statusCounts[s] ?? 0
+            if (!cnt) return null
+            const ss = STATUS_STYLES[s]
+            return (
+              <span key={s} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+                background: ss.bg, color: ss.color, border: `1px solid ${ss.border}`,
+                whiteSpace: 'nowrap',
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: ss.color, flexShrink: 0 }} />
+                {s} {cnt}
+              </span>
+            )
+          })}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8, minWidth: 100 }}>
           <div style={{ flex: 1, height: 5, background: 'var(--bg-input)', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? 'var(--done)' : 'var(--accent)', borderRadius: 3, transition: 'width 0.4s' }} />
           </div>
