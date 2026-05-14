@@ -50,6 +50,17 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
   const [showAdd, setShowAdd] = useState(false)
   const [editTask, setEditTask] = useState<any>(null)
   const [updatingId, setUpdatingId] = useState<string|null>(null)
+  const [triggerLinks, setTriggerLinks] = useState<Record<string, { url: string; label: string | null }>>({})
+
+  useEffect(() => {
+    fetch('/api/trigger-links')
+      .then(r => r.json())
+      .then((rows: any[]) => {
+        const map: Record<string, { url: string; label: string | null }> = {}
+        rows.forEach(r => { map[r.trigger_name] = { url: r.url, label: r.label } })
+        setTriggerLinks(map)
+      })
+  }, [])
 
   const filtered = tasks
     .filter((t: any) => {
@@ -77,15 +88,21 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
         }
       }
     }
+    const allHold = (tasks: any[]) => tasks.every((t: any) => t.status === '보류')
     return Array.from(map.entries())
       .map(([trigger, tasks]) => ({ trigger, tasks }))
       .sort((a, b) => {
         if (a.trigger === '미분류') return 1
         if (b.trigger === '미분류') return -1
-        const aMin = Math.min(...a.tasks.map((t: any) => SEV_ORDER[t.severity] ?? 99))
-        const bMin = Math.min(...b.tasks.map((t: any) => SEV_ORDER[t.severity] ?? 99))
-        if (aMin !== bMin) return aMin - bMin
-        return b.tasks.length - a.tasks.length
+        const aHold = allHold(a.tasks)
+        const bHold = allHold(b.tasks)
+        if (aHold !== bHold) return aHold ? 1 : -1
+        const aInProgress = a.tasks.filter((t: any) => t.status === '진행중').length
+        const bInProgress = b.tasks.filter((t: any) => t.status === '진행중').length
+        if (aInProgress !== bInProgress) return bInProgress - aInProgress
+        const aNotDone = a.tasks.filter((t: any) => t.status !== '완료').length
+        const bNotDone = b.tasks.filter((t: any) => t.status !== '완료').length
+        return bNotDone - aNotDone
       })
   }, [filtered])
 
@@ -215,6 +232,21 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
                   onDelete={(id: string) => handleDelete(id)}
                   updatingId={updatingId}
                   highlightTaskId={highlightTaskId}
+                  triggerLink={triggerLinks[trigger] ?? null}
+                  onTriggerLinkSave={(url: string, label: string) => {
+                    fetch('/api/trigger-links', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ trigger_name: trigger, url, label }),
+                    }).then(() => setTriggerLinks(prev => ({ ...prev, [trigger]: { url, label } })))
+                  }}
+                  onTriggerLinkDelete={() => {
+                    fetch('/api/trigger-links', {
+                      method: 'DELETE',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ trigger_name: trigger }),
+                    }).then(() => setTriggerLinks(prev => { const next = { ...prev }; delete next[trigger]; return next }))
+                  }}
                 />
               ))}
             </div>
@@ -242,7 +274,11 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
 }
 
 /* ─── 트리거 그룹 섹션 ─── */
-function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expandedTaskId, onToggleTask, onStatusChange, onEdit, onDelete, updatingId, highlightTaskId }: any) {
+function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expandedTaskId, onToggleTask, onStatusChange, onEdit, onDelete, updatingId, highlightTaskId, triggerLink, onTriggerLinkSave, onTriggerLinkDelete }: any) {
+  const [showLinkEdit, setShowLinkEdit] = useState(false)
+  const [linkUrl, setLinkUrl] = useState(triggerLink?.url ?? '')
+  const [linkLabel, setLinkLabel] = useState(triggerLink?.label ?? '')
+
   const done = tasks.filter((t: any) => t.status === '완료').length
   const pct  = tasks.length ? Math.round(done / tasks.length * 100) : 0
   const hasCritical = tasks.some((t: any) => t.severity === 'Critical')
@@ -255,6 +291,8 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
   const statusCounts: Record<string, number> = {}
   tasks.forEach((t: any) => { statusCounts[t.status] = (statusCounts[t.status] ?? 0) + 1 })
 
+  const assignees = [...new Set(tasks.map((t: any) => t.assignee).filter(Boolean))] as string[]
+
   const isMisc = trigger === '미분류'
 
   return (
@@ -263,7 +301,7 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
       <div
         onClick={onToggleCollapse}
         style={{
-          display: 'flex', alignItems: 'center', gap: 10,
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
           padding: '13px 18px',
           background: 'var(--bg-card)',
           border: '1px solid var(--border-2)',
@@ -273,10 +311,45 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
         }}
       >
         <span style={{ fontSize: 14 }}>{isMisc ? '📁' : '📌'}</span>
-        <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>
+        {/* 트리거명 + 링크 아이콘 */}
+        <span style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
           {trigger}
-          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-3)', marginLeft: 8 }}>{tasks.length}건</span>
+          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-3)' }}>{tasks.length}건</span>
+          {triggerLink?.url && (
+            <a href={triggerLink.url} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--accent)', fontSize: 11, textDecoration: 'none', fontWeight: 400 }}>
+              <ExternalLink size={11} />
+              {triggerLink.label || '참고'}
+            </a>
+          )}
+          {!isMisc && (
+            <button
+              onClick={e => { e.stopPropagation(); setLinkUrl(triggerLink?.url ?? ''); setLinkLabel(triggerLink?.label ?? ''); setShowLinkEdit(v => !v) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'inline-flex', alignItems: 'center' }}
+              title="링크 편집"
+            >
+              <Link size={11} />
+            </button>
+          )}
         </span>
+        {/* 담당자 */}
+        {assignees.length > 0 && (
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {assignees.map(a => (
+              <span key={a} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 500,
+                background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)',
+                border: '1px solid var(--border)',
+              }}>
+                <User size={9} />
+                {a}
+              </span>
+            ))}
+          </div>
+        )}
+        <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           {(['Critical','High','Medium','Low'] as const).map(sev => sevCounts[sev] ? (
             <span key={sev} className={`badge ${SEV_BADGE[sev]}`} style={{ fontSize: 10, padding: '2px 7px' }}>
@@ -285,7 +358,7 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
           ) : null)}
         </div>
         {/* 상태별 카운트 */}
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginLeft: 4 }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           {STATUS_LIST.map(s => {
             const cnt = statusCounts[s] ?? 0
             if (!cnt) return null
@@ -303,7 +376,7 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
             )
           })}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8, minWidth: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 100 }}>
           <div style={{ flex: 1, height: 5, background: 'var(--bg-input)', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? 'var(--done)' : 'var(--accent)', borderRadius: 3, transition: 'width 0.4s' }} />
           </div>
@@ -313,6 +386,43 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
         </div>
         <ChevronDown size={14} color="var(--text-3)" style={{ transform: collapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s', flexShrink: 0 }} />
       </div>
+
+      {/* 링크 편집 패널 */}
+      {showLinkEdit && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border-2)',
+            borderTop: 'none', padding: '12px 18px',
+            display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+          }}
+        >
+          <input
+            value={linkLabel} onChange={e => setLinkLabel(e.target.value)}
+            placeholder="링크 제목 (선택)"
+            className="input" style={{ fontSize: 12, padding: '6px 10px', width: 140 }}
+          />
+          <input
+            value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
+            placeholder="https://..."
+            className="input" style={{ fontSize: 12, padding: '6px 10px', flex: 1, minWidth: 180 }}
+          />
+          <button
+            onClick={() => { if (linkUrl.trim()) { onTriggerLinkSave(linkUrl.trim(), linkLabel.trim()); setShowLinkEdit(false) } }}
+            style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+          >저장</button>
+          {triggerLink?.url && (
+            <button
+              onClick={() => { onTriggerLinkDelete(); setShowLinkEdit(false) }}
+              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text-3)' }}
+            >삭제</button>
+          )}
+          <button
+            onClick={() => setShowLinkEdit(false)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4 }}
+          ><X size={14} /></button>
+        </div>
+      )}
 
       {/* 과제 목록 */}
       {!collapsed && (
