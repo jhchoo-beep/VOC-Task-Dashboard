@@ -300,6 +300,8 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
       {/* 트리거 헤더 */}
       <div
         onClick={onToggleCollapse}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover, rgba(255,255,255,0.04))' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)' }}
         style={{
           display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
           padding: '13px 18px',
@@ -308,6 +310,8 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
           borderLeft: `4px solid ${borderColor}`,
           borderRadius: collapsed ? 10 : '10px 10px 0 0',
           cursor: 'pointer',
+          transition: 'background 0.15s',
+          userSelect: 'none',
         }}
       >
         <span style={{ fontSize: 14 }}>{isMisc ? '📁' : '📌'}</span>
@@ -384,7 +388,17 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
             {done}/{tasks.length}
           </span>
         </div>
-        <ChevronDown size={14} color="var(--text-3)" style={{ transform: collapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s', flexShrink: 0 }} />
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+          background: collapsed ? `${borderColor}22` : 'rgba(255,255,255,0.05)',
+          color: collapsed ? borderColor : 'var(--text-3)',
+          border: `1px solid ${collapsed ? borderColor + '55' : 'var(--border)'}`,
+          transition: 'all 0.2s', flexShrink: 0, whiteSpace: 'nowrap',
+        }}>
+          {collapsed ? '수행과제 보기' : '접기'}
+          <ChevronDown size={11} style={{ transform: collapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
+        </span>
       </div>
 
       {/* 링크 편집 패널 */}
