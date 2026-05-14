@@ -13,7 +13,8 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; border: string 
   '보류':   { bg: 'rgba(139,111,255,0.18)', color: 'var(--hold)',     border: 'rgba(139,111,255,0.55)'},
 }
 
-const SEV_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+const SEV_ORDER:    Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+const STATUS_ORDER: Record<string, number> = { '진행중': 0, '시작전': 1, '완료': 2, '보류': 3 }
 const SEV_BADGE: Record<string, string> = { Critical:'badge-critical', High:'badge-high', Medium:'badge-medium', Low:'badge-low' }
 const SEV_CARD:  Record<string, string> = { Critical:'task-critical', High:'task-high', Medium:'task-medium', Low:'task-low' }
 const BRANCH_BADGE: Record<string, string> = { '제주시티':'badge-jeju','제주':'badge-jeju','동대문':'badge-ddm','신설':'badge-sinseol','고성':'badge-goseong' }
@@ -88,9 +89,14 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
         }
       }
     }
+    const sortTasks = (tasks: any[]) => [...tasks].sort((a, b) => {
+      const statusDiff = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99)
+      if (statusDiff !== 0) return statusDiff
+      return (SEV_ORDER[a.severity] ?? 99) - (SEV_ORDER[b.severity] ?? 99)
+    })
     const allHold = (tasks: any[]) => tasks.every((t: any) => t.status === '보류')
     return Array.from(map.entries())
-      .map(([trigger, tasks]) => ({ trigger, tasks }))
+      .map(([trigger, tasks]) => ({ trigger, tasks: sortTasks(tasks) }))
       .sort((a, b) => {
         if (a.trigger === '미분류') return 1
         if (b.trigger === '미분류') return -1
