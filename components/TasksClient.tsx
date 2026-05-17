@@ -298,6 +298,7 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
   tasks.forEach((t: any) => { statusCounts[t.status] = (statusCounts[t.status] ?? 0) + 1 })
 
   const assignees = [...new Set(tasks.map((t: any) => t.assignee).filter(Boolean))] as string[]
+  const branches  = [...new Set(tasks.map((t: any) => t.branch).filter(Boolean))] as string[]
 
   const isMisc = trigger === '미분류'
 
@@ -343,6 +344,16 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
             </button>
           )}
         </span>
+        {/* 지점 배지 */}
+        {branches.length > 0 && (
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {branches.map(b => (
+              <span key={b} className={`badge ${BRANCH_BADGE[b] ?? 'badge-low'}`} style={{ fontSize: 10, padding: '2px 7px' }}>
+                {b}
+              </span>
+            ))}
+          </div>
+        )}
         {/* 담당자 */}
         {assignees.length > 0 && (
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
