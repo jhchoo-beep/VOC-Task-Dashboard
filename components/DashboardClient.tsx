@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatMonth } from '@/lib/utils'
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckSquare, CheckCircle2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckSquare, CheckCircle2, Trophy } from 'lucide-react'
 
 const BRANCH_COLOR: Record<string, string> = {
   '제주시티': 'var(--jeju)', '제주': 'var(--jeju)',
@@ -24,7 +24,7 @@ function clxLabel(clx: number) {
   return { text: '위험', color: 'var(--critical)' }
 }
 
-export default function DashboardClient({ clxData, criticals, completedCriticals = [], taskProgress, currentMonth, months = [] }: any) {
+export default function DashboardClient({ clxData, criticals, completedCriticals = [], taskProgress, completedTasks = [], resolvedTriggers = [], avgClxDiff, currentMonth, months = [] }: any) {
   const router = useRouter()
 
   return (
@@ -120,6 +120,57 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
           })}
         </div>
       </div>
+
+      {/* 이번 달 해결한 것 */}
+      {completedTasks.length > 0 && (
+        <div className="fade-up delay-3" style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Trophy size={14} color="var(--done)" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>이번 달 해결한 것</span>
+            </div>
+            <a href={`/achievement?month=${currentMonth}`} style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>성과 전체 보기 →</a>
+          </div>
+          {/* 통계 row */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+            <div style={{ padding: '10px 16px', background: 'rgba(0,229,102,0.07)', border: '1px solid rgba(0,229,102,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--done)' }}>
+              <span style={{ fontWeight: 700, fontSize: 18 }}>{completedTasks.length}</span><span style={{ marginLeft: 4 }}>건 완료</span>
+            </div>
+            {resolvedTriggers.length > 0 && (
+              <div style={{ padding: '10px 16px', background: 'rgba(99,179,255,0.07)', border: '1px solid rgba(99,179,255,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--accent)' }}>
+                <span style={{ fontWeight: 700, fontSize: 18 }}>{resolvedTriggers.length}</span><span style={{ marginLeft: 4 }}>개 트리거 해결</span>
+              </div>
+            )}
+            {avgClxDiff !== null && (
+              <div style={{ padding: '10px 16px', background: avgClxDiff >= 0 ? 'rgba(0,229,102,0.07)' : 'rgba(255,59,92,0.07)', border: `1px solid ${avgClxDiff >= 0 ? 'rgba(0,229,102,0.2)' : 'rgba(255,59,92,0.2)'}`, borderRadius: 8, fontSize: 12, color: avgClxDiff >= 0 ? 'var(--done)' : 'var(--critical)' }}>
+                <span style={{ fontWeight: 700, fontSize: 18 }}>{avgClxDiff >= 0 ? '+' : ''}{avgClxDiff}</span><span style={{ marginLeft: 4 }}>CLX 전월비</span>
+              </div>
+            )}
+          </div>
+          {/* 미니카드 그리드 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+            {completedTasks.slice(0, 6).map((t: any) => (
+              <a key={t.id} href={`/tasks?month=${currentMonth}`} style={{ textDecoration: 'none' }}>
+                <div className="card" style={{ padding: '12px 14px', borderLeft: '3px solid var(--done)', cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--done)'}
+                >
+                  {(t.churn_trigger ?? []).length > 0 && (
+                    <div style={{ fontSize: 10, color: '#f472b6', fontWeight: 600, marginBottom: 4 }}>
+                      📌 {(t.churn_trigger ?? []).join(' · ')}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                    <span className={`badge ${BRANCH_BADGE[t.branch] ?? 'badge-low'}`} style={{ marginRight: 6, fontSize: 10 }}>{t.branch}</span>
+                    {t.assignee && <span>{t.assignee}</span>}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 하단 2컬럼 */}
       <div className="fade-up delay-3 dashboard-bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

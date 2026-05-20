@@ -17,7 +17,7 @@ export default async function ReportPage({
   let rv: any[]
 
   if (month) {
-    // month가 URL에 있으면 2개 쿼리 병렬 실행
+    // month가 URL에 있으면 병렬 실행
     const [{ data: all }, { data: reviews }] = await Promise.all([
       monthsQuery,
       supabase.from('reviews').select('branch, rating, severity, categories, churn_triggers').eq('review_month', month),
@@ -79,5 +79,44 @@ export default async function ReportPage({
     .map(([trigger, { cnt, rTotal }]) => ({ trigger, cnt, avg_rating: Math.round(rTotal / cnt * 100) / 100 }))
     .sort((a, b) => b.cnt - a.cnt)
 
-  return <ReportClient metrics={metrics} cci={cci} triggers={triggers} months={months} currentMonth={currentMonth} />
+  // 이번 달 완료 수행과제 조회
+  const { data: completedTasksRaw = [] } = await supabase
+    .from('tasks')
+    .select('id, title, churn_trigger, problem_definition, solution, assignee, branch, status, task_month')
+    .eq('task_month', currentMonth)
+    .eq('status', '완료')
+
+  // 트리거별 완료 과제 그룹
+  const completedByTrigger: Record<string, any[]> = {}
+  for (const t of completedTasksRaw ?? []) {
+    const triggers_t: string[] = t.churn_trigger ?? []
+    if (triggers_t.length === 0) {
+      if (!completedByTrigger['미분류']) completedByTrigger['미분류'] = []
+      completedByTrigger['미분류'].push(t)
+    } else {
+      for (const tr of triggers_t) {
+        if (!completedByTrigger[tr]) completedByTrigger[tr] = []
+        completedByTrigger[tr].push(t)
+      }
+    }
+  }
+  const completedTriggerGroups = Object.entries(completedByTrigger)
+    .map(([trigger, tasks]) => ({ trigger, tasks }))
+    .sort((a, b) => {
+      if (a.trigger === '미분류') return 1
+      if (b.trigger === '미분류') return -1
+      return b.tasks.length - a.tasks.length
+    })
+
+  return (
+    <ReportClient
+      metrics={metrics}
+      cci={cci}
+      triggers={triggers}
+      months={months}
+      currentMonth={currentMonth}
+      completedTriggerGroups={completedTriggerGroups}
+      completedTaskCount={(completedTasksRaw ?? []).length}
+    />
+  )
 }

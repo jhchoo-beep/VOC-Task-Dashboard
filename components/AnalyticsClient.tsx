@@ -20,10 +20,11 @@ const RANGE_OPTIONS = [
   { label: '전체',        value: 0 },
 ]
 
-export default function AnalyticsClient({ monthlyRaw, catData, severityData }: any) {
+export default function AnalyticsClient({ monthlyRaw, catData, severityData, triggerResolution = [], triggerMonthlyData = [], triggerNames = [] }: any) {
   const allMonths = [...new Set(monthlyRaw.map((d: any) => d.review_month))].sort() as string[]
   const branches  = [...new Set(monthlyRaw.map((d: any) => d.branch))] as string[]
   const [range, setRange] = useState(12)
+  const [selectedTrigger, setSelectedTrigger] = useState<string>(triggerNames[0] ?? '')
 
   const months = range === 0 ? allMonths : allMonths.slice(-range)
   const severityFiltered = (severityData ?? []).filter((d: any) => months.includes(d.month))
@@ -131,7 +132,7 @@ export default function AnalyticsClient({ monthlyRaw, catData, severityData }: a
       </div>
 
       {/* 카테고리 바 차트 */}
-      <div className="card" style={{ padding: 24 }}>
+      <div className="card" style={{ padding: 24, marginBottom: 16 }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 20, color: 'var(--text-2)' }}>📊 카테고리별 전체 VOC 건수</div>
         {catData.length === 0
           ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
@@ -150,6 +151,69 @@ export default function AnalyticsClient({ monthlyRaw, catData, severityData }: a
             </ResponsiveContainer>
         }
       </div>
+
+      {/* 트리거별 수행과제 해결률 */}
+      {triggerResolution.length > 0 && (
+        <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 20, color: 'var(--text-2)' }}>📌 트리거별 수행과제 해결률</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {triggerResolution.map((item: any) => (
+              <div key={item.trigger}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: '#f472b6' }}>📌 {item.trigger}</span>
+                  <span style={{ fontSize: 12, color: item.rate === 100 ? 'var(--done)' : 'var(--text-3)' }}>
+                    {item.done}/{item.total}건 ({item.rate}%)
+                  </span>
+                </div>
+                <div className="progress">
+                  <div className="progress-fill" style={{
+                    width: `${item.rate}%`,
+                    background: item.rate === 100 ? 'var(--done)' : item.rate >= 60 ? 'var(--accent)' : 'var(--medium)',
+                    borderRadius: 4,
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 트리거별 발생 vs 완료 월별 추이 */}
+      {triggerNames.length > 0 && triggerMonthlyData.length >= 2 && (
+        <div className="card" style={{ padding: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>📈 트리거별 발생 → 과제 완료 추이</div>
+            <select
+              value={selectedTrigger}
+              onChange={e => setSelectedTrigger(e.target.value)}
+              className="input"
+              style={{ width: 'auto', fontSize: 12, padding: '4px 10px' }}
+            >
+              {triggerNames.map((tr: string) => <option key={tr} value={tr}>{tr}</option>)}
+            </select>
+          </div>
+          {selectedTrigger && (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={triggerMonthlyData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="month" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
+                <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--text-1)' }}
+                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey={`review_${selectedTrigger}`} name="리뷰 발생" fill="var(--medium)" radius={[4,4,0,0]} />
+                <Bar dataKey={`done_${selectedTrigger}`} name="과제 완료" fill="var(--done)" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-3)' }}>
+            파란 바: 해당 트리거가 발생한 리뷰 건수 · 초록 바: 해당 트리거로 생성된 완료 수행과제 건수
+          </div>
+        </div>
+      )}
     </div>
   )
 }

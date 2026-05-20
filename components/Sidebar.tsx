@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { LayoutDashboard, FileText, BarChart2, CheckSquare, TrendingUp, LogOut, Database, ExternalLink } from 'lucide-react'
+import { LayoutDashboard, FileText, BarChart2, CheckSquare, TrendingUp, LogOut, Database, ExternalLink, Trophy } from 'lucide-react'
 
 const EXTERNAL_LINKS = [
   { href: 'https://ota-review-dashboard.vercel.app/', icon: ExternalLink, label: '리뷰 종합 평점' },
@@ -12,8 +12,9 @@ const NAV = [
   { href: '/dashboard', icon: LayoutDashboard, label: '대시보드',    mobileLabel: '대시보드' },
   { href: '/reviews',   icon: FileText,        label: '리뷰 데이터',  mobileLabel: '리뷰' },
   { href: '/report',    icon: BarChart2,        label: '월간 리포트',  mobileLabel: '리포트' },
-  { href: '/tasks',     icon: CheckSquare,      label: '수행과제',    mobileLabel: '수행과제' },
-  { href: '/analytics', icon: TrendingUp,       label: '분석 & 트렌드', mobileLabel: '분석' },
+  { href: '/tasks',       icon: CheckSquare,  label: '수행과제',      mobileLabel: '수행과제' },
+  { href: '/achievement', icon: Trophy,        label: '성과 & 개선 이력', mobileLabel: '성과' },
+  { href: '/analytics',   icon: TrendingUp,   label: '분석 & 트렌드', mobileLabel: '분석' },
   { href: '/rawdata',   icon: Database,         label: 'Raw Data',   mobileLabel: 'Raw' },
 ]
 

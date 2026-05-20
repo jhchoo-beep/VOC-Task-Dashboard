@@ -13,7 +13,7 @@ export default async function DashboardPage({
   // 리뷰 + 수행과제 병렬 조회
   const [{ data: reviews = [] }, { data: allTasks = [] }] = await Promise.all([
     supabase.from('reviews').select('id, branch, ota_site, rating, review_month, content_ko, content, severity, status').order('review_month', { ascending: false }),
-    supabase.from('tasks').select('branch, status, task_month'),
+    supabase.from('tasks').select('id, branch, status, task_month, title, churn_trigger, assignee, solution'),
   ])
 
   // 리뷰 월 목록 + 수행과제 월 목록 합쳐서 전체 월 목록 생성
@@ -80,12 +80,24 @@ export default async function DashboardPage({
     return { branch, total: bt.length, done: bt.filter((t: any) => t.status === '완료').length }
   }).filter(tp => tp.total > 0)
 
+  // 이번 달 완료 과제 & 해결된 트리거
+  const completedTasks = monthTasks.filter((t: any) => t.status === '완료')
+  const resolvedTriggers = [...new Set(completedTasks.flatMap((t: any) => t.churn_trigger ?? []))] as string[]
+
+  // CLX 전월 대비 평균 diff
+  const avgClxDiff = clxData.length > 0
+    ? Math.round(clxData.filter((d: any) => d.diff !== null).reduce((s: number, d: any) => s + (d.diff ?? 0), 0) / Math.max(clxData.filter((d: any) => d.diff !== null).length, 1) * 10) / 10
+    : null
+
   return (
     <DashboardClient
       clxData={clxData}
       criticals={criticals}
       completedCriticals={completedCriticals}
       taskProgress={taskProgress}
+      completedTasks={completedTasks}
+      resolvedTriggers={resolvedTriggers}
+      avgClxDiff={avgClxDiff}
       currentMonth={currentMonth}
       months={months}
     />

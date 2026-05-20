@@ -15,7 +15,12 @@ function clxStatus(clx: number) {
   return { text: '위험', color: 'var(--critical)' }
 }
 
-export default function ReportClient({ metrics, cci, triggers, months, currentMonth }: any) {
+const BRANCH_BADGE: Record<string, string> = {
+  '제주시티': 'badge-jeju', '제주': 'badge-jeju',
+  '동대문': 'badge-ddm', '신설': 'badge-sinseol', '고성': 'badge-goseong',
+}
+
+export default function ReportClient({ metrics, cci, triggers, months, currentMonth, completedTriggerGroups = [], completedTaskCount = 0 }: any) {
   const router = useRouter()
 
   return (
@@ -87,6 +92,51 @@ export default function ReportClient({ metrics, cci, triggers, months, currentMo
           </table>
         </div>
       </div>
+
+      {/* 이번 달 개선 완료 */}
+      {completedTaskCount > 0 && (
+        <div className="card" style={{ marginBottom: 20, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--done)' }}>
+              ✅ 이번 달 개선 완료
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+              완료 {completedTaskCount}건 · {completedTriggerGroups.filter((g: any) => g.trigger !== '미분류').length}개 트리거 해결
+            </div>
+          </div>
+          <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {completedTriggerGroups.map((group: any) => (
+              <div key={group.trigger}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#f472b6' }}>📌 {group.trigger}</span>
+                  <span style={{ padding: '1px 7px', background: 'rgba(0,229,102,0.12)', border: '1px solid rgba(0,229,102,0.25)', borderRadius: 10, fontSize: 11, color: 'var(--done)' }}>
+                    완료 {group.tasks.length}건
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 4 }}>
+                  {group.tasks.map((t: any) => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 12px', background: 'var(--bg-hover)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <span style={{ color: 'var(--done)', flexShrink: 0, marginTop: 1, fontSize: 12 }}>✓</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', marginBottom: 2 }}>{t.title}</div>
+                        {t.solution && (
+                          <div style={{ fontSize: 11, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {t.solution.slice(0, 80)}{t.solution.length > 80 ? '...' : ''}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <span className={`badge ${BRANCH_BADGE[t.branch] ?? 'badge-low'}`} style={{ fontSize: 10 }}>{t.branch}</span>
+                        {t.assignee && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{t.assignee}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* CLX 기준 범례 */}
       <div className="card" style={{ padding: '12px 20px', marginBottom: 20, background: 'rgba(74,158,255,0.04)', borderColor: 'rgba(74,158,255,0.15)' }}>
