@@ -4,7 +4,39 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ─── 라이트 모드 (기본) ──────────────────────────────────── */
+:root, [data-theme="light"] {
+  --bg:        #F5F7FB;
+  --bg-card:   #FFFFFF;
+  --bg-hover:  #EDF0F7;
+  --bg-input:  #EDF0F7;
+  --border:    #E0E4EF;
+  --border-2:  #CDD2E4;
+  --text-1:    #1A1D2E;
+  --text-2:    #5A6080;
+  --text-3:    #9BA3C0;
+  --bg-sidebar: #F0F2F8;
+
+  --critical:  #E8304E;
+  --high:      #CC5C18;
+  --medium:    #B89208;
+  --low:       #4A5270;
+
+  --done:      #1A9E68;
+  --progress:  #2B7FE0;
+  --hold:      #6B4FCC;
+  --todo:      #4A5270;
+
+  --jeju:      #0099B0;
+  --ddm:       #7B50E0;
+  --sinseol:   #00A882;
+  --goseong:   #CC7420;
+
+  --accent:    #2B7FE0;
+}
+
+/* ─── 다크 모드 ───────────────────────────────────────────── */
+[data-theme="dark"] {
   --bg:        #090B12;
   --bg-card:   #111420;
   --bg-hover:  #161B2A;
@@ -14,6 +46,7 @@
   --text-1:    #E8EAF2;
   --text-2:    #7A82A0;
   --text-3:    #424B68;
+  --bg-sidebar: #0D1018;
 
   --critical:  #FF3B5C;
   --high:      #FF7A35;

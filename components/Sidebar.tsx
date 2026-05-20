@@ -2,7 +2,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { LayoutDashboard, FileText, BarChart2, CheckSquare, TrendingUp, LogOut, Database, ExternalLink, Trophy, Star } from 'lucide-react'
+import { LayoutDashboard, FileText, BarChart2, CheckSquare, TrendingUp, LogOut, Database, ExternalLink, Trophy, Star, Sun, Moon } from 'lucide-react'
+import { useTheme } from './ThemeProvider'
 
 const EXTERNAL_LINKS: { href: string; icon: any; label: string }[] = []
 
@@ -19,13 +20,14 @@ const NAV = [
 
 export default function Sidebar({ userName, userEmail, userImage }: { userName: string; userEmail: string; userImage: string }) {
   const path = usePathname()
+  const { theme, toggle } = useTheme()
 
   return (
     <>
       {/* ─── 데스크탑 사이드바 (768px 이상) ─── */}
       <aside className="sidebar-desktop" style={{
         width: 220, minHeight: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 50,
-        background: '#0D1018', borderRight: '1px solid var(--border)',
+        background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column',
       }}>
         {/* 로고 */}
@@ -90,8 +92,28 @@ export default function Sidebar({ userName, userEmail, userImage }: { userName: 
           ))}
         </nav>
 
+        {/* 테마 토글 */}
+        <div style={{ padding: '8px 8px 0' }}>
+          <button
+            onClick={toggle}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              width: '100%', padding: '8px 12px',
+              background: 'none', border: '1px solid var(--border)',
+              color: 'var(--text-2)', cursor: 'pointer',
+              fontSize: 13, borderRadius: 8, fontFamily: 'inherit',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--bg-hover)'; el.style.color = 'var(--text-1)' }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'none'; el.style.color = 'var(--text-2)' }}
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            {theme === 'dark' ? '라이트 모드' : '다크 모드'}
+          </button>
+        </div>
+
         {/* 유저 */}
-        <div style={{ padding: '10px 8px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ padding: '10px 8px', borderTop: '1px solid var(--border)', marginTop: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', marginBottom: 4 }}>
             {userImage
               ? <img src={userImage} style={{ width: 28, height: 28, borderRadius: '50%' }} alt="" />
@@ -126,7 +148,7 @@ export default function Sidebar({ userName, userEmail, userImage }: { userName: 
       <nav className="bottom-nav" style={{
         display: 'none',
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-        background: '#0D1018', borderTop: '1px solid var(--border)',
+        background: 'var(--bg-sidebar)', borderTop: '1px solid var(--border)',
         height: 'calc(60px + env(safe-area-inset-bottom))',
         paddingBottom: 'env(safe-area-inset-bottom)',
         alignItems: 'center', justifyContent: 'space-around',
