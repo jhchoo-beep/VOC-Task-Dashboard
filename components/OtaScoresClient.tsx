@@ -567,7 +567,7 @@ function TabAgoda({ d }: { d: OtaData }) {
                     <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false}
                       tickFormatter={distViewMode === 'ratio' ? (v: number) => `${v}%` : (v: number) => `${v}`} />
                     <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any, name: string) => [distViewMode === 'ratio' ? `${v}%` : `${v}건`, name]} />
+                      formatter={(v: any, name: any) => [distViewMode === 'ratio' ? `${v}%` : `${v}건`, name]} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar dataKey="2~4점" stackId="a" fill="var(--critical)" />
                     <Bar dataKey="5~6점" stackId="a" fill="var(--medium)" />
