@@ -574,6 +574,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   const [logType, setLogType] = useState<'업데이트' | '이슈' | '해결'>('업데이트')
   const [logAuthor, setLogAuthor] = useState('')
   const [showTypeMenu, setShowTypeMenu] = useState(false)
+  const typeMenuBtnRef = useRef<HTMLButtonElement>(null)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkLabel, setLinkLabel] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -771,10 +772,12 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>진행 사항 추가</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: showLinkInput ? 10 : 0 }}>
               {/* 타입 드롭다운 */}
-              <div style={{ position: 'relative' }}>
+              <div style={{ flexShrink: 0 }}>
                 <button
+                  ref={typeMenuBtnRef}
                   className="btn btn-ghost"
-                  onClick={() => setShowTypeMenu(!showTypeMenu)}
+                  onClick={() => setShowTypeMenu(v => !v)}
+                  onBlur={() => setTimeout(() => setShowTypeMenu(false), 150)}
                   style={{ fontSize: 12, gap: 4, padding: '0 10px', height: '100%', minWidth: 90,
                     borderLeft: logType === '이슈' ? '3px solid #e53e3e' : logType === '해결' ? '3px solid #38a169' : undefined }}
                 >
@@ -782,22 +785,25 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                   {logType === '해결' && <span style={{ color: '#38a169', fontSize: 11 }}>✓</span>}
                   {logType} ▾
                 </button>
-                {showTypeMenu && (
-                  <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 50, minWidth: 110, padding: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-                    {(['업데이트', '이슈', '해결'] as const).map(t => (
-                      <button key={t} onClick={() => { setLogType(t); setShowTypeMenu(false) }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-1)', borderRadius: 6,
-                          fontWeight: logType === t ? 700 : 400 }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}>
-                        {t === '이슈' && <span style={{ color: '#e53e3e', fontSize: 10 }}>●</span>}
-                        {t === '해결' && <span style={{ color: '#38a169' }}>✓</span>}
-                        {t === '업데이트' && <span style={{ fontSize: 10, opacity: 0.4 }}>●</span>}
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {showTypeMenu && (() => {
+                  const r = typeMenuBtnRef.current?.getBoundingClientRect()
+                  return (
+                    <div style={{ position: 'fixed', top: (r?.bottom ?? 0) + 4, left: r?.left ?? 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 99999, minWidth: 110, padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                      {(['업데이트', '이슈', '해결'] as const).map(t => (
+                        <button key={t} onMouseDown={() => { setLogType(t); setShowTypeMenu(false) }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-1)', borderRadius: 6,
+                            fontWeight: logType === t ? 700 : 400 }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}>
+                          {t === '이슈' && <span style={{ color: '#e53e3e', fontSize: 10 }}>●</span>}
+                          {t === '해결' && <span style={{ color: '#38a169' }}>✓</span>}
+                          {t === '업데이트' && <span style={{ fontSize: 10, opacity: 0.4 }}>●</span>}
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
               {/* 작성자 */}
               <input className="input" placeholder="작성자" value={logAuthor} onChange={e => setLogAuthor(e.target.value)} style={{ width: 90, flexShrink: 0 }} />
