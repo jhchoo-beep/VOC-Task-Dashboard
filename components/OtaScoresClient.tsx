@@ -96,7 +96,7 @@ function calcWeekAvg(scores: number[]): number {
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 // 마지막 두 구간: score_9=9.x점, score_10=정확히 10점
-const HEATMAP_BANDS = ['2점대','3점대','4점대','5점대','6점대','7점대','8점대','9~9.9점','10점']
+const HEATMAP_BANDS = ['2점대','3점대','4점대','5점대','6점대','7점대','8점대','9점대','10점']
 const BRANCH_BADGE: Record<string, string> = {
   신설: 'badge-sinseol', 동대문: 'badge-ddm', 제주시티: 'badge-jeju', 고성: 'badge-goseong',
 }
