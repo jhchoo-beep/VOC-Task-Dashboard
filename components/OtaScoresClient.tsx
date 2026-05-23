@@ -12,7 +12,7 @@ type ReviewHistory = Record<string, Record<string, number[]>>
 
 interface OtaEntry { name: string; max: number; okr: number }
 
-interface AgodaDistWeek { week: string; scores: number[] }
+interface AgodaDistWeek { week: string; scores: number[]; avgScore?: number }
 interface AgodaReviewRateWeek { week: string; reviewCount: number; checkoutCount: number; ratePct: number }
 
 interface OtaData {
@@ -32,14 +32,23 @@ interface OtaData {
 function weekMonth(week: string): string { return week.substring(0, 2) } // "05/11" → "05"
 
 function groupDistByMonth(rows: AgodaDistWeek[]): AgodaDistWeek[] {
-  const map = new Map<string, number[]>()
-  rows.forEach(({ week, scores }) => {
+  const map = new Map<string, { scores: number[]; totalReviews: number; weightedSum: number }>()
+  rows.forEach(({ week, scores, avgScore }) => {
     const m = weekMonth(week)
-    if (!map.has(m)) map.set(m, new Array(9).fill(0))
+    if (!map.has(m)) map.set(m, { scores: new Array(9).fill(0), totalReviews: 0, weightedSum: 0 })
     const acc = map.get(m)!
-    scores.forEach((v, i) => { acc[i] += v })
+    scores.forEach((v, i) => { acc.scores[i] += v })
+    const cnt = scores.reduce((s, v) => s + v, 0)
+    if (avgScore && avgScore > 0 && cnt > 0) {
+      acc.totalReviews += cnt
+      acc.weightedSum += avgScore * cnt
+    }
   })
-  return [...map.entries()].map(([m, scores]) => ({ week: `${parseInt(m)}월`, scores }))
+  return [...map.entries()].map(([m, { scores, totalReviews, weightedSum }]) => ({
+    week: `${parseInt(m)}월`,
+    scores,
+    avgScore: totalReviews > 0 ? Math.round(weightedSum / totalReviews * 10) / 10 : undefined,
+  }))
 }
 
 function groupComplaintsByMonth(rows: { week: string; room: number; bathroom: number }[]) {
@@ -690,8 +699,8 @@ function TabAgoda({ d }: { d: OtaData }) {
                       <td style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', paddingBottom: 10 }}>
                         평균 점수
                       </td>
-                      {distHistory.map(({ week, scores }) => {
-                        const avg = calcWeekAvg(scores)
+                      {distHistory.map(({ week, scores, avgScore }) => {
+                        const avg = avgScore && avgScore > 0 ? avgScore : calcWeekAvg(scores)
                         return (
                           <td key={week} style={{ paddingBottom: 10 }}>
                             <div style={{
