@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { taskId, content } = await req.json()
+  const { taskId, content, author: bodyAuthor } = await req.json()
   if (!taskId || !content?.trim()) return NextResponse.json({ error: '필수 필드 누락' }, { status: 400 })
 
-  const author = session.user?.name ?? session.user?.email ?? '사용자'
+  const author = bodyAuthor?.trim() || session.user?.name ?? session.user?.email ?? '사용자'
 
   const { data, error } = await supabase
     .from('task_logs').insert({ task_id: taskId, author, content }).select().single()

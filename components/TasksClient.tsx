@@ -571,6 +571,9 @@ function StatusBadge({ status, onChange, updating }: { status: string; onChange:
 function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, updating, delay, highlight }: any) {
   const router = useRouter()
   const [comment, setComment] = useState('')
+  const [logType, setLogType] = useState<'업데이트' | '이슈' | '해결'>('업데이트')
+  const [logAuthor, setLogAuthor] = useState('')
+  const [showTypeMenu, setShowTypeMenu] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkLabel, setLinkLabel] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -595,7 +598,9 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   const addLog = async () => {
     if (!comment.trim()) return
     setSubmitting(true)
-    await fetch('/api/tasks/logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: task.id, content: comment }) })
+    const prefix = logType === '이슈' ? '[이슈] ' : logType === '해결' ? '[해결] ' : ''
+    const content = prefix + comment.trim()
+    await fetch('/api/tasks/logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: task.id, content, author: logAuthor.trim() || undefined }) })
     setComment('')
     await refreshLogs()
     setSubmitting(false)
@@ -712,6 +717,8 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {logs.map((l: any) => {
                   const isLink = l.content?.startsWith('[링크] ')
+                  const isIssue = l.content?.startsWith('[이슈] ')
+                  const isResolved = l.content?.startsWith('[해결] ')
                   let linkHref = '', linkText = ''
                   if (isLink) {
                     const raw = l.content.replace('[링크] ', '')
@@ -719,14 +726,21 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                     linkText = parts[0] ?? raw
                     linkHref = parts[1] ?? parts[0] ?? raw
                   }
+                  const displayContent = isIssue ? l.content.replace('[이슈] ', '') : isResolved ? l.content.replace('[해결] ', '') : l.content
+                  const avatarBg = isLink ? 'var(--hold)' : isIssue ? '#e53e3e' : isResolved ? '#38a169' : 'var(--accent)'
+                  const leftBorder = isIssue ? '3px solid #e53e3e' : isResolved ? '3px solid #38a169' : 'none'
                   return (
-                    <div key={l.id} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 8 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: isLink ? 'var(--hold)' : 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                        {isLink ? <Link size={12} /> : (l.author || 'U')[0].toUpperCase()}
+                    <div key={l.id} style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 8, borderLeft: leftBorder }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                        {isLink ? <Link size={12} /> : isResolved ? '✓' : (l.author || 'U')[0].toUpperCase()}
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, alignItems: 'center' }}>
-                          <span style={{ fontWeight: 600, fontSize: 12 }}>{l.author}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {isIssue && <span style={{ fontSize: 10, fontWeight: 700, background: '#e53e3e22', color: '#e53e3e', borderRadius: 4, padding: '1px 6px' }}>이슈</span>}
+                            {isResolved && <span style={{ fontSize: 10, fontWeight: 700, background: '#38a16922', color: '#38a169', borderRadius: 4, padding: '1px 6px' }}>해결</span>}
+                            <span style={{ fontWeight: 600, fontSize: 12 }}>{l.author}</span>
+                          </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{new Date(l.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                             <button onClick={() => deleteLog(l.id)} title="삭제"
@@ -742,7 +756,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                               style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                               <ExternalLink size={11} /> {linkText}
                             </a>
-                          : <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{l.content}</div>
+                          : <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{displayContent}</div>
                         }
                       </div>
                     </div>
@@ -756,11 +770,43 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>진행 사항 추가</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: showLinkInput ? 10 : 0 }}>
-              <input className="input" placeholder="진행 사항을 입력하세요..." value={comment} onChange={e => setComment(e.target.value)}
+              {/* 타입 드롭다운 */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setShowTypeMenu(!showTypeMenu)}
+                  style={{ fontSize: 12, gap: 4, padding: '0 10px', height: '100%', minWidth: 90,
+                    borderLeft: logType === '이슈' ? '3px solid #e53e3e' : logType === '해결' ? '3px solid #38a169' : undefined }}
+                >
+                  {logType === '이슈' && <span style={{ color: '#e53e3e', fontSize: 10 }}>●</span>}
+                  {logType === '해결' && <span style={{ color: '#38a169', fontSize: 11 }}>✓</span>}
+                  {logType} ▾
+                </button>
+                {showTypeMenu && (
+                  <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 50, minWidth: 110, padding: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                    {(['업데이트', '이슈', '해결'] as const).map(t => (
+                      <button key={t} onClick={() => { setLogType(t); setShowTypeMenu(false) }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-1)', borderRadius: 6,
+                          fontWeight: logType === t ? 700 : 400 }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}>
+                        {t === '이슈' && <span style={{ color: '#e53e3e', fontSize: 10 }}>●</span>}
+                        {t === '해결' && <span style={{ color: '#38a169' }}>✓</span>}
+                        {t === '업데이트' && <span style={{ fontSize: 10, opacity: 0.4 }}>●</span>}
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* 작성자 */}
+              <input className="input" placeholder="작성자" value={logAuthor} onChange={e => setLogAuthor(e.target.value)} style={{ width: 90, flexShrink: 0 }} />
+              {/* 내용 */}
+              <input className="input" placeholder="내용 입력 후 Enter..." value={comment} onChange={e => setComment(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addLog() } }}
                 style={{ flex: 1 }} />
               <button className="btn btn-primary" onClick={addLog} disabled={submitting || !comment.trim()}>
-                {submitting ? <Loader2 size={13} className="spin" /> : '추가'}
+                {submitting ? <Loader2 size={13} className="spin" /> : '+ 추가'}
               </button>
               <button className="btn btn-ghost" onClick={() => setShowLinkInput(!showLinkInput)} title="링크 첨부" style={{ padding: '8px 10px' }}>
                 <Link size={14} />
