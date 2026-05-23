@@ -10,12 +10,14 @@ export default async function OtaScoresPage() {
     { data: distRaw },
     { data: complaintsRaw },
     { data: vocRaw },
+    { data: reviewRateRaw },
   ] = await Promise.all([
     supabase.from('ota_scores').select('property_id,overall_score,review_count,recorded_at').order('recorded_at', { ascending: true }),
     supabase.from('ota_properties').select('property_id,branch,ota_name,score_max,okr_target').eq('active', true),
     supabase.from('ota_agoda_score_dist').select('*').order('week_start', { ascending: true }),
     supabase.from('ota_agoda_complaints').select('*').order('week_start', { ascending: true }),
     supabase.from('ota_agoda_voc').select('*').order('week_start', { ascending: false }),
+    supabase.from('ota_agoda_review_rate').select('property_id,week_start,review_count,checkout_count,rate_pct').order('week_start', { ascending: true }),
   ])
 
   const scores     = scoresRaw     ?? []
@@ -103,6 +105,19 @@ export default async function OtaScoresPage() {
     }
   })
 
+  // Review rate: branch → [{week, reviewCount, checkoutCount, ratePct}[]]
+  const reviewRate = reviewRateRaw ?? []
+  const agodaReviewRate: Record<string, { week: string; reviewCount: number; checkoutCount: number; ratePct: number }[]> = {}
+  agodaProps.forEach((p: any) => {
+    const rows = (reviewRate as any[]).filter(r => r.property_id === p.property_id)
+    agodaReviewRate[p.branch] = rows.map(r => ({
+      week: r.week_start.substring(5).replace('-', '/'),
+      reviewCount: r.review_count ?? 0,
+      checkoutCount: r.checkout_count ?? 0,
+      ratePct: r.rate_pct ?? 0,
+    }))
+  })
+
   const latestDate = allDates[allDates.length - 1] ?? '2026-05-18'
 
   return (
@@ -116,6 +131,7 @@ export default async function OtaScoresPage() {
       agodaComplaints={agodaComplaints}
       complaintMemos={complaintMemos}
       agodaVoc={agodaVoc}
+      agodaReviewRate={agodaReviewRate}
     />
   )
 }

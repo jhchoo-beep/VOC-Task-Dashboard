@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts'
 import { TrendingUp, TrendingDown, Minus, Star } from 'lucide-react'
@@ -13,17 +13,64 @@ type ReviewHistory = Record<string, Record<string, number[]>>
 interface OtaEntry { name: string; max: number; okr: number }
 
 interface AgodaDistWeek { week: string; scores: number[] }
+interface AgodaReviewRateWeek { week: string; reviewCount: number; checkoutCount: number; ratePct: number }
 
 interface OtaData {
-  branches:        string[]
-  otaList:         OtaEntry[]
-  dateLabels:      string[]
-  scoreHistory:    ScoreHistory
-  reviewHistory:   ReviewHistory
-  agodaDist:       Record<string, AgodaDistWeek[]>
-  agodaComplaints: Record<string, { week: string; room: number; bathroom: number }[]>
-  complaintMemos:  Record<string, string>
-  agodaVoc:        Record<string, { band: string; sentiment: string; keyword: string }[]>
+  branches:         string[]
+  otaList:          OtaEntry[]
+  dateLabels:       string[]
+  scoreHistory:     ScoreHistory
+  reviewHistory:    ReviewHistory
+  agodaDist:        Record<string, AgodaDistWeek[]>
+  agodaComplaints:  Record<string, { week: string; room: number; bathroom: number }[]>
+  complaintMemos:   Record<string, string>
+  agodaVoc:         Record<string, { band: string; sentiment: string; keyword: string }[]>
+  agodaReviewRate:  Record<string, AgodaReviewRateWeek[]>
+}
+
+// ─── 유틸 함수 ───────────────────────────────────────────────────────────────
+function weekMonth(week: string): string { return week.substring(0, 2) } // "05/11" → "05"
+
+function groupDistByMonth(rows: AgodaDistWeek[]): AgodaDistWeek[] {
+  const map = new Map<string, number[]>()
+  rows.forEach(({ week, scores }) => {
+    const m = weekMonth(week)
+    if (!map.has(m)) map.set(m, new Array(9).fill(0))
+    const acc = map.get(m)!
+    scores.forEach((v, i) => { acc[i] += v })
+  })
+  return [...map.entries()].map(([m, scores]) => ({ week: `${parseInt(m)}월`, scores }))
+}
+
+function groupComplaintsByMonth(rows: { week: string; room: number; bathroom: number }[]) {
+  const map = new Map<string, { room: number; bathroom: number }>()
+  rows.forEach(({ week, room, bathroom }) => {
+    const m = weekMonth(week)
+    if (!map.has(m)) map.set(m, { room: 0, bathroom: 0 })
+    const acc = map.get(m)!
+    acc.room += room; acc.bathroom += bathroom
+  })
+  return [...map.entries()].map(([m, v]) => ({ week: `${parseInt(m)}월`, ...v }))
+}
+
+function groupReviewRateByMonth(rows: AgodaReviewRateWeek[]): AgodaReviewRateWeek[] {
+  const map = new Map<string, { reviewCount: number; checkoutCount: number }>()
+  rows.forEach(({ week, reviewCount, checkoutCount }) => {
+    const m = weekMonth(week)
+    if (!map.has(m)) map.set(m, { reviewCount: 0, checkoutCount: 0 })
+    const acc = map.get(m)!
+    acc.reviewCount += reviewCount; acc.checkoutCount += checkoutCount
+  })
+  return [...map.entries()].map(([m, { reviewCount, checkoutCount }]) => ({
+    week: `${parseInt(m)}월`, reviewCount, checkoutCount,
+    ratePct: checkoutCount > 0 ? Math.round(reviewCount / checkoutCount * 1000) / 10 : 0,
+  }))
+}
+
+function calcAvgScore(scores: number[]): number {
+  let total = 0, count = 0
+  scores.forEach((cnt, i) => { total += cnt * (i + 2); count += cnt })
+  return count > 0 ? Math.round(total / count * 10) / 10 : 0
 }
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
@@ -402,45 +449,78 @@ function TabTrend({ d }: { d: OtaData }) {
 // ════════════════════════════════════════════════════════════════════════════
 type AgodaSubTab = 'OKR' | '리뷰 작성률' | '점수 분포' | '불만 분석' | 'VOC'
 
+const TOGGLE_BTN = (active: boolean) => ({
+  padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
+  background: active ? 'var(--accent)' : 'var(--bg-card)',
+  color: active ? '#fff' : 'var(--text-2)',
+  fontWeight: active ? 600 : 400,
+} as const)
+
+const SCORE_BANDS = [
+  { label: '9~10점', color: 'var(--done)' },
+  { label: '7~8점',  color: 'var(--accent)' },
+  { label: '5~6점',  color: 'var(--medium)' },
+  { label: '2~4점',  color: 'var(--critical)' },
+]
+
 function TabAgoda({ d }: { d: OtaData }) {
   const [branch, setBranch]         = useState(d.branches[0] ?? '신설')
   const [sub, setSub]               = useState<AgodaSubTab>('OKR')
   const [distViewMode, setDistView] = useState<'count' | 'ratio'>('count')
+  const [timeMode, setTimeMode]     = useState<'weekly' | 'monthly'>('weekly')
 
-  const agodaOTA   = d.otaList.find(o => o.name === 'Agoda') ?? { okr: 9.0, max: 10 }
-  const scoreHist  = d.scoreHistory[branch]?.['Agoda'] ?? []
-  const curScore   = scoreHist[scoreHist.length - 1] ?? 0
-  const prevScore  = scoreHist[scoreHist.length - 2] ?? 0
+  const agodaOTA     = d.otaList.find(o => o.name === 'Agoda') ?? { okr: 9.0, max: 10 }
+  const scoreHist    = d.scoreHistory[branch]?.['Agoda'] ?? []
+  const curScore     = scoreHist[scoreHist.length - 1] ?? 0
+  const prevScore    = scoreHist[scoreHist.length - 2] ?? 0
   const totalReviews = (d.reviewHistory[branch]?.['Agoda'] ?? []).slice(-1)[0] ?? 0
 
   const scoreChartData = d.dateLabels.map((label, i) => ({
     month: label, 점수: scoreHist[i] ?? 0,
   })).filter(r => r.점수 > 0)
 
-  const distHistory   = d.agodaDist[branch] ?? []
-  const latestScores  = distHistory[distHistory.length - 1]?.scores ?? []
-  const distData      = latestScores.map((cnt, i) => ({ score: `${i + 2}점`, 건수: cnt }))
-  const latestDistWeek = distHistory[distHistory.length - 1]
-  const SCORE_BANDS = [
-    { label: '9~10점', color: 'var(--done)' },
-    { label: '7~8점',  color: 'var(--accent)' },
-    { label: '5~6점',  color: 'var(--medium)' },
-    { label: '2~4점',  color: 'var(--critical)' },
-  ]
-  const trendData = distHistory.map(({ week, scores }) => {
-    const bad  = (scores[0] ?? 0) + (scores[1] ?? 0) + (scores[2] ?? 0)
-    const low  = (scores[3] ?? 0) + (scores[4] ?? 0)
-    const mid  = (scores[5] ?? 0) + (scores[6] ?? 0)
-    const high = (scores[7] ?? 0) + (scores[8] ?? 0)
+  // Score distribution
+  const distHistoryRaw  = d.agodaDist[branch] ?? []
+  const distHistory     = timeMode === 'monthly' ? groupDistByMonth(distHistoryRaw) : distHistoryRaw
+  const latestDistWeek  = distHistoryRaw[distHistoryRaw.length - 1]
+  const latestScores    = latestDistWeek?.scores ?? []
+  const distData        = latestScores.map((cnt, i) => ({ score: `${i + 2}점`, 건수: cnt }))
+  const trendData       = distHistory.map(({ week, scores }) => {
+    const bad  = (scores[0]??0)+(scores[1]??0)+(scores[2]??0)
+    const low  = (scores[3]??0)+(scores[4]??0)
+    const mid  = (scores[5]??0)+(scores[6]??0)
+    const high = (scores[7]??0)+(scores[8]??0)
     const total = bad + low + mid + high || 1
+    const avg = calcAvgScore(scores)
     return distViewMode === 'ratio'
-      ? { week, '9~10점': Math.round(high/total*100), '7~8점': Math.round(mid/total*100), '5~6점': Math.round(low/total*100), '2~4점': Math.round(bad/total*100) }
-      : { week, '9~10점': high, '7~8점': mid, '5~6점': low, '2~4점': bad }
+      ? { week, '9~10점': Math.round(high/total*100), '7~8점': Math.round(mid/total*100), '5~6점': Math.round(low/total*100), '2~4점': Math.round(bad/total*100), 평균점수: avg }
+      : { week, '9~10점': high, '7~8점': mid, '5~6점': low, '2~4점': bad, 평균점수: avg }
   })
 
-  const complaints = d.agodaComplaints[branch] ?? []
-  const voc        = d.agodaVoc[branch] ?? []
-  const allBands   = [...new Set(voc.map(v => v.band))]
+  // Complaints
+  const complaintsRaw    = d.agodaComplaints[branch] ?? []
+  const complaints       = timeMode === 'monthly' ? groupComplaintsByMonth(complaintsRaw) : complaintsRaw
+  const baseRoom         = complaintsRaw.slice(0, 4).reduce((s,c)=>s+c.room,0) / Math.max(complaintsRaw.slice(0,4).length,1)
+  const baseBath         = complaintsRaw.slice(0, 4).reduce((s,c)=>s+c.bathroom,0) / Math.max(complaintsRaw.slice(0,4).length,1)
+  const latestComplaint  = complaintsRaw[complaintsRaw.length - 1]
+
+  // Review rate
+  const reviewRateRaw  = d.agodaReviewRate?.[branch] ?? []
+  const reviewRate     = timeMode === 'monthly' ? groupReviewRateByMonth(reviewRateRaw) : reviewRateRaw
+  const latestRate     = reviewRateRaw[reviewRateRaw.length - 1]
+
+  const voc      = d.agodaVoc[branch] ?? []
+  const allBands = [...new Set(voc.map(v => v.band))]
+
+  const timeModeToggle = (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {(['weekly', 'monthly'] as const).map(m => (
+        <button key={m} onClick={() => setTimeMode(m)} style={TOGGLE_BTN(timeMode === m)}>
+          {m === 'weekly' ? '📅 주별' : '📅 월별'}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <div>
@@ -473,10 +553,10 @@ function TabAgoda({ d }: { d: OtaData }) {
       {/* 상단 요약 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
         {[
-          { label: '현재 점수',  value: curScore ? curScore.toFixed(1) : '—', sub: `목표 ${agodaOTA.okr}+`, color: curScore ? scoreColor(curScore, agodaOTA.okr) : 'var(--text-3)' },
-          { label: '전주 대비',  value: curScore && prevScore ? `${(curScore - prevScore) >= 0 ? '+' : ''}${(curScore - prevScore).toFixed(1)}` : '—', sub: prevScore ? `이전 ${prevScore.toFixed(1)}` : '', color: curScore >= prevScore ? 'var(--done)' : 'var(--critical)' },
-          { label: '리뷰 작성률', value: '—', sub: '체크아웃 대비', color: 'var(--accent)' },
-          { label: '누적 리뷰',  value: totalReviews.toLocaleString(), sub: '건', color: 'var(--text-2)' },
+          { label: '현재 점수',   value: curScore ? curScore.toFixed(1) : '—', sub: `목표 ${agodaOTA.okr}+`, color: curScore ? scoreColor(curScore, agodaOTA.okr) : 'var(--text-3)' },
+          { label: '전주 대비',   value: curScore && prevScore ? `${(curScore-prevScore)>=0?'+':''}${(curScore-prevScore).toFixed(1)}` : '—', sub: prevScore ? `이전 ${prevScore.toFixed(1)}` : '', color: curScore >= prevScore ? 'var(--done)' : 'var(--critical)' },
+          { label: '리뷰 작성률', value: latestRate ? `${latestRate.ratePct}%` : '—', sub: latestRate ? `${latestRate.reviewCount}/${latestRate.checkoutCount}건` : '체크아웃 대비', color: 'var(--accent)' },
+          { label: '누적 리뷰',   value: totalReviews.toLocaleString(), sub: '건', color: 'var(--text-2)' },
         ].map(item => (
           <div key={item.label} className="card" style={{ padding: '14px 16px' }}>
             <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>{item.label}</div>
@@ -528,31 +608,56 @@ function TabAgoda({ d }: { d: OtaData }) {
       {/* 리뷰 작성률 */}
       {sub === '리뷰 작성률' && (
         <div className="card" style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Agoda 리뷰 작성률 — {branch}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>체크아웃 고객 중 Agoda 리뷰를 작성한 비율</div>
-          <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>리뷰 작성률 데이터 수집 예정</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>Agoda 리뷰 작성률 추이 — {branch}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>체크아웃 고객 중 리뷰 작성 비율 (막대: 리뷰 건수, 선: 작성률)</div>
+            </div>
+            {timeModeToggle}
+          </div>
+          {reviewRate.length === 0
+            ? (
+              <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-3)' }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
+                <div style={{ fontSize: 13, marginBottom: 6 }}>리뷰 작성률 데이터가 없습니다</div>
+                <div style={{ fontSize: 11 }}>체크아웃 건수와 리뷰 건수를 매주 입력하면 작성률이 표시됩니다</div>
+              </div>
+            )
+            : (
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={reviewRate} margin={{ top: 10, right: 50, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="left" stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <YAxis yAxisId="right" orientation="right" stroke="var(--done)" tick={{ fontSize: 11 }}
+                    tickFormatter={(v: any) => `${v}%`} domain={[0, 100]} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                    formatter={(v: any, name: any) => name === '작성률(%)' ? [`${v}%`, name] : [`${v}건`, name]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="left" dataKey="reviewCount" name="리뷰 건수" fill="var(--accent)" opacity={0.8} radius={[3,3,0,0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="ratePct" name="작성률(%)" stroke="var(--done)"
+                    strokeWidth={2.5} dot={{ fill: 'var(--done)', r: 4 }} activeDot={{ r: 6 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )
+          }
         </div>
       )}
 
       {/* 점수 분포 */}
       {sub === '점수 분포' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* 주별 점수대 추이 */}
           <div className="card" style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 8, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>Agoda 점수대별 주별 추이 — {branch}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>주차별 점수 구간 리뷰 분포</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>Agoda 점수대별 분포 추이 — {branch}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>점수 구간별 리뷰 분포 + 점선: 주간 평균 점수</div>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {timeModeToggle}
+                <div style={{ width: 1, background: 'var(--border)', margin: '0 4px', alignSelf: 'stretch' }} />
                 {(['count', 'ratio'] as const).map(v => (
-                  <button key={v} onClick={() => setDistView(v)}
-                    style={{
-                      padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
-                      background: distViewMode === v ? 'var(--accent)' : 'var(--bg-card)',
-                      color: distViewMode === v ? '#fff' : 'var(--text-2)',
-                      fontWeight: distViewMode === v ? 600 : 400,
-                    }}>
+                  <button key={v} onClick={() => setDistView(v)} style={TOGGLE_BTN(distViewMode === v)}>
                     {v === 'count' ? '📊 건수' : '📈 비율(%)'}
                   </button>
                 ))}
@@ -560,25 +665,28 @@ function TabAgoda({ d }: { d: OtaData }) {
             </div>
             {trendData.length === 0
               ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
-              : <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              : <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={trendData} margin={{ top: 5, right: 50, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false}
-                      tickFormatter={distViewMode === 'ratio' ? (v: number) => `${v}%` : (v: number) => `${v}`} />
+                    <YAxis yAxisId="left" stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false}
+                      tickFormatter={distViewMode === 'ratio' ? (v: any) => `${v}%` : (v: any) => `${v}`} />
+                    <YAxis yAxisId="right" orientation="right" stroke="var(--medium)" tick={{ fontSize: 11 }}
+                      domain={[0, 10]} tickFormatter={(v: any) => `${v}`} />
                     <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any, name: any) => [distViewMode === 'ratio' ? `${v}%` : `${v}건`, name]} />
+                      formatter={(v: any, name: any) => name === '평균점수' ? [`${v}점`, name] : [distViewMode === 'ratio' ? `${v}%` : `${v}건`, name]} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="2~4점" stackId="a" fill="var(--critical)" />
-                    <Bar dataKey="5~6점" stackId="a" fill="var(--medium)" />
-                    <Bar dataKey="7~8점" stackId="a" fill="var(--accent)" />
-                    <Bar dataKey="9~10점" stackId="a" fill="var(--done)" radius={[4,4,0,0]} />
-                  </BarChart>
+                    <Bar yAxisId="left" dataKey="2~4점" stackId="a" fill="var(--critical)" />
+                    <Bar yAxisId="left" dataKey="5~6점" stackId="a" fill="var(--medium)" />
+                    <Bar yAxisId="left" dataKey="7~8점" stackId="a" fill="var(--accent)" />
+                    <Bar yAxisId="left" dataKey="9~10점" stackId="a" fill="var(--done)" radius={[4,4,0,0]} />
+                    <Line yAxisId="right" type="monotone" dataKey="평균점수" stroke="var(--medium)"
+                      strokeWidth={2} strokeDasharray="5 3" dot={{ fill: 'var(--medium)', r: 4 }} activeDot={{ r: 6 }} />
+                  </ComposedChart>
                 </ResponsiveContainer>
             }
           </div>
 
-          {/* 최근 주 세부 분포 */}
           {latestDistWeek && (
             <div className="card" style={{ padding: 24 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
@@ -617,34 +725,50 @@ function TabAgoda({ d }: { d: OtaData }) {
 
       {/* 불만 분석 */}
       {sub === '불만 분석' && (
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 16 }}>⚠️ 주간 불만 추이 — {branch}</div>
-              {complaints.length === 0
-                ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
-                : <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={complaints} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                      <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 10 }} />
-                      <YAxis stroke="var(--text-3)" tick={{ fontSize: 10 }} allowDecimals={false} />
-                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="room" name="객실 불만" stackId="a" fill="var(--high)" />
-                      <Bar dataKey="bathroom" name="욕실 불만" stackId="a" fill="var(--critical)" radius={[4,4,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-              }
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card" style={{ padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>주간 불만 추이 — {branch}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>점선: 초기 4주 평균 기준선</div>
+              </div>
+              {timeModeToggle}
             </div>
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 16 }}>이번 주 불만 현황</div>
-              {complaints.length === 0
-                ? <div style={{ color: 'var(--text-3)', fontSize: 13 }}>데이터 없음</div>
-                : <>
+            {complaints.length === 0
+              ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
+              : <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={complaints} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
+                    <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: any, name: any) => [`${v}건`, name]} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    {timeMode === 'weekly' && baseRoom > 0 && (
+                      <ReferenceLine y={Math.round(baseRoom*10)/10} stroke="var(--high)" strokeDasharray="6 3" opacity={0.5}
+                        label={{ value: '기준', fill: 'var(--high)', fontSize: 9, position: 'insideTopRight' }} />
+                    )}
+                    {timeMode === 'weekly' && baseBath > 0 && (
+                      <ReferenceLine y={Math.round(baseBath*10)/10} stroke="var(--critical)" strokeDasharray="6 3" opacity={0.5} />
+                    )}
+                    <Line type="monotone" dataKey="room" name="객실 불만" stroke="var(--high)" strokeWidth={2.5}
+                      dot={{ fill: 'var(--high)', r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="bathroom" name="욕실 불만" stroke="var(--critical)" strokeWidth={2.5}
+                      dot={{ fill: 'var(--critical)', r: 4 }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+            }
+          </div>
+
+          {complaintsRaw.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="card" style={{ padding: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 16 }}>이번 주 현황</div>
+                {latestComplaint && (
                   <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
                     {[
-                      { label: '객실 불만', value: complaints[complaints.length-1].room,     color: 'var(--high)',     bg: 'rgba(255,155,59,0.1)' },
-                      { label: '욕실 불만', value: complaints[complaints.length-1].bathroom, color: 'var(--critical)', bg: 'rgba(255,59,92,0.1)' },
+                      { label: '객실 불만', value: latestComplaint.room,     color: 'var(--high)',     bg: 'rgba(255,155,59,0.1)' },
+                      { label: '욕실 불만', value: latestComplaint.bathroom, color: 'var(--critical)', bg: 'rgba(255,59,92,0.1)' },
                     ].map(item => (
                       <div key={item.label} style={{ flex: 1, padding: '12px 14px', background: item.bg, borderRadius: 10, textAlign: 'center', border: `1px solid ${item.color}30` }}>
                         <div style={{ fontSize: 28, fontWeight: 800, color: item.color, lineHeight: 1 }}>{item.value}</div>
@@ -652,29 +776,28 @@ function TabAgoda({ d }: { d: OtaData }) {
                       </div>
                     ))}
                   </div>
-                  {d.complaintMemos[branch] && (
-                    <div style={{ fontSize: 11, color: 'var(--text-2)', background: 'var(--bg-hover)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.7 }}>
+                )}
+                <div style={{ display: 'flex', gap: 16 }}>
+                  {[
+                    { label: '총 객실 불만', value: complaintsRaw.reduce((s,c)=>s+c.room,0), color: 'var(--high)' },
+                    { label: '총 욕실 불만', value: complaintsRaw.reduce((s,c)=>s+c.bathroom,0), color: 'var(--critical)' },
+                    { label: '주간 평균', value: (complaintsRaw.reduce((s,c)=>s+c.room+c.bathroom,0)/complaintsRaw.length).toFixed(1), color: 'var(--medium)', unit: '건/주' },
+                  ].map(item => (
+                    <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{item.label}</span>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: item.color }}>{item.value}<span style={{ fontSize: 11, fontWeight: 400 }}>{(item as any).unit ?? '건'}</span></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="card" style={{ padding: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 12 }}>운영 메모</div>
+                {d.complaintMemos[branch]
+                  ? <div style={{ fontSize: 11, color: 'var(--text-2)', background: 'var(--bg-hover)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.8 }}>
                       {d.complaintMemos[branch]}
                     </div>
-                  )}
-                </>
-              }
-            </div>
-          </div>
-          {complaints.length > 0 && (
-            <div className="card" style={{ padding: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 12 }}>누적 불만 요약</div>
-              <div style={{ display: 'flex', gap: 16 }}>
-                {[
-                  { label: '총 객실 불만', value: complaints.reduce((s,c) => s+c.room, 0), color: 'var(--high)' },
-                  { label: '총 욕실 불만', value: complaints.reduce((s,c) => s+c.bathroom, 0), color: 'var(--critical)' },
-                  { label: '주간 평균', value: ((complaints.reduce((s,c) => s+c.room+c.bathroom, 0)) / complaints.length).toFixed(1), color: 'var(--medium)', unit: '건/주' },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{item.label}</span>
-                    <span style={{ fontSize: 20, fontWeight: 700, color: item.color }}>{item.value}<span style={{ fontSize: 12, fontWeight: 400 }}>{(item as any).unit ?? '건'}</span></span>
-                  </div>
-                ))}
+                  : <div style={{ fontSize: 12, color: 'var(--text-3)' }}>메모 없음</div>
+                }
               </div>
             </div>
           )}
@@ -738,15 +861,16 @@ function TabAgoda({ d }: { d: OtaData }) {
 // 메인 컴포넌트
 // ════════════════════════════════════════════════════════════════════════════
 interface OtaScoresClientProps {
-  recordedAt?:      string
-  scoreHistory?:    ScoreHistory
-  reviewHistory?:   ReviewHistory
-  dateLabels?:      string[]
-  otaList?:         OtaEntry[]
-  agodaDist?:       Record<string, AgodaDistWeek[]>
-  agodaComplaints?: Record<string, { week: string; room: number; bathroom: number }[]>
-  complaintMemos?:  Record<string, string>
-  agodaVoc?:        Record<string, { band: string; sentiment: string; keyword: string }[]>
+  recordedAt?:       string
+  scoreHistory?:     ScoreHistory
+  reviewHistory?:    ReviewHistory
+  dateLabels?:       string[]
+  otaList?:          OtaEntry[]
+  agodaDist?:        Record<string, AgodaDistWeek[]>
+  agodaComplaints?:  Record<string, { week: string; room: number; bathroom: number }[]>
+  complaintMemos?:   Record<string, string>
+  agodaVoc?:         Record<string, { band: string; sentiment: string; keyword: string }[]>
+  agodaReviewRate?:  Record<string, AgodaReviewRateWeek[]>
 }
 
 export default function OtaScoresClient({
@@ -759,6 +883,7 @@ export default function OtaScoresClient({
   agodaComplaints = {},
   complaintMemos  = {},
   agodaVoc        = {},
+  agodaReviewRate = {},
 }: OtaScoresClientProps) {
   const [tab, setTab] = useState<InnerTab>('종합 현황')
 
@@ -785,6 +910,7 @@ export default function OtaScoresClient({
     agodaComplaints,
     complaintMemos,
     agodaVoc,
+    agodaReviewRate,
   }
 
   return (
