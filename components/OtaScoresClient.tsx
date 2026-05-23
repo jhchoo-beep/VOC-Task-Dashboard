@@ -67,21 +67,27 @@ function groupReviewRateByMonth(rows: AgodaReviewRateWeek[]): AgodaReviewRateWee
   }))
 }
 
-// 히트맵 셀 배경색: ratio 0~1 → 크림에서 진한 갈색-주황
+// 히트맵 셀 배경색: 앱 다크 테마에 맞게 투명(낮음) → 밝은 틸-그린(높음)
 function heatCellStyle(value: number, max: number): { background: string; color: string } {
-  if (value <= 0 || max <= 0) return { background: 'transparent', color: 'var(--text-3)' }
+  if (value <= 0 || max <= 0) return { background: 'rgba(255,255,255,0.04)', color: 'var(--text-3)' }
   const r = Math.min(value / max, 1)
-  const hue = 35 - r * 13           // 35 → 22
-  const sat = 80
-  const light = 88 - r * 62         // 88% → 26%
+  const alpha = 0.12 + r * 0.78   // 0.12 → 0.90
   return {
-    background: `hsl(${hue}, ${sat}%, ${light}%)`,
-    color: light > 55 ? '#1a1209' : '#ffffff',
+    background: `rgba(0, 212, 160, ${alpha.toFixed(2)})`,
+    color: r > 0.52 ? '#04211a' : 'var(--text-1)',
   }
 }
 
+// 주/월별 평균 점수 계산 (score_2=2점 ~ score_10=10점)
+function calcWeekAvg(scores: number[]): number {
+  let total = 0, count = 0
+  scores.forEach((cnt, i) => { total += cnt * (i + 2); count += cnt })
+  return count > 0 ? Math.round(total / count * 10) / 10 : 0
+}
+
 // ─── 상수 ────────────────────────────────────────────────────────────────────
-const HEATMAP_BANDS = ['1~2점','2~3점','3~4점','4~5점','5~6점','6~7점','7~8점','8~9점','9~10점']
+// 마지막 두 구간: score_9=9.x점, score_10=정확히 10점
+const HEATMAP_BANDS = ['1~2점','2~3점','3~4점','4~5점','5~6점','6~7점','7~8점','9~9.9점','10점']
 const BRANCH_BADGE: Record<string, string> = {
   신설: 'badge-sinseol', 동대문: 'badge-ddm', 제주시티: 'badge-jeju', 고성: 'badge-goseong',
 }
@@ -667,17 +673,39 @@ function TabAgoda({ d }: { d: OtaData }) {
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 3, fontSize: 12 }}>
                   <thead>
                     <tr>
-                      <th style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontWeight: 500, fontSize: 11, whiteSpace: 'nowrap', width: 60 }}>구간</th>
-                      {distHistory.map(({ week }) => (
-                        <th key={week} style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 500, fontSize: 10, paddingBottom: 6, minWidth: 54 }}>
+                      <th style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontWeight: 500, fontSize: 11, whiteSpace: 'nowrap', width: 64 }}>구간</th>
+                      {distHistory.map(({ week }, wi) => (
+                        <th key={week} style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 500, fontSize: 10, paddingBottom: 6, minWidth: 56 }}>
                           {timeMode === 'weekly' ? (
                             <>
-                              <div style={{ fontWeight: 600, fontSize: 11 }}>W{distHistory.indexOf(distHistory.find(d => d.week === week)!) + 1}</div>
+                              <div style={{ fontWeight: 600, fontSize: 11 }}>W{wi + 1}</div>
                               <div style={{ fontSize: 10 }}>{week}</div>
                             </>
                           ) : week}
                         </th>
                       ))}
+                    </tr>
+                    {/* 평균 점수 행 */}
+                    <tr>
+                      <td style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', paddingBottom: 10 }}>
+                        평균 점수
+                      </td>
+                      {distHistory.map(({ week, scores }) => {
+                        const avg = calcWeekAvg(scores)
+                        return (
+                          <td key={week} style={{ paddingBottom: 10 }}>
+                            <div style={{
+                              textAlign: 'center', borderRadius: 8, padding: '6px 4px',
+                              background: avg > 0 ? scoreBg(avg, agodaOTA.okr) : 'var(--bg-card)',
+                              border: avg > 0 ? `1px solid ${scoreColor(avg, agodaOTA.okr)}40` : '1px solid var(--border)',
+                              color: avg > 0 ? scoreColor(avg, agodaOTA.okr) : 'var(--text-3)',
+                              fontWeight: 700, fontSize: 13,
+                            }}>
+                              {avg > 0 ? avg.toFixed(1) : '—'}
+                            </div>
+                          </td>
+                        )
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -714,7 +742,7 @@ function TabAgoda({ d }: { d: OtaData }) {
             <span>낮음</span>
             <div style={{
               width: 120, height: 10, borderRadius: 5,
-              background: 'linear-gradient(to right, hsl(35,80%,88%), hsl(32,80%,57%), hsl(22,80%,26%))',
+              background: 'linear-gradient(to right, rgba(0,212,160,0.12), rgba(0,212,160,0.5), rgba(0,212,160,0.9))',
             }} />
             <span>높음</span>
             <span style={{ marginLeft: 8 }}>색이 진할수록 해당 구간 비율이 높음</span>
