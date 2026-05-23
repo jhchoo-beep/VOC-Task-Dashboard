@@ -574,6 +574,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   const [logType, setLogType] = useState<'업데이트' | '이슈' | '해결'>('업데이트')
   const [logAuthor, setLogAuthor] = useState('')
   const [showTypeMenu, setShowTypeMenu] = useState(false)
+  const [typeMenuPos, setTypeMenuPos] = useState({ top: 0, left: 0 })
   const typeMenuBtnRef = useRef<HTMLButtonElement>(null)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkLabel, setLinkLabel] = useState('')
@@ -776,7 +777,11 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                 <button
                   ref={typeMenuBtnRef}
                   className="btn btn-ghost"
-                  onClick={() => setShowTypeMenu(v => !v)}
+                  onClick={() => {
+                    const r = typeMenuBtnRef.current?.getBoundingClientRect()
+                    if (r) setTypeMenuPos({ top: r.bottom + 4, left: r.left })
+                    setShowTypeMenu(v => !v)
+                  }}
                   onBlur={() => setTimeout(() => setShowTypeMenu(false), 150)}
                   style={{ fontSize: 12, gap: 4, padding: '0 10px', height: '100%', minWidth: 90,
                     borderLeft: logType === '이슈' ? '3px solid #e53e3e' : logType === '해결' ? '3px solid #38a169' : undefined }}
@@ -785,10 +790,8 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                   {logType === '해결' && <span style={{ color: '#38a169', fontSize: 11 }}>✓</span>}
                   {logType} ▾
                 </button>
-                {showTypeMenu && (() => {
-                  const r = typeMenuBtnRef.current?.getBoundingClientRect()
-                  return (
-                    <div style={{ position: 'fixed', top: (r?.bottom ?? 0) + 4, left: r?.left ?? 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 99999, minWidth: 110, padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                {showTypeMenu && (
+                    <div style={{ position: 'fixed', top: typeMenuPos.top, left: typeMenuPos.left, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 99999, minWidth: 110, padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                       {(['업데이트', '이슈', '해결'] as const).map(t => (
                         <button key={t} onMouseDown={() => { setLogType(t); setShowTypeMenu(false) }}
                           style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-1)', borderRadius: 6,
@@ -802,8 +805,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                         </button>
                       ))}
                     </div>
-                  )
-                })()}
+                )}
               </div>
               {/* 작성자 */}
               <input className="input" placeholder="작성자" value={logAuthor} onChange={e => setLogAuthor(e.target.value)} style={{ width: 90, flexShrink: 0 }} />
