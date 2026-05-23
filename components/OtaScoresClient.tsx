@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import {
-  LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, AreaChart, Area, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts'
 import { TrendingUp, TrendingDown, Minus, Star } from 'lucide-react'
@@ -756,6 +756,44 @@ function TabAgoda({ d }: { d: OtaData }) {
             <span>높음</span>
             <span style={{ marginLeft: 8 }}>색이 진할수록 해당 구간 비율이 높음</span>
           </div>
+
+          {/* 평균 점수 추이 차트 */}
+          {(() => {
+            const avgData = distHistory
+              .map(({ week, scores, avgScore }, wi) => ({
+                label: `W${wi + 1} ${week}`,
+                avg: avgScore && avgScore > 0 ? avgScore : calcWeekAvg(scores),
+              }))
+              .filter(d => d.avg > 0)
+            if (avgData.length === 0) return null
+            const minAvg = Math.max(0, Math.min(...avgData.map(d => d.avg)) - 0.5)
+            const maxAvg = Math.min(10, Math.max(...avgData.map(d => d.avg)) + 0.3)
+            return (
+              <div style={{ marginTop: 28 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', marginBottom: 10 }}>
+                  {timeMode === 'monthly' ? '월별' : '주별'} 평균 점수 추이
+                </div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart data={avgData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="avgGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#e91e8c" stopOpacity={0.18} />
+                        <stop offset="95%" stopColor="#e91e8c" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[minAvg, maxAvg]} tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v.toFixed(1)}점`} width={44} />
+                    <Tooltip
+                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: any) => [`${Number(v).toFixed(2)}점`, '평균 점수']}
+                    />
+                    <Area type="monotone" dataKey="avg" stroke="#e91e8c" strokeWidth={2} fill="url(#avgGrad)" dot={{ r: 4, fill: '#e91e8c', stroke: 'var(--bg-card)', strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )
+          })()}
         </div>
       )}
 
