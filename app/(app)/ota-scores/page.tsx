@@ -66,15 +66,15 @@ export default async function OtaScoresPage() {
 
   const agodaProps = properties.filter((p: any) => p.ota_name === 'Agoda')
 
-  // Agoda score distribution: branch → [score_2..score_10] latest week
-  const agodaDist: Record<string, number[]> = {}
+  // Agoda score distribution: branch → [{week, scores}[]] all weeks (max 10)
+  const agodaDist: Record<string, { week: string; scores: number[] }[]> = {}
   agodaProps.forEach((p: any) => {
     const rows = (dist as any[]).filter(d => d.property_id === p.property_id)
-    if (rows.length > 0) {
-      const latest = rows[rows.length - 1]
-      agodaDist[p.branch] = [latest.score_2, latest.score_3, latest.score_4, latest.score_5,
-                             latest.score_6, latest.score_7, latest.score_8, latest.score_9, latest.score_10]
-    }
+    agodaDist[p.branch] = rows.slice(-10).map((r: any) => ({
+      week: r.week_start.substring(5).replace('-', '/'),
+      scores: [r.score_2 ?? 0, r.score_3 ?? 0, r.score_4 ?? 0, r.score_5 ?? 0,
+               r.score_6 ?? 0, r.score_7 ?? 0, r.score_8 ?? 0, r.score_9 ?? 0, r.score_10 ?? 0],
+    }))
   })
 
   // Complaints: branch → [{week, room, bathroom}[]] (recent 8 weeks)

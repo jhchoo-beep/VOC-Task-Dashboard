@@ -12,13 +12,15 @@ type ReviewHistory = Record<string, Record<string, number[]>>
 
 interface OtaEntry { name: string; max: number; okr: number }
 
+interface AgodaDistWeek { week: string; scores: number[] }
+
 interface OtaData {
   branches:        string[]
   otaList:         OtaEntry[]
   dateLabels:      string[]
   scoreHistory:    ScoreHistory
   reviewHistory:   ReviewHistory
-  agodaDist:       Record<string, number[]>
+  agodaDist:       Record<string, AgodaDistWeek[]>
   agodaComplaints: Record<string, { week: string; room: number; bathroom: number }[]>
   complaintMemos:  Record<string, string>
   agodaVoc:        Record<string, { band: string; sentiment: string; keyword: string }[]>
@@ -401,8 +403,9 @@ function TabTrend({ d }: { d: OtaData }) {
 type AgodaSubTab = 'OKR' | '리뷰 작성률' | '점수 분포' | '불만 분석' | 'VOC'
 
 function TabAgoda({ d }: { d: OtaData }) {
-  const [branch, setBranch] = useState(d.branches[0] ?? '신설')
-  const [sub, setSub]       = useState<AgodaSubTab>('OKR')
+  const [branch, setBranch]         = useState(d.branches[0] ?? '신설')
+  const [sub, setSub]               = useState<AgodaSubTab>('OKR')
+  const [distViewMode, setDistView] = useState<'count' | 'ratio'>('count')
 
   const agodaOTA   = d.otaList.find(o => o.name === 'Agoda') ?? { okr: 9.0, max: 10 }
   const scoreHist  = d.scoreHistory[branch]?.['Agoda'] ?? []
@@ -414,8 +417,9 @@ function TabAgoda({ d }: { d: OtaData }) {
     month: label, 점수: scoreHist[i] ?? 0,
   })).filter(r => r.점수 > 0)
 
-  const rawDist = d.agodaDist[branch] ?? []
-  const distData = rawDist.map((cnt, i) => ({ score: `${i + 2}점`, 건수: cnt }))
+  const distHistory   = d.agodaDist[branch] ?? []
+  const latestScores  = distHistory[distHistory.length - 1]?.scores ?? []
+  const distData      = latestScores.map((cnt, i) => ({ score: `${i + 2}점`, 건수: cnt }))
 
   const complaints = d.agodaComplaints[branch] ?? []
   const voc        = d.agodaVoc[branch] ?? []
@@ -514,36 +518,105 @@ function TabAgoda({ d }: { d: OtaData }) {
       )}
 
       {/* 점수 분포 */}
-      {sub === '점수 분포' && (
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Agoda 점수대별 분포 (최근 1주) — {branch}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>각 점수대에 리뷰가 몇 건씩 들어왔는지 확인</div>
-          {distData.length === 0
-            ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
-            : <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={distData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="score" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} formatter={(v: any) => [`${v}건`, '리뷰 수']} />
-                  <Bar dataKey="건수" radius={[4,4,0,0]}>
-                    {distData.map((_, i) => (
-                      <Cell key={i} fill={i >= 7 ? 'var(--done)' : i >= 5 ? 'var(--accent)' : i >= 3 ? 'var(--medium)' : 'var(--critical)'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-          }
-          <div style={{ marginTop: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {[['9~10점','var(--done)'], ['7~8점','var(--accent)'], ['5~6점','var(--medium)'], ['2~4점','var(--critical)']].map(([label, color]) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
-                <span style={{ color: 'var(--text-3)' }}>{label}</span>
+      {sub === '점수 분포' && (() => {
+        const SCORE_BANDS = [
+          { label: '9~10점', key: '9~10점', color: 'var(--done)' },
+          { label: '7~8점',  key: '7~8점',  color: 'var(--accent)' },
+          { label: '5~6점',  key: '5~6점',  color: 'var(--medium)' },
+          { label: '2~4점',  key: '2~4점',  color: 'var(--critical)' },
+        ]
+        const trendData = distHistory.map(({ week, scores }) => {
+          const bad  = (scores[0] ?? 0) + (scores[1] ?? 0) + (scores[2] ?? 0)
+          const low  = (scores[3] ?? 0) + (scores[4] ?? 0)
+          const mid  = (scores[5] ?? 0) + (scores[6] ?? 0)
+          const high = (scores[7] ?? 0) + (scores[8] ?? 0)
+          const total = bad + low + mid + high || 1
+          return distViewMode === 'ratio'
+            ? { week, '9~10점': Math.round(high/total*100), '7~8점': Math.round(mid/total*100), '5~6점': Math.round(low/total*100), '2~4점': Math.round(bad/total*100) }
+            : { week, '9~10점': high, '7~8점': mid, '5~6점': low, '2~4점': bad }
+        })
+
+        const latestWeek = distHistory[distHistory.length - 1]
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* 주별 점수대 추이 */}
+            <div className="card" style={{ padding: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>Agoda 점수대별 주별 추이 — {branch}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>주차별 점수 구간 리뷰 분포</div>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['count', 'ratio'] as const).map(v => (
+                    <button key={v} onClick={() => setDistView(v)}
+                      style={{
+                        padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
+                        background: distViewMode === v ? 'var(--accent)' : 'var(--bg-card)',
+                        color: distViewMode === v ? '#fff' : 'var(--text-2)',
+                        fontWeight: distViewMode === v ? 600 : 400,
+                      }}>
+                      {v === 'count' ? '📊 건수' : '📈 비율(%)'}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))}
+              {trendData.length === 0
+                ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
+                : <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
+                      <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false}
+                        tickFormatter={distViewMode === 'ratio' ? (v: number) => `${v}%` : undefined} />
+                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                        formatter={(v: any, name: string) => [distViewMode === 'ratio' ? `${v}%` : `${v}건`, name]} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="2~4점" stackId="a" fill="var(--critical)" />
+                      <Bar dataKey="5~6점" stackId="a" fill="var(--medium)" />
+                      <Bar dataKey="7~8점" stackId="a" fill="var(--accent)" />
+                      <Bar dataKey="9~10점" stackId="a" fill="var(--done)" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+              }
+            </div>
+
+            {/* 최근 주 세부 분포 */}
+            {latestWeek && (
+              <div className="card" style={{ padding: 24 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+                  이번 주 점수별 세부 분포 — {latestWeek.week}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>각 점수(2~10점)에 리뷰가 몇 건씩 들어왔는지</div>
+                {distData.length === 0
+                  ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
+                  : <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={distData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis dataKey="score" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
+                        <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
+                        <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                          formatter={(v: any) => [`${v}건`, '리뷰 수']} />
+                        <Bar dataKey="건수" radius={[4,4,0,0]}>
+                          {distData.map((_, i) => (
+                            <Cell key={i} fill={i >= 7 ? 'var(--done)' : i >= 5 ? 'var(--accent)' : i >= 3 ? 'var(--medium)' : 'var(--critical)'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                }
+                <div style={{ marginTop: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  {SCORE_BANDS.map(({ label, color }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
+                      <span style={{ color: 'var(--text-3)' }}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* 불만 분석 */}
       {sub === '불만 분석' && (
@@ -673,7 +746,7 @@ interface OtaScoresClientProps {
   reviewHistory?:   ReviewHistory
   dateLabels?:      string[]
   otaList?:         OtaEntry[]
-  agodaDist?:       Record<string, number[]>
+  agodaDist?:       Record<string, AgodaDistWeek[]>
   agodaComplaints?: Record<string, { week: string; room: number; bathroom: number }[]>
   complaintMemos?:  Record<string, string>
   agodaVoc?:        Record<string, { band: string; sentiment: string; keyword: string }[]>
