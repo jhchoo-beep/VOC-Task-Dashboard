@@ -67,13 +67,21 @@ function groupReviewRateByMonth(rows: AgodaReviewRateWeek[]): AgodaReviewRateWee
   }))
 }
 
-function calcAvgScore(scores: number[]): number {
-  let total = 0, count = 0
-  scores.forEach((cnt, i) => { total += cnt * (i + 2); count += cnt })
-  return count > 0 ? Math.round(total / count * 10) / 10 : 0
+// 히트맵 셀 배경색: ratio 0~1 → 크림에서 진한 갈색-주황
+function heatCellStyle(value: number, max: number): { background: string; color: string } {
+  if (value <= 0 || max <= 0) return { background: 'transparent', color: 'var(--text-3)' }
+  const r = Math.min(value / max, 1)
+  const hue = 35 - r * 13           // 35 → 22
+  const sat = 80
+  const light = 88 - r * 62         // 88% → 26%
+  return {
+    background: `hsl(${hue}, ${sat}%, ${light}%)`,
+    color: light > 55 ? '#1a1209' : '#ffffff',
+  }
 }
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
+const HEATMAP_BANDS = ['1~2점','2~3점','3~4점','4~5점','5~6점','6~7점','7~8점','8~9점','9~10점']
 const BRANCH_BADGE: Record<string, string> = {
   신설: 'badge-sinseol', 동대문: 'badge-ddm', 제주시티: 'badge-jeju', 고성: 'badge-goseong',
 }
@@ -479,23 +487,15 @@ function TabAgoda({ d }: { d: OtaData }) {
     month: label, 점수: scoreHist[i] ?? 0,
   })).filter(r => r.점수 > 0)
 
-  // Score distribution
-  const distHistoryRaw  = d.agodaDist[branch] ?? []
-  const distHistory     = timeMode === 'monthly' ? groupDistByMonth(distHistoryRaw) : distHistoryRaw
-  const latestDistWeek  = distHistoryRaw[distHistoryRaw.length - 1]
-  const latestScores    = latestDistWeek?.scores ?? []
-  const distData        = latestScores.map((cnt, i) => ({ score: `${i + 2}점`, 건수: cnt }))
-  const trendData       = distHistory.map(({ week, scores }) => {
-    const bad  = (scores[0]??0)+(scores[1]??0)+(scores[2]??0)
-    const low  = (scores[3]??0)+(scores[4]??0)
-    const mid  = (scores[5]??0)+(scores[6]??0)
-    const high = (scores[7]??0)+(scores[8]??0)
-    const total = bad + low + mid + high || 1
-    const avg = calcAvgScore(scores)
-    return distViewMode === 'ratio'
-      ? { week, '9~10점': Math.round(high/total*100), '7~8점': Math.round(mid/total*100), '5~6점': Math.round(low/total*100), '2~4점': Math.round(bad/total*100), 평균점수: avg }
-      : { week, '9~10점': high, '7~8점': mid, '5~6점': low, '2~4점': bad, 평균점수: avg }
-  })
+  // Score distribution — heatmap
+  const distHistoryRaw = d.agodaDist[branch] ?? []
+  const distHistory    = timeMode === 'monthly' ? groupDistByMonth(distHistoryRaw) : distHistoryRaw
+  const heatmapMaxVal  = Math.max(
+    ...distHistory.flatMap(({ scores }) => {
+      const total = scores.reduce((s,v)=>s+v,0) || 1
+      return distViewMode === 'ratio' ? scores.map(cnt => Math.round(cnt/total*1000)/10) : scores
+    }), 1
+  )
 
   // Complaints
   const complaintsRaw    = d.agodaComplaints[branch] ?? []
@@ -644,82 +644,81 @@ function TabAgoda({ d }: { d: OtaData }) {
         </div>
       )}
 
-      {/* 점수 분포 */}
+      {/* 점수 분포 — 히트맵 */}
       {sub === '점수 분포' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="card" style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 8, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>Agoda 점수대별 분포 추이 — {branch}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>점수 구간별 리뷰 분포 + 점선: 주간 평균 점수</div>
-              </div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                {timeModeToggle}
-                <div style={{ width: 1, background: 'var(--border)', margin: '0 4px', alignSelf: 'stretch' }} />
-                {(['count', 'ratio'] as const).map(v => (
-                  <button key={v} onClick={() => setDistView(v)} style={TOGGLE_BTN(distViewMode === v)}>
-                    {v === 'count' ? '📊 건수' : '📈 비율(%)'}
-                  </button>
-                ))}
-              </div>
+        <div className="card" style={{ padding: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>점수 분포 히트맵 — {branch}</div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
+              {timeModeToggle}
+              <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', margin: '0 4px' }} />
+              {(['ratio', 'count'] as const).map(v => (
+                <button key={v} onClick={() => setDistView(v)} style={TOGGLE_BTN(distViewMode === v)}>
+                  {v === 'ratio' ? '비율' : '건수'}
+                </button>
+              ))}
             </div>
-            {trendData.length === 0
-              ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
-              : <ResponsiveContainer width="100%" height={280}>
-                  <ComposedChart data={trendData} margin={{ top: 5, right: 50, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
-                    <YAxis yAxisId="left" stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false}
-                      tickFormatter={distViewMode === 'ratio' ? (v: any) => `${v}%` : (v: any) => `${v}`} />
-                    <YAxis yAxisId="right" orientation="right" stroke="var(--medium)" tick={{ fontSize: 11 }}
-                      domain={[0, 10]} tickFormatter={(v: any) => `${v}`} />
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any, name: any) => name === '평균점수' ? [`${v}점`, name] : [distViewMode === 'ratio' ? `${v}%` : `${v}건`, name]} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar yAxisId="left" dataKey="2~4점" stackId="a" fill="var(--critical)" />
-                    <Bar yAxisId="left" dataKey="5~6점" stackId="a" fill="var(--medium)" />
-                    <Bar yAxisId="left" dataKey="7~8점" stackId="a" fill="var(--accent)" />
-                    <Bar yAxisId="left" dataKey="9~10점" stackId="a" fill="var(--done)" radius={[4,4,0,0]} />
-                    <Line yAxisId="right" type="monotone" dataKey="평균점수" stroke="var(--medium)"
-                      strokeWidth={2} strokeDasharray="5 3" dot={{ fill: 'var(--medium)', r: 4 }} activeDot={{ r: 6 }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-            }
           </div>
 
-          {latestDistWeek && (
-            <div className="card" style={{ padding: 24 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
-                이번 주 점수별 세부 분포 — {latestDistWeek.week}
+          {distHistory.length === 0
+            ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
+            : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 3, fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontWeight: 500, fontSize: 11, whiteSpace: 'nowrap', width: 60 }}>구간</th>
+                      {distHistory.map(({ week }) => (
+                        <th key={week} style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 500, fontSize: 10, paddingBottom: 6, minWidth: 54 }}>
+                          {timeMode === 'weekly' ? (
+                            <>
+                              <div style={{ fontWeight: 600, fontSize: 11 }}>W{distHistory.indexOf(distHistory.find(d => d.week === week)!) + 1}</div>
+                              <div style={{ fontSize: 10 }}>{week}</div>
+                            </>
+                          ) : week}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {HEATMAP_BANDS.map((label, bandIdx) => (
+                      <tr key={label}>
+                        <td style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap', paddingBottom: 3 }}>
+                          {label}
+                        </td>
+                        {distHistory.map(({ week, scores }) => {
+                          const total = scores.reduce((s,v)=>s+v,0) || 1
+                          const raw = scores[bandIdx] ?? 0
+                          const display = distViewMode === 'ratio' ? Math.round(raw/total*1000)/10 : raw
+                          const { background, color } = heatCellStyle(display, heatmapMaxVal)
+                          return (
+                            <td key={week} style={{
+                              textAlign: 'center', borderRadius: 6, padding: '7px 4px',
+                              background, color, fontWeight: display > 0 ? 600 : 400,
+                              fontSize: 11, transition: 'background 0.2s',
+                            }}>
+                              {display > 0 ? (distViewMode === 'ratio' ? `${display}%` : `${display}`) : '0'}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>각 점수(2~10점)에 리뷰가 몇 건씩 들어왔는지</div>
-              {distData.length === 0
-                ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
-                : <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={distData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                      <XAxis dataKey="score" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                        formatter={(v: any) => [`${v}건`, '리뷰 수']} />
-                      <Bar dataKey="건수" radius={[4,4,0,0]}>
-                        {distData.map((_, i) => (
-                          <Cell key={i} fill={i >= 7 ? 'var(--done)' : i >= 5 ? 'var(--accent)' : i >= 3 ? 'var(--medium)' : 'var(--critical)'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-              }
-              <div style={{ marginTop: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                {SCORE_BANDS.map(({ label, color }) => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
-                    <span style={{ color: 'var(--text-3)' }}>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            )
+          }
+
+          {/* 범례 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18, fontSize: 11, color: 'var(--text-3)' }}>
+            <span>낮음</span>
+            <div style={{
+              width: 120, height: 10, borderRadius: 5,
+              background: 'linear-gradient(to right, hsl(35,80%,88%), hsl(32,80%,57%), hsl(22,80%,26%))',
+            }} />
+            <span>높음</span>
+            <span style={{ marginLeft: 8 }}>색이 진할수록 해당 구간 비율이 높음</span>
+          </div>
         </div>
       )}
 
