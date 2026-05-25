@@ -121,6 +121,13 @@ export default async function OtaScoresPage() {
 
   const latestDate = allDates[allDates.length - 1] ?? '2026-05-18'
 
+  // branch+ota → property_id 매핑 (데이터 입력 모달용)
+  const branchOtaToId: Record<string, Record<string, number>> = {}
+  properties.forEach((p: any) => {
+    if (!branchOtaToId[p.branch]) branchOtaToId[p.branch] = {}
+    branchOtaToId[p.branch][p.ota_name] = p.property_id
+  })
+
   return (
     <OtaScoresClient
       recordedAt={latestDate}
@@ -133,6 +140,7 @@ export default async function OtaScoresPage() {
       complaintMemos={complaintMemos}
       agodaVoc={agodaVoc}
       agodaReviewRate={agodaReviewRate}
+      branchOtaToId={branchOtaToId}
     />
   )
 }

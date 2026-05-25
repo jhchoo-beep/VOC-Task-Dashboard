@@ -1,35 +1,37 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, Cell, ReferenceLine,
+  LineChart, Line, BarChart, Bar, AreaChart, Area,
+  ComposedChart, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { TrendingUp, TrendingDown, Minus, Star } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 type ScoreHistory  = Record<string, Record<string, number[]>>
 type ReviewHistory = Record<string, Record<string, number[]>>
 
 interface OtaEntry { name: string; max: number; okr: number }
-
 interface AgodaDistWeek { week: string; scores: number[]; avgScore?: number }
 interface AgodaReviewRateWeek { week: string; reviewCount: number; checkoutCount: number; ratePct: number }
+type ViewState = { type: 'overview' } | { type: 'detail'; branch: string; ota: string }
 
 interface OtaData {
-  branches:         string[]
-  otaList:          OtaEntry[]
-  dateLabels:       string[]
-  scoreHistory:     ScoreHistory
-  reviewHistory:    ReviewHistory
-  agodaDist:        Record<string, AgodaDistWeek[]>
-  agodaComplaints:  Record<string, { week: string; room: number; bathroom: number }[]>
-  complaintMemos:   Record<string, string>
-  agodaVoc:         Record<string, { band: string; sentiment: string; keyword: string }[]>
-  agodaReviewRate:  Record<string, AgodaReviewRateWeek[]>
+  branches:        string[]
+  otaList:         OtaEntry[]
+  dateLabels:      string[]
+  scoreHistory:    ScoreHistory
+  reviewHistory:   ReviewHistory
+  agodaDist:       Record<string, AgodaDistWeek[]>
+  agodaComplaints: Record<string, { week: string; room: number; bathroom: number }[]>
+  complaintMemos:  Record<string, string>
+  agodaVoc:        Record<string, { band: string; sentiment: string; keyword: string }[]>
+  agodaReviewRate: Record<string, AgodaReviewRateWeek[]>
 }
 
 // ─── 유틸 함수 ───────────────────────────────────────────────────────────────
-function weekMonth(week: string): string { return week.substring(0, 2) } // "05/11" → "05"
+function weekMonth(week: string): string { return week.substring(0, 2) }
 
 function groupDistByMonth(rows: AgodaDistWeek[]): AgodaDistWeek[] {
   const map = new Map<string, { scores: number[]; totalReviews: number; weightedSum: number }>()
@@ -39,14 +41,10 @@ function groupDistByMonth(rows: AgodaDistWeek[]): AgodaDistWeek[] {
     const acc = map.get(m)!
     scores.forEach((v, i) => { acc.scores[i] += v })
     const cnt = scores.reduce((s, v) => s + v, 0)
-    if (avgScore && avgScore > 0 && cnt > 0) {
-      acc.totalReviews += cnt
-      acc.weightedSum += avgScore * cnt
-    }
+    if (avgScore && avgScore > 0 && cnt > 0) { acc.totalReviews += cnt; acc.weightedSum += avgScore * cnt }
   })
   return [...map.entries()].map(([m, { scores, totalReviews, weightedSum }]) => ({
-    week: `${parseInt(m)}월`,
-    scores,
+    week: `${parseInt(m)}월`, scores,
     avgScore: totalReviews > 0 ? Math.round(weightedSum / totalReviews * 10) / 10 : undefined,
   }))
 }
@@ -56,8 +54,7 @@ function groupComplaintsByMonth(rows: { week: string; room: number; bathroom: nu
   rows.forEach(({ week, room, bathroom }) => {
     const m = weekMonth(week)
     if (!map.has(m)) map.set(m, { room: 0, bathroom: 0 })
-    const acc = map.get(m)!
-    acc.room += room; acc.bathroom += bathroom
+    const acc = map.get(m)!; acc.room += room; acc.bathroom += bathroom
   })
   return [...map.entries()].map(([m, v]) => ({ week: `${parseInt(m)}월`, ...v }))
 }
@@ -67,8 +64,7 @@ function groupReviewRateByMonth(rows: AgodaReviewRateWeek[]): AgodaReviewRateWee
   rows.forEach(({ week, reviewCount, checkoutCount }) => {
     const m = weekMonth(week)
     if (!map.has(m)) map.set(m, { reviewCount: 0, checkoutCount: 0 })
-    const acc = map.get(m)!
-    acc.reviewCount += reviewCount; acc.checkoutCount += checkoutCount
+    const acc = map.get(m)!; acc.reviewCount += reviewCount; acc.checkoutCount += checkoutCount
   })
   return [...map.entries()].map(([m, { reviewCount, checkoutCount }]) => ({
     week: `${parseInt(m)}월`, reviewCount, checkoutCount,
@@ -76,18 +72,12 @@ function groupReviewRateByMonth(rows: AgodaReviewRateWeek[]): AgodaReviewRateWee
   }))
 }
 
-// 히트맵 셀 배경색: 앱 다크 테마에 맞게 투명(낮음) → 밝은 틸-그린(높음)
 function heatCellStyle(value: number, max: number): { background: string; color: string } {
   if (value <= 0 || max <= 0) return { background: 'rgba(255,255,255,0.04)', color: 'var(--text-3)' }
-  const r = Math.min(value / max, 1)
-  const alpha = 0.12 + r * 0.78   // 0.12 → 0.90
-  return {
-    background: `rgba(0, 212, 160, ${alpha.toFixed(2)})`,
-    color: r > 0.52 ? '#04211a' : 'var(--text-1)',
-  }
+  const r = Math.min(value / max, 1); const alpha = 0.12 + r * 0.78
+  return { background: `rgba(0, 212, 160, ${alpha.toFixed(2)})`, color: r > 0.52 ? '#04211a' : 'var(--text-1)' }
 }
 
-// 주/월별 평균 점수 계산 (score_2=2점 ~ score_10=10점)
 function calcWeekAvg(scores: number[]): number {
   let total = 0, count = 0
   scores.forEach((cnt, i) => { total += cnt * (i + 2); count += cnt })
@@ -95,11 +85,9 @@ function calcWeekAvg(scores: number[]): number {
 }
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
-// 마지막 두 구간: score_9=9.x점, score_10=정확히 10점
 const HEATMAP_BANDS = ['2점대','3점대','4점대','5점대','6점대','7점대','8점대','9점대','10점']
-const BRANCH_BADGE: Record<string, string> = {
-  신설: 'badge-sinseol', 동대문: 'badge-ddm', 제주시티: 'badge-jeju', 고성: 'badge-goseong',
-}
+const BRANCH_ORDER = ['신설','동대문','제주시티','고성']
+const OTA_ORDER    = ['Agoda','Booking','Trip.com','Expedia','여기어때','Airbnb','NOL']
 const BRANCH_COLOR: Record<string, string> = {
   신설: '#00D4A0', 동대문: '#9B6FFF', 제주시티: '#00C9E0', 고성: '#FF9B3B',
 }
@@ -126,11 +114,116 @@ function TrendBadge({ cur, prev }: { cur: number; prev: number }) {
   )
 }
 
-const INNER_TABS = ['종합 현황', 'OKR 트래커', 'OTA 추이', 'Agoda 상세'] as const
-type InnerTab = typeof INNER_TABS[number]
+const CHART_TOOLTIP_STYLE = {
+  contentStyle: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 },
+  labelStyle: { color: 'var(--text-1)' },
+}
+const TOGGLE_BTN = (active: boolean) => ({
+  padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
+  background: active ? 'var(--accent)' : 'var(--bg-card)',
+  color: active ? '#fff' : 'var(--text-2)', fontWeight: active ? 600 : 400,
+} as const)
 
 // ════════════════════════════════════════════════════════════════════════════
-// 탭 1 — 종합 현황
+// OTA 서브 사이드바
+// ════════════════════════════════════════════════════════════════════════════
+function OtaSubSidebar({
+  branches, scoreHistory, otaList, view, expandedBranches,
+  onToggleBranch, onSelectOverview, onSelectOTA,
+}: {
+  branches: string[]
+  scoreHistory: ScoreHistory
+  otaList: OtaEntry[]
+  view: ViewState
+  expandedBranches: Record<string, boolean>
+  onToggleBranch: (b: string) => void
+  onSelectOverview: () => void
+  onSelectOTA: (branch: string, ota: string) => void
+}) {
+  const branchOtas: Record<string, string[]> = {}
+  branches.forEach(b => {
+    branchOtas[b] = OTA_ORDER.filter(o => (scoreHistory[b]?.[o] ?? []).some(v => v > 0))
+  })
+
+  return (
+    <div style={{
+      width: 200, borderRight: '1px solid var(--border)', height: '100vh',
+      overflowY: 'auto', flexShrink: 0, background: 'var(--bg-sidebar)',
+    }}>
+      <div style={{ padding: '16px 12px 8px', fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+        OTA 현황
+      </div>
+
+      {/* 종합 현황 */}
+      <div onClick={onSelectOverview} style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
+        cursor: 'pointer', fontSize: 13, transition: 'background 0.15s',
+        background: view.type === 'overview' ? 'rgba(0,212,160,0.1)' : 'transparent',
+        color: view.type === 'overview' ? 'var(--accent)' : 'var(--text-2)',
+        fontWeight: view.type === 'overview' ? 600 : 400,
+      }}>
+        📊 종합 현황
+      </div>
+
+      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+
+      {/* 지점별 OTA 목록 */}
+      {branches.map(branch => {
+        const isExpanded = !!expandedBranches[branch]
+        const otas = branchOtas[branch] ?? []
+        return (
+          <div key={branch}>
+            <div onClick={() => onToggleBranch(branch)} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px',
+              cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text-2)',
+              transition: 'background 0.15s',
+            }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+            >
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: BRANCH_COLOR[branch], display: 'inline-block', flexShrink: 0 }} />
+              {branch}
+              <span style={{ marginLeft: 'auto', color: 'var(--text-3)', display: 'flex', alignItems: 'center' }}>
+                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </span>
+            </div>
+
+            {isExpanded && otas.map(ota => {
+              const hist    = scoreHistory[branch]?.[ota] ?? []
+              const cur     = hist[hist.length - 1] ?? 0
+              const entry   = otaList.find(o => o.name === ota)
+              const isActive = view.type === 'detail' && view.branch === branch && view.ota === ota
+              return (
+                <div key={ota} onClick={() => onSelectOTA(branch, ota)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '5px 12px 5px 28px', cursor: 'pointer', fontSize: 12,
+                    transition: 'background 0.15s',
+                    background: isActive ? 'rgba(0,212,160,0.08)' : 'transparent',
+                    color: isActive ? 'var(--accent)' : 'var(--text-3)',
+                    fontWeight: isActive ? 600 : 400,
+                  }}
+                  onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                  onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                >
+                  <span>{ota}</span>
+                  {cur > 0 && entry && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: scoreColor(cur, entry.okr) }}>
+                      {cur.toFixed(1)}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 종합 현황 탭 (기존 그대로 유지)
 // ════════════════════════════════════════════════════════════════════════════
 function TabOverview({ d, recordedAt }: { d: OtaData; recordedAt: string }) {
   return (
@@ -146,7 +239,10 @@ function TabOverview({ d, recordedAt }: { d: OtaData; recordedAt: string }) {
                 <th style={{ padding: '10px 18px', textAlign: 'left', color: 'var(--text-3)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>OTA / 만점</th>
                 {d.branches.map(b => (
                   <th key={b} style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--text-3)', fontWeight: 600, fontSize: 11 }}>
-                    <span className={`badge ${BRANCH_BADGE[b]}`} style={{ fontSize: 10 }}>{b}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: BRANCH_COLOR[b], display: 'inline-block' }} />
+                      {b}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -205,7 +301,10 @@ function TabOverview({ d, recordedAt }: { d: OtaData; recordedAt: string }) {
           const pct = total > 0 ? Math.round(achieved / total * 100) : 0
           return (
             <div key={b} className="card" style={{ padding: '16px 18px' }}>
-              <span className={`badge ${BRANCH_BADGE[b]}`} style={{ fontSize: 10, marginBottom: 10, display: 'inline-block' }}>{b}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: BRANCH_COLOR[b] }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{b}</span>
+              </div>
               <div style={{ fontSize: 24, fontWeight: 800, color: pct === 100 ? 'var(--done)' : pct >= 60 ? 'var(--medium)' : 'var(--critical)' }}>
                 {achieved}<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-3)' }}>/{total}</span>
               </div>
@@ -223,306 +322,102 @@ function TabOverview({ d, recordedAt }: { d: OtaData; recordedAt: string }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// 탭 2 — OKR 트래커
+// 기본 추이 — 8주 평점 + 리뷰 수 차트
 // ════════════════════════════════════════════════════════════════════════════
-function TabOKR({ d }: { d: OtaData }) {
-  const [selBranch, setSelBranch] = useState(d.branches[0] ?? '신설')
+function OtaDetailBasic({
+  branch, ota, otaEntry, last8Labels, last8Scores, last8Reviews,
+}: {
+  branch: string; ota: string; otaEntry?: OtaEntry
+  last8Labels: string[]; last8Scores: number[]; last8Reviews: number[]
+}) {
+  const okr   = otaEntry?.okr ?? 9.0
+  const color = BRANCH_COLOR[branch] ?? 'var(--accent)'
+
+  const scoreData  = last8Labels.map((w, i) => ({ week: w, 평점: last8Scores[i] ?? 0 })).filter(d => d.평점 > 0)
+  const reviewData = last8Labels.map((w, i) => ({ week: w, 리뷰: last8Reviews[i] ?? 0 }))
+
+  const yMin = scoreData.length ? Math.max(0, Math.min(...scoreData.map(d => d.평점)) - 0.5) : 0
+  const yMax = scoreData.length ? Math.min(otaEntry?.max ?? 10, Math.max(...scoreData.map(d => d.평점)) + 0.3) : otaEntry?.max ?? 10
+
   return (
     <div>
-      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 18 }}>🎯 전체 OKR 달성 현황</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {d.otaList.map(({ name, okr, max }) => (
-            <div key={name}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{name} <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}>목표 {okr}/{max}</span></span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {d.branches.map(b => {
-                    const hist = d.scoreHistory[b]?.[name] ?? []
-                    const cur = hist[hist.length - 1] ?? 0
-                    if (!cur) return null
-                    const met = cur >= okr
-                    return (
-                      <span key={b} style={{
-                        padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                        background: met ? 'rgba(0,229,102,0.12)' : 'rgba(255,59,92,0.1)',
-                        color: met ? 'var(--done)' : 'var(--critical)',
-                        border: `1px solid ${met ? 'rgba(0,229,102,0.25)' : 'rgba(255,59,92,0.2)'}`,
-                      }}>
-                        {b} {cur.toFixed(1)}
-                      </span>
-                    )
-                  })}
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${d.branches.length},1fr)`, gap: 8 }}>
-                {d.branches.map(b => {
-                  const hist = d.scoreHistory[b]?.[name] ?? []
-                  const cur = hist[hist.length - 1] ?? 0
-                  if (!cur) return <div key={b} style={{ opacity: 0.2, fontSize: 10, color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 28 }}>미운영</div>
-                  const pct = Math.min((cur / okr) * 100, 100)
-                  const gap = Math.round((cur - okr) * 10) / 10
-                  return (
-                    <div key={b}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 10 }}>
-                        <span style={{ color: 'var(--text-3)' }}>{b}</span>
-                        <span style={{ color: gap >= 0 ? 'var(--done)' : 'var(--critical)', fontWeight: 600 }}>
-                          {gap >= 0 ? '✓' : `${gap.toFixed(1)}`}
-                        </span>
-                      </div>
-                      <div className="progress" style={{ height: 6 }}>
-                        <div className="progress-fill" style={{ width: `${pct}%`, background: scoreColor(cur, okr), borderRadius: 4 }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+      <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>지난 8주 평점 추이</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>점선: OKR 목표 {okr}</div>
+          </div>
         </div>
+        {scoreData.length < 2
+          ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
+          : <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={scoreData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
+                <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} domain={[yMin, yMax]} />
+                <Tooltip {...CHART_TOOLTIP_STYLE} />
+                <ReferenceLine y={okr} stroke="rgba(0,229,102,0.45)" strokeDasharray="6 3"
+                  label={{ value: `OKR ${okr}`, fill: 'var(--done)', fontSize: 10, position: 'right' }} />
+                <Line type="monotone" dataKey="평점" stroke={color} strokeWidth={2.5}
+                  dot={{ fill: color, r: 5, stroke: 'var(--bg-card)', strokeWidth: 2 }} activeDot={{ r: 7 }} />
+              </LineChart>
+            </ResponsiveContainer>
+        }
       </div>
 
-      {/* 지점별 상세 OKR */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        {d.branches.map(b => (
-          <button key={b} onClick={() => setSelBranch(b)}
-            className={selBranch === b ? `badge ${BRANCH_BADGE[b]}` : 'badge'}
-            style={{ cursor: 'pointer', border: 'none', fontSize: 11, padding: '4px 10px', opacity: selBranch === b ? 1 : 0.5 }}>
-            {b}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-        {d.otaList.map(({ name, okr, max }) => {
-          const hist = d.scoreHistory[selBranch]?.[name] ?? []
-          const cur  = hist[hist.length - 1] ?? 0
-          const prev = hist[hist.length - 2] ?? 0
-          if (!cur) return (
-            <div key={name} className="card" style={{ padding: '14px 16px', opacity: 0.4 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{name}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-3)' }}>미운영</div>
-            </div>
-          )
-          const met = cur >= okr
-          const gap = Math.round((cur - okr) * 10) / 10
-          const pct = Math.min(Math.round(cur / okr * 100), 100)
-          return (
-            <div key={name} className="card" style={{ padding: '14px 16px', borderColor: met ? 'rgba(0,229,102,0.25)' : 'transparent' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{name}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-3)' }}>목표 {okr}/{max}</div>
-                </div>
-                <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 10,
-                  background: met ? 'rgba(0,229,102,0.12)' : 'rgba(255,59,92,0.1)',
-                  color: met ? 'var(--done)' : 'var(--critical)' }}>
-                  {met ? '✓ 달성' : `${gap.toFixed(1)}`}
-                </span>
-              </div>
-              <div className="font-display" style={{ fontSize: 26, fontWeight: 800, color: scoreColor(cur, okr), lineHeight: 1, marginBottom: 4 }}>
-                {cur.toFixed(1)}
-              </div>
-              <TrendBadge cur={cur} prev={prev} />
-              <div className="progress" style={{ marginTop: 10 }}>
-                <div className="progress-fill" style={{ width: `${pct}%`, background: scoreColor(cur, okr), borderRadius: 4 }} />
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>{pct}% of OKR</div>
-            </div>
-          )
-        })}
+      <div className="card" style={{ padding: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 16 }}>지난 8주 리뷰 수 추이</div>
+        {reviewData.every(d => d.리뷰 === 0)
+          ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
+          : <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={reviewData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
+                <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any) => [`${v}건`, '리뷰 수']} />
+                <Bar dataKey="리뷰" fill={color} opacity={0.75} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+        }
       </div>
     </div>
   )
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// 탭 3 — OTA 추이
+// Agoda 상세 서브탭
 // ════════════════════════════════════════════════════════════════════════════
-function TabTrend({ d }: { d: OtaData }) {
-  const [selOTA, setSelOTA]     = useState(d.otaList[0]?.name ?? 'Agoda')
-  const [viewMode, setViewMode] = useState<'score' | 'reviews'>('score')
+type AgodaSubTab = '리뷰 작성률' | '점수 분포' | '불만 분석' | 'VOC'
 
-  const { okr } = d.otaList.find(o => o.name === selOTA) ?? { okr: 9.0 }
-
-  const scoreChartData = d.dateLabels.map((label, i) => {
-    const entry: any = { month: label }
-    d.branches.forEach(b => {
-      const v = d.scoreHistory[b]?.[selOTA]?.[i] ?? 0
-      if (v > 0) entry[b] = v
-    })
-    return entry
-  })
-
-  const reviewChartData = d.dateLabels.map((label, i) => {
-    const entry: any = { month: label }
-    d.branches.forEach(b => {
-      const v = d.reviewHistory[b]?.[selOTA]?.[i] ?? 0
-      if (v > 0) entry[b] = v
-    })
-    return entry
-  })
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {d.otaList.map(o => (
-            <button key={o.name} onClick={() => setSelOTA(o.name)}
-              style={{
-                padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
-                background: selOTA === o.name ? 'var(--accent)' : 'var(--bg-card)',
-                color: selOTA === o.name ? '#fff' : 'var(--text-2)',
-                fontWeight: selOTA === o.name ? 600 : 400,
-              }}>
-              {o.name}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {(['score', 'reviews'] as const).map(v => (
-            <button key={v} onClick={() => setViewMode(v)}
-              style={{
-                padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
-                background: viewMode === v ? 'var(--bg-card)' : 'transparent',
-                color: viewMode === v ? 'var(--text-1)' : 'var(--text-3)',
-                fontWeight: viewMode === v ? 600 : 400,
-              }}>
-              {v === 'score' ? '📈 평점 추이' : '📊 리뷰 수 추이'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {viewMode === 'score' && (
-        <div className="card" style={{ padding: 24, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>
-            {selOTA} 지점별 평점 추이
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>점선: OKR 목표 {okr}점</div>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={scoreChartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="month" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
-              <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
-              <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--text-1)' }} />
-              <Legend wrapperStyle={{ fontSize: 12 }} formatter={v => <span style={{ color: BRANCH_COLOR[v] }}>{v}</span>} />
-              <ReferenceLine y={okr} stroke="rgba(255,255,255,0.2)" strokeDasharray="6 3" label={{ value: `OKR ${okr}`, fill: 'var(--text-3)', fontSize: 10, position: 'right' }} />
-              {d.branches.map(b => (
-                <Line key={b} type="monotone" dataKey={b}
-                  stroke={BRANCH_COLOR[b]} strokeWidth={2}
-                  dot={{ fill: BRANCH_COLOR[b], r: 4 }} activeDot={{ r: 6 }}
-                  connectNulls={false} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {viewMode === 'reviews' && (
-        <div className="card" style={{ padding: 24, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 20 }}>
-            {selOTA} 누적 리뷰 수 추이
-          </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={reviewChartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="month" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
-              <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--text-1)' }} formatter={(v: any) => [`${v.toLocaleString()}건`, '']} />
-              <Legend wrapperStyle={{ fontSize: 12 }} formatter={v => <span style={{ color: BRANCH_COLOR[v] }}>{v}</span>} />
-              {d.branches.map(b => (
-                <Line key={b} type="monotone" dataKey={b}
-                  stroke={BRANCH_COLOR[b]} strokeWidth={2}
-                  dot={{ fill: BRANCH_COLOR[b], r: 4 }} activeDot={{ r: 6 }}
-                  connectNulls={false} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* 전 OTA 스냅샷 미니카드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-        {d.otaList.map(({ name, okr: o }) => (
-          <div key={name} className="card" style={{ padding: '12px 14px', cursor: 'pointer', borderColor: name === selOTA ? 'var(--accent)' : undefined }}
-            onClick={() => setSelOTA(name)}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: name === selOTA ? 'var(--accent)' : 'var(--text-2)', marginBottom: 8 }}>{name}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {d.branches.map(b => {
-                const hist = d.scoreHistory[b]?.[name] ?? []
-                const cur = hist[hist.length - 1] ?? 0
-                if (!cur) return null
-                return (
-                  <div key={b} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{b}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: scoreColor(cur, o) }}>{cur.toFixed(1)}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// 탭 4 — Agoda 상세
-// ════════════════════════════════════════════════════════════════════════════
-type AgodaSubTab = 'OKR' | '리뷰 작성률' | '점수 분포' | '불만 분석' | 'VOC'
-
-const TOGGLE_BTN = (active: boolean) => ({
-  padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
-  background: active ? 'var(--accent)' : 'var(--bg-card)',
-  color: active ? '#fff' : 'var(--text-2)',
-  fontWeight: active ? 600 : 400,
-} as const)
-
-const SCORE_BANDS = [
-  { label: '9~10점', color: 'var(--done)' },
-  { label: '7~8점',  color: 'var(--accent)' },
-  { label: '5~6점',  color: 'var(--medium)' },
-  { label: '2~4점',  color: 'var(--critical)' },
-]
-
-function TabAgoda({ d }: { d: OtaData }) {
-  const [branch, setBranch]         = useState(d.branches[0] ?? '신설')
-  const [sub, setSub]               = useState<AgodaSubTab>('OKR')
+function AgodaDetailTabs({ branch, d }: { branch: string; d: OtaData }) {
+  const [sub, setSub]               = useState<AgodaSubTab>('리뷰 작성률')
   const [distViewMode, setDistView] = useState<'count' | 'ratio'>('count')
   const [timeMode, setTimeMode]     = useState<'weekly' | 'monthly'>('weekly')
 
-  const agodaOTA     = d.otaList.find(o => o.name === 'Agoda') ?? { okr: 9.0, max: 10 }
-  const scoreHist    = d.scoreHistory[branch]?.['Agoda'] ?? []
-  const curScore     = scoreHist[scoreHist.length - 1] ?? 0
-  const prevScore    = scoreHist[scoreHist.length - 2] ?? 0
-  const totalReviews = (d.reviewHistory[branch]?.['Agoda'] ?? []).slice(-1)[0] ?? 0
+  const agodaOTA    = d.otaList.find(o => o.name === 'Agoda') ?? { okr: 9.0, max: 10 }
+  const scoreHist   = d.scoreHistory[branch]?.['Agoda'] ?? []
+  const curScore    = scoreHist[scoreHist.length - 1] ?? 0
+  const prevScore   = scoreHist[scoreHist.length - 2] ?? 0
+  const totalReviews = (d.reviewHistory[branch]?.['Agoda'] ?? []).reduce((s, v) => s + v, 0)
 
-  const scoreChartData = d.dateLabels.map((label, i) => ({
-    month: label, 점수: scoreHist[i] ?? 0,
-  })).filter(r => r.점수 > 0)
-
-  // Score distribution — heatmap
   const distHistoryRaw = d.agodaDist[branch] ?? []
   const distHistory    = timeMode === 'monthly' ? groupDistByMonth(distHistoryRaw) : distHistoryRaw
   const heatmapMaxVal  = Math.max(
     ...distHistory.flatMap(({ scores }) => {
-      const total = scores.reduce((s,v)=>s+v,0) || 1
-      return distViewMode === 'ratio' ? scores.map(cnt => Math.round(cnt/total*1000)/10) : scores
+      const total = scores.reduce((s, v) => s + v, 0) || 1
+      return distViewMode === 'ratio' ? scores.map(cnt => Math.round(cnt / total * 1000) / 10) : scores
     }), 1
   )
 
-  // Complaints
-  const complaintsRaw    = d.agodaComplaints[branch] ?? []
-  const complaints       = timeMode === 'monthly' ? groupComplaintsByMonth(complaintsRaw) : complaintsRaw
-  const baseRoom         = complaintsRaw.slice(0, 4).reduce((s,c)=>s+c.room,0) / Math.max(complaintsRaw.slice(0,4).length,1)
-  const baseBath         = complaintsRaw.slice(0, 4).reduce((s,c)=>s+c.bathroom,0) / Math.max(complaintsRaw.slice(0,4).length,1)
-  const latestComplaint  = complaintsRaw[complaintsRaw.length - 1]
+  const complaintsRaw   = d.agodaComplaints[branch] ?? []
+  const complaints      = timeMode === 'monthly' ? groupComplaintsByMonth(complaintsRaw) : complaintsRaw
+  const baseRoom        = complaintsRaw.slice(0, 4).reduce((s, c) => s + c.room, 0) / Math.max(complaintsRaw.slice(0, 4).length, 1)
+  const baseBath        = complaintsRaw.slice(0, 4).reduce((s, c) => s + c.bathroom, 0) / Math.max(complaintsRaw.slice(0, 4).length, 1)
+  const latestComplaint = complaintsRaw[complaintsRaw.length - 1]
 
-  // Review rate
-  const reviewRateRaw  = d.agodaReviewRate?.[branch] ?? []
-  const reviewRate     = timeMode === 'monthly' ? groupReviewRateByMonth(reviewRateRaw) : reviewRateRaw
-  const latestRate     = reviewRateRaw[reviewRateRaw.length - 1]
+  const reviewRateRaw = d.agodaReviewRate?.[branch] ?? []
+  const reviewRate    = timeMode === 'monthly' ? groupReviewRateByMonth(reviewRateRaw) : reviewRateRaw
+  const latestRate    = reviewRateRaw[reviewRateRaw.length - 1]
 
   const voc      = d.agodaVoc[branch] ?? []
   const allBands = [...new Set(voc.map(v => v.band))]
@@ -539,33 +434,7 @@ function TabAgoda({ d }: { d: OtaData }) {
 
   return (
     <div>
-      {/* 지점 선택 + 서브탭 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {d.branches.map(b => (
-            <button key={b} onClick={() => setBranch(b)}
-              className={branch === b ? `badge ${BRANCH_BADGE[b]}` : 'badge'}
-              style={{ cursor: 'pointer', border: 'none', fontSize: 11, padding: '4px 10px', opacity: branch === b ? 1 : 0.5 }}>
-              {b}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(['OKR', '리뷰 작성률', '점수 분포', '불만 분석', 'VOC'] as AgodaSubTab[]).map(t => (
-            <button key={t} onClick={() => setSub(t)}
-              style={{
-                padding: '5px 11px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11,
-                background: sub === t ? 'var(--accent)' : 'var(--bg-card)',
-                color: sub === t ? '#fff' : 'var(--text-2)',
-                fontWeight: sub === t ? 600 : 400,
-              }}>
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 상단 요약 */}
+      {/* Agoda 요약 스탯 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
         {[
           { label: '현재 점수',   value: curScore ? curScore.toFixed(1) : '—', sub: `목표 ${agodaOTA.okr}+`, color: curScore ? scoreColor(curScore, agodaOTA.okr) : 'var(--text-3)' },
@@ -581,91 +450,52 @@ function TabAgoda({ d }: { d: OtaData }) {
         ))}
       </div>
 
-      {/* OKR */}
-      {sub === 'OKR' && (
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 20 }}>Agoda 평점 추이 — {branch}</div>
-          {scoreChartData.length < 2
-            ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
-            : <>
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={scoreChartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="month" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
-                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
-                  <ReferenceLine y={agodaOTA.okr} stroke="rgba(0,229,102,0.4)" strokeDasharray="6 3"
-                    label={{ value: `OKR ${agodaOTA.okr}`, fill: 'var(--done)', fontSize: 10, position: 'right' }} />
-                  <Line type="monotone" dataKey="점수" stroke={BRANCH_COLOR[branch] ?? 'var(--accent)'} strokeWidth={2.5}
-                    dot={{ fill: BRANCH_COLOR[branch] ?? 'var(--accent)', r: 5 }} activeDot={{ r: 7 }} />
-                </LineChart>
-              </ResponsiveContainer>
-              <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {scoreChartData.map((p, i) => (
-                  <div key={i} style={{
-                    padding: '6px 12px', borderRadius: 8, fontSize: 12, textAlign: 'center',
-                    background: p.점수 >= agodaOTA.okr ? 'rgba(0,229,102,0.1)' : 'rgba(255,59,92,0.08)',
-                    border: `1px solid ${p.점수 >= agodaOTA.okr ? 'rgba(0,229,102,0.25)' : 'rgba(255,59,92,0.2)'}`,
-                  }}>
-                    <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 2 }}>{p.month}</div>
-                    <div style={{ fontWeight: 700, color: p.점수 >= agodaOTA.okr ? 'var(--done)' : 'var(--critical)' }}>{p.점수.toFixed(1)}</div>
-                    <div style={{ fontSize: 9, color: p.점수 >= agodaOTA.okr ? 'var(--done)' : 'var(--critical)' }}>
-                      {p.점수 >= agodaOTA.okr ? '✓' : `${(p.점수 - agodaOTA.okr).toFixed(1)}`}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          }
+      {/* 서브탭 바 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {(['리뷰 작성률', '점수 분포', '불만 분석', 'VOC'] as AgodaSubTab[]).map(t => (
+            <button key={t} onClick={() => setSub(t)} style={{
+              padding: '6px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
+              background: sub === t ? 'var(--accent)' : 'var(--bg-card)',
+              color: sub === t ? '#fff' : 'var(--text-2)', fontWeight: sub === t ? 600 : 400,
+            }}>{t}</button>
+          ))}
         </div>
-      )}
+        {sub !== 'VOC' && timeModeToggle}
+      </div>
 
       {/* 리뷰 작성률 */}
       {sub === '리뷰 작성률' && (
         <div className="card" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>Agoda 리뷰 작성률 추이 — {branch}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>체크아웃 고객 중 리뷰 작성 비율 (막대: 리뷰 건수, 선: 작성률)</div>
-            </div>
-            {timeModeToggle}
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>Agoda 리뷰 작성률 추이 — {branch}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>체크아웃 고객 중 리뷰 작성 비율 (막대: 리뷰 건수, 선: 작성률)</div>
           {reviewRate.length === 0
-            ? (
-              <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-3)' }}>
+            ? <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-3)' }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
-                <div style={{ fontSize: 13, marginBottom: 6 }}>리뷰 작성률 데이터가 없습니다</div>
-                <div style={{ fontSize: 11 }}>체크아웃 건수와 리뷰 건수를 매주 입력하면 작성률이 표시됩니다</div>
+                <div style={{ fontSize: 13 }}>리뷰 작성률 데이터가 없습니다</div>
               </div>
-            )
-            : (
-              <ResponsiveContainer width="100%" height={280}>
+            : <ResponsiveContainer width="100%" height={280}>
                 <ComposedChart data={reviewRate} margin={{ top: 10, right: 50, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="left" stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <YAxis yAxisId="right" orientation="right" stroke="var(--done)" tick={{ fontSize: 11 }}
-                    tickFormatter={(v: any) => `${v}%`} domain={[0, 100]} />
-                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                    formatter={(v: any, name: any) => name === '작성률(%)' ? [`${v}%`, name] : [`${v}건`, name]} />
+                  <YAxis yAxisId="right" orientation="right" stroke="var(--done)" tick={{ fontSize: 11 }} tickFormatter={(v: any) => `${v}%`} domain={[0, 100]} />
+                  <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any, name: any) => name === '작성률(%)' ? [`${v}%`, name] : [`${v}건`, name]} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="left" dataKey="reviewCount" name="리뷰 건수" fill="var(--accent)" opacity={0.8} radius={[3,3,0,0]} />
-                  <Line yAxisId="right" type="monotone" dataKey="ratePct" name="작성률(%)" stroke="var(--done)"
-                    strokeWidth={2.5} dot={{ fill: 'var(--done)', r: 4 }} activeDot={{ r: 6 }} />
+                  <Bar yAxisId="left" dataKey="reviewCount" name="리뷰 건수" fill="var(--accent)" opacity={0.8} radius={[3, 3, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="ratePct" name="작성률(%)" stroke="var(--done)" strokeWidth={2.5} dot={{ fill: 'var(--done)', r: 4 }} activeDot={{ r: 6 }} />
                 </ComposedChart>
               </ResponsiveContainer>
-            )
           }
         </div>
       )}
 
-      {/* 점수 분포 — 히트맵 */}
+      {/* 점수 분포 */}
       {sub === '점수 분포' && (
         <div className="card" style={{ padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 8, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>점수 분포 히트맵 — {branch}</div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
-              {timeModeToggle}
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
               <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', margin: '0 4px' }} />
               {(['ratio', 'count'] as const).map(v => (
                 <button key={v} onClick={() => setDistView(v)} style={TOGGLE_BTN(distViewMode === v)}>
@@ -685,20 +515,12 @@ function TabAgoda({ d }: { d: OtaData }) {
                       <th style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontWeight: 500, fontSize: 11, whiteSpace: 'nowrap', width: 64 }}>구간</th>
                       {distHistory.map(({ week }, wi) => (
                         <th key={week} style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 500, fontSize: 10, paddingBottom: 6, minWidth: 56 }}>
-                          {timeMode === 'weekly' ? (
-                            <>
-                              <div style={{ fontWeight: 600, fontSize: 11 }}>W{wi + 1}</div>
-                              <div style={{ fontSize: 10 }}>{week}</div>
-                            </>
-                          ) : week}
+                          {timeMode === 'weekly' ? (<><div style={{ fontWeight: 600, fontSize: 11 }}>W{wi + 1}</div><div style={{ fontSize: 10 }}>{week}</div></>) : week}
                         </th>
                       ))}
                     </tr>
-                    {/* 평균 점수 행 */}
                     <tr>
-                      <td style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', paddingBottom: 10 }}>
-                        평균 점수
-                      </td>
+                      <td style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', paddingBottom: 10 }}>평균 점수</td>
                       {distHistory.map(({ week, scores, avgScore }) => {
                         const avg = avgScore && avgScore > 0 ? avgScore : calcWeekAvg(scores)
                         return (
@@ -720,20 +542,14 @@ function TabAgoda({ d }: { d: OtaData }) {
                   <tbody>
                     {HEATMAP_BANDS.map((label, bandIdx) => (
                       <tr key={label}>
-                        <td style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap', paddingBottom: 3 }}>
-                          {label}
-                        </td>
+                        <td style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap', paddingBottom: 3 }}>{label}</td>
                         {distHistory.map(({ week, scores }) => {
-                          const total = scores.reduce((s,v)=>s+v,0) || 1
+                          const total = scores.reduce((s, v) => s + v, 0) || 1
                           const raw = scores[bandIdx] ?? 0
-                          const display = distViewMode === 'ratio' ? Math.round(raw/total*1000)/10 : raw
+                          const display = distViewMode === 'ratio' ? Math.round(raw / total * 1000) / 10 : raw
                           const { background, color } = heatCellStyle(display, heatmapMaxVal)
                           return (
-                            <td key={week} style={{
-                              textAlign: 'center', borderRadius: 6, padding: '7px 4px',
-                              background, color, fontWeight: display > 0 ? 600 : 400,
-                              fontSize: 11, transition: 'background 0.2s',
-                            }}>
+                            <td key={week} style={{ textAlign: 'center', borderRadius: 6, padding: '7px 4px', background, color, fontWeight: display > 0 ? 600 : 400, fontSize: 11 }}>
                               {display > 0 ? (distViewMode === 'ratio' ? `${display}%` : `${display}`) : '0'}
                             </td>
                           )
@@ -746,33 +562,22 @@ function TabAgoda({ d }: { d: OtaData }) {
             )
           }
 
-          {/* 범례 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18, fontSize: 11, color: 'var(--text-3)' }}>
             <span>낮음</span>
-            <div style={{
-              width: 120, height: 10, borderRadius: 5,
-              background: 'linear-gradient(to right, rgba(0,212,160,0.12), rgba(0,212,160,0.5), rgba(0,212,160,0.9))',
-            }} />
+            <div style={{ width: 120, height: 10, borderRadius: 5, background: 'linear-gradient(to right, rgba(0,212,160,0.12), rgba(0,212,160,0.5), rgba(0,212,160,0.9))' }} />
             <span>높음</span>
-            <span style={{ marginLeft: 8 }}>색이 진할수록 해당 구간 비율이 높음</span>
           </div>
 
-          {/* 평균 점수 추이 차트 */}
           {(() => {
             const avgData = distHistory
-              .map(({ week, scores, avgScore }, wi) => ({
-                label: `W${wi + 1} ${week}`,
-                avg: avgScore && avgScore > 0 ? avgScore : calcWeekAvg(scores),
-              }))
+              .map(({ week, scores, avgScore }, wi) => ({ label: `W${wi + 1} ${week}`, avg: avgScore && avgScore > 0 ? avgScore : calcWeekAvg(scores) }))
               .filter(d => d.avg > 0)
             if (avgData.length === 0) return null
             const minAvg = Math.max(0, Math.min(...avgData.map(d => d.avg)) - 0.5)
             const maxAvg = Math.min(10, Math.max(...avgData.map(d => d.avg)) + 0.3)
             return (
               <div style={{ marginTop: 28 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', marginBottom: 10 }}>
-                  {timeMode === 'monthly' ? '월별' : '주별'} 평균 점수 추이
-                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', marginBottom: 10 }}>{timeMode === 'monthly' ? '월별' : '주별'} 평균 점수 추이</div>
                 <ResponsiveContainer width="100%" height={160}>
                   <AreaChart data={avgData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                     <defs>
@@ -784,10 +589,7 @@ function TabAgoda({ d }: { d: OtaData }) {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} />
                     <YAxis domain={[minAvg, maxAvg]} tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v.toFixed(1)}점`} width={44} />
-                    <Tooltip
-                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any) => [`${Number(v).toFixed(2)}점`, '평균 점수']}
-                    />
+                    <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any) => [`${Number(v).toFixed(2)}점`, '평균 점수']} />
                     <Area type="monotone" dataKey="avg" stroke="#e91e8c" strokeWidth={2} fill="url(#avgGrad)" dot={{ r: 4, fill: '#e91e8c', stroke: 'var(--bg-card)', strokeWidth: 2 }} activeDot={{ r: 6 }} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -815,20 +617,17 @@ function TabAgoda({ d }: { d: OtaData }) {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
                     <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                      formatter={(v: any, name: any) => [`${v}건`, name]} />
+                    <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any, name: any) => [`${v}건`, name]} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     {timeMode === 'weekly' && baseRoom > 0 && (
-                      <ReferenceLine y={Math.round(baseRoom*10)/10} stroke="var(--high)" strokeDasharray="6 3" opacity={0.5}
+                      <ReferenceLine y={Math.round(baseRoom * 10) / 10} stroke="var(--high)" strokeDasharray="6 3" opacity={0.5}
                         label={{ value: '기준', fill: 'var(--high)', fontSize: 9, position: 'insideTopRight' }} />
                     )}
                     {timeMode === 'weekly' && baseBath > 0 && (
-                      <ReferenceLine y={Math.round(baseBath*10)/10} stroke="var(--critical)" strokeDasharray="6 3" opacity={0.5} />
+                      <ReferenceLine y={Math.round(baseBath * 10) / 10} stroke="var(--critical)" strokeDasharray="6 3" opacity={0.5} />
                     )}
-                    <Line type="monotone" dataKey="room" name="객실 불만" stroke="var(--high)" strokeWidth={2.5}
-                      dot={{ fill: 'var(--high)', r: 4 }} activeDot={{ r: 6 }} />
-                    <Line type="monotone" dataKey="bathroom" name="욕실 불만" stroke="var(--critical)" strokeWidth={2.5}
-                      dot={{ fill: 'var(--critical)', r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="room" name="객실 불만" stroke="var(--high)" strokeWidth={2.5} dot={{ fill: 'var(--high)', r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="bathroom" name="욕실 불만" stroke="var(--critical)" strokeWidth={2.5} dot={{ fill: 'var(--critical)', r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
             }
@@ -853,9 +652,9 @@ function TabAgoda({ d }: { d: OtaData }) {
                 )}
                 <div style={{ display: 'flex', gap: 16 }}>
                   {[
-                    { label: '총 객실 불만', value: complaintsRaw.reduce((s,c)=>s+c.room,0), color: 'var(--high)' },
-                    { label: '총 욕실 불만', value: complaintsRaw.reduce((s,c)=>s+c.bathroom,0), color: 'var(--critical)' },
-                    { label: '주간 평균', value: (complaintsRaw.reduce((s,c)=>s+c.room+c.bathroom,0)/complaintsRaw.length).toFixed(1), color: 'var(--medium)', unit: '건/주' },
+                    { label: '총 객실 불만', value: complaintsRaw.reduce((s, c) => s + c.room, 0), color: 'var(--high)' },
+                    { label: '총 욕실 불만', value: complaintsRaw.reduce((s, c) => s + c.bathroom, 0), color: 'var(--critical)' },
+                    { label: '주간 평균', value: (complaintsRaw.reduce((s, c) => s + c.room + c.bathroom, 0) / complaintsRaw.length).toFixed(1), color: 'var(--medium)', unit: '건/주' },
                   ].map(item => (
                     <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{item.label}</span>
@@ -867,9 +666,7 @@ function TabAgoda({ d }: { d: OtaData }) {
               <div className="card" style={{ padding: 20 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 12 }}>운영 메모</div>
                 {d.complaintMemos[branch]
-                  ? <div style={{ fontSize: 11, color: 'var(--text-2)', background: 'var(--bg-hover)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.8 }}>
-                      {d.complaintMemos[branch]}
-                    </div>
+                  ? <div style={{ fontSize: 11, color: 'var(--text-2)', background: 'var(--bg-hover)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.8 }}>{d.complaintMemos[branch]}</div>
                   : <div style={{ fontSize: 12, color: 'var(--text-3)' }}>메모 없음</div>
                 }
               </div>
@@ -886,46 +683,296 @@ function TabAgoda({ d }: { d: OtaData }) {
           {voc.length === 0
             ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
             : allBands.map(band => {
-              const items = voc.filter(v => v.band === band)
-              const good  = items.filter(v => v.sentiment === 'good')
-              const bad   = items.filter(v => v.sentiment === 'bad')
-              return (
-                <div key={band} style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {band}
-                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: good.length && bad.length ? '1fr 1fr' : '1fr', gap: 12 }}>
-                    {good.length > 0 && (
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--done)', fontWeight: 600, marginBottom: 6 }}>👍 좋아요</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {good.map((v, i) => (
-                            <div key={i} style={{ padding: '6px 10px', background: 'rgba(0,229,102,0.08)', border: '1px solid rgba(0,229,102,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-1)' }}>
-                              {v.keyword}
-                            </div>
-                          ))}
+                const items = voc.filter(v => v.band === band)
+                const good  = items.filter(v => v.sentiment === 'good')
+                const bad   = items.filter(v => v.sentiment === 'bad')
+                return (
+                  <div key={band} style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {band}<div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: good.length && bad.length ? '1fr 1fr' : '1fr', gap: 12 }}>
+                      {good.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, color: 'var(--done)', fontWeight: 600, marginBottom: 6 }}>👍 좋아요</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {good.map((v, i) => (
+                              <div key={i} style={{ padding: '6px 10px', background: 'rgba(0,229,102,0.08)', border: '1px solid rgba(0,229,102,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-1)' }}>{v.keyword}</div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {bad.length > 0 && (
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--critical)', fontWeight: 600, marginBottom: 6 }}>👎 나빠요</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {bad.map((v, i) => (
-                            <div key={i} style={{ padding: '6px 10px', background: 'rgba(255,59,92,0.08)', border: '1px solid rgba(255,59,92,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-1)' }}>
-                              {v.keyword}
-                            </div>
-                          ))}
+                      )}
+                      {bad.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, color: 'var(--critical)', fontWeight: 600, marginBottom: 6 }}>👎 나빠요</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {bad.map((v, i) => (
+                              <div key={i} style={{ padding: '6px 10px', background: 'rgba(255,59,92,0.08)', border: '1px solid rgba(255,59,92,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-1)' }}>{v.keyword}</div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })
+                )
+              })
           }
         </div>
+      )}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 데이터 입력 모달
+// ════════════════════════════════════════════════════════════════════════════
+function InputModal({
+  branch, ota, propertyId, otaEntry, onClose, onSaved,
+}: {
+  branch: string; ota: string; propertyId?: number; otaEntry?: OtaEntry
+  onClose: () => void; onSaved: () => void
+}) {
+  const today = new Date(); const pad = (n: number) => String(n).padStart(2, '0')
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+
+  const [date, setDate]         = useState(todayStr)
+  const [score, setScore]       = useState('')
+  const [reviews, setReviews]   = useState('')
+  const [checkouts, setCheckouts] = useState('')
+  const [s2,setS2]   = useState('0'); const [s3,setS3]   = useState('0'); const [s4,setS4]   = useState('0')
+  const [s5,setS5]   = useState('0'); const [s6,setS6]   = useState('0'); const [s7,setS7]   = useState('0')
+  const [s8,setS8]   = useState('0'); const [s9,setS9]   = useState('0'); const [s10,setS10] = useState('0')
+  const [roomComp, setRoom]     = useState('0')
+  const [bathComp, setBath]     = useState('0')
+  const [memo, setMemo]         = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
+
+  const isAgoda = ota === 'Agoda'
+  const rateDisplay = reviews && checkouts ? `${(parseInt(reviews) / parseInt(checkouts) * 100).toFixed(1)}%` : ''
+
+  const save = async () => {
+    if (!date || !score || !reviews) { setError('날짜, 평점, 리뷰 수는 필수입니다.'); return }
+    if (!propertyId) { setError('property_id를 찾을 수 없습니다. 관리자에게 문의하세요.'); return }
+    setSaving(true); setError('')
+    try {
+      const res = await fetch('/api/ota/scores', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId, recordedAt: date, overallScore: parseFloat(score), reviewCount: parseInt(reviews) }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+
+      if (isAgoda) {
+        if (checkouts) {
+          await fetch('/api/ota/agoda-rate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ propertyId, weekStart: date, reviewCount: parseInt(reviews), checkoutCount: parseInt(checkouts), ratePct: parseFloat(rateDisplay) }),
+          })
+        }
+        const distVals = [s2,s3,s4,s5,s6,s7,s8,s9,s10].map(Number)
+        if (distVals.some(v => v > 0)) {
+          await fetch('/api/ota/agoda-dist', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ propertyId, weekStart: date, score2:distVals[0],score3:distVals[1],score4:distVals[2],score5:distVals[3],score6:distVals[4],score7:distVals[5],score8:distVals[6],score9:distVals[7],score10:distVals[8] }),
+          })
+        }
+        if (parseInt(roomComp) > 0 || parseInt(bathComp) > 0 || memo) {
+          await fetch('/api/ota/agoda-complaints', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ propertyId, weekStart: date, roomComplaints: parseInt(roomComp)||0, bathroomComplaints: parseInt(bathComp)||0, memo }),
+          })
+        }
+      }
+      onSaved()
+    } catch (e: any) {
+      setError(e.message ?? '저장 중 오류가 발생했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-1)', fontSize: 13 }
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 28, width: 520, maxHeight: '84vh', overflowY: 'auto' }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', marginBottom: 20 }}>
+          데이터 입력 — {branch} {ota}
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>기준 날짜 (주 시작일)</label>
+          <input style={inputStyle} type="date" value={date} onChange={e => setDate(e.target.value)} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+          <div>
+            <label style={labelStyle}>평점</label>
+            <input style={inputStyle} type="number" step="0.1" min="0" max={otaEntry?.max ?? 10} placeholder="예: 9.2" value={score} onChange={e => setScore(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>리뷰 수</label>
+            <input style={inputStyle} type="number" placeholder="예: 58" value={reviews} onChange={e => setReviews(e.target.value)} />
+          </div>
+        </div>
+
+        {isAgoda && (
+          <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 10px', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              Agoda 상세 입력 (선택)
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+              <div>
+                <label style={labelStyle}>체크아웃 수</label>
+                <input style={inputStyle} type="number" placeholder="예: 120" value={checkouts} onChange={e => setCheckouts(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>리뷰 작성률</label>
+                <input style={{ ...inputStyle, background: 'var(--bg-hover)' }} type="text" readOnly value={rateDisplay} placeholder="자동 계산" />
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>점수 분포</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
+              {[['2점대',s2,setS2],['3점대',s3,setS3],['4점대',s4,setS4],['5점대',s5,setS5],['6점대',s6,setS6],['7점대',s7,setS7],['8점대',s8,setS8],['9점대',s9,setS9],['10점',s10,setS10]].map(([label, val, setter]) => (
+                <div key={label as string}>
+                  <label style={labelStyle}>{label as string}</label>
+                  <input style={inputStyle} type="number" min="0" value={val as string} onChange={e => (setter as (v: string) => void)(e.target.value)} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>불만 건수</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+              <div>
+                <label style={labelStyle}>객실 정비 불만</label>
+                <input style={inputStyle} type="number" min="0" value={roomComp} onChange={e => setRoom(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>욕실 불만</label>
+                <input style={inputStyle} type="number" min="0" value={bathComp} onChange={e => setBath(e.target.value)} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>운영 메모</label>
+              <input style={inputStyle} type="text" placeholder="예: 3층 욕실 배수 점검 완료" value={memo} onChange={e => setMemo(e.target.value)} />
+            </div>
+          </>
+        )}
+
+        {error && <div style={{ fontSize: 12, color: 'var(--critical)', marginBottom: 12, padding: '8px 12px', background: 'rgba(255,59,92,0.08)', borderRadius: 6 }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text-2)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>취소</button>
+          <button onClick={save} disabled={saving} style={{ padding: '9px 18px', borderRadius: 7, border: 'none', background: saving ? 'var(--bg-hover)' : 'var(--accent)', color: saving ? 'var(--text-3)' : '#000', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+            {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// OTA 상세 뷰 (지점 + OTA 선택 시)
+// ════════════════════════════════════════════════════════════════════════════
+function OtaDetailView({
+  branch, ota, d, branchOtaToId, onSaved,
+}: {
+  branch: string; ota: string; d: OtaData
+  branchOtaToId: Record<string, Record<string, number>>
+  onSaved: () => void
+}) {
+  const [mainTab, setMainTab] = useState<'basic' | 'agoda'>('basic')
+  const [showModal, setShowModal] = useState(false)
+
+  const otaEntry     = d.otaList.find(o => o.name === ota)
+  const allScores    = d.scoreHistory[branch]?.[ota] ?? []
+  const allReviews   = d.reviewHistory[branch]?.[ota] ?? []
+  const last8Labels  = d.dateLabels.slice(-8)
+  const last8Scores  = allScores.slice(-8)
+  const last8Reviews = allReviews.slice(-8)
+  const curScore     = allScores[allScores.length - 1] ?? 0
+  const prevScore    = allScores[allScores.length - 2] ?? 0
+  const curReviews   = allReviews[allReviews.length - 1] ?? 0
+  const propertyId   = branchOtaToId?.[branch]?.[ota]
+
+  return (
+    <div style={{ padding: '28px 32px' }}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: BRANCH_COLOR[branch], display: 'inline-block' }} />
+            {branch} · {ota}
+          </div>
+          <h2 className="font-display" style={{ fontSize: 24, fontWeight: 800 }}>{ota}</h2>
+        </div>
+        <button onClick={() => setShowModal(true)} style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px',
+          background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 8,
+          fontSize: 13, fontWeight: 700, cursor: 'pointer',
+        }}>
+          <Plus size={14} /> 데이터 입력
+        </button>
+      </div>
+
+      {/* 요약 스탯 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+        <div className="card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>현재 평점</div>
+          <div className="font-display" style={{ fontSize: 28, fontWeight: 800, color: curScore && otaEntry ? scoreColor(curScore, otaEntry.okr) : 'var(--text-3)', lineHeight: 1 }}>
+            {curScore ? curScore.toFixed(1) : '—'}
+          </div>
+          {otaEntry && <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>OKR 목표 {otaEntry.okr} · {curScore >= otaEntry.okr ? '✓ 달성' : '미달'}</div>}
+        </div>
+        <div className="card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>전주 대비</div>
+          <div className="font-display" style={{ fontSize: 28, fontWeight: 800, color: curScore >= prevScore ? 'var(--done)' : 'var(--critical)', lineHeight: 1 }}>
+            {curScore && prevScore ? `${(curScore - prevScore) >= 0 ? '+' : ''}${(curScore - prevScore).toFixed(1)}` : '—'}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>직전주 {prevScore ? prevScore.toFixed(1) : '—'}</div>
+        </div>
+        <div className="card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>최근 주 리뷰</div>
+          <div className="font-display" style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1 }}>
+            {curReviews.toLocaleString()}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>8주 누적 {allReviews.slice(-8).reduce((s, v) => s + v, 0).toLocaleString()}건</div>
+        </div>
+      </div>
+
+      {/* 탭바 (Agoda만) */}
+      {ota === 'Agoda' && (
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
+          {([['basic', '📊 기본 추이'], ['agoda', '🔍 Agoda 상세']] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setMainTab(key)} style={{
+              padding: '9px 18px', background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: mainTab === key ? 700 : 400,
+              color: mainTab === key ? 'var(--accent)' : 'var(--text-3)',
+              borderBottom: mainTab === key ? '2px solid var(--accent)' : '2px solid transparent',
+              marginBottom: -1,
+            }}>{label}</button>
+          ))}
+        </div>
+      )}
+
+      {/* 기본 추이 */}
+      {(mainTab === 'basic' || ota !== 'Agoda') && (
+        <OtaDetailBasic branch={branch} ota={ota} otaEntry={otaEntry}
+          last8Labels={last8Labels} last8Scores={last8Scores} last8Reviews={last8Reviews} />
+      )}
+
+      {/* Agoda 상세 */}
+      {mainTab === 'agoda' && ota === 'Agoda' && (
+        <AgodaDetailTabs branch={branch} d={d} />
+      )}
+
+      {/* 입력 모달 */}
+      {showModal && (
+        <InputModal branch={branch} ota={ota} propertyId={propertyId} otaEntry={otaEntry}
+          onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); onSaved() }} />
       )}
     </div>
   )
@@ -945,10 +992,11 @@ interface OtaScoresClientProps {
   complaintMemos?:   Record<string, string>
   agodaVoc?:         Record<string, { band: string; sentiment: string; keyword: string }[]>
   agodaReviewRate?:  Record<string, AgodaReviewRateWeek[]>
+  branchOtaToId?:    Record<string, Record<string, number>>
 }
 
 export default function OtaScoresClient({
-  recordedAt      = '2026-05-18',
+  recordedAt      = '—',
   scoreHistory    = {},
   reviewHistory   = {},
   dateLabels      = [],
@@ -958,83 +1006,69 @@ export default function OtaScoresClient({
   complaintMemos  = {},
   agodaVoc        = {},
   agodaReviewRate = {},
+  branchOtaToId   = {},
 }: OtaScoresClientProps) {
-  const [tab, setTab] = useState<InnerTab>('종합 현황')
+  const router = useRouter()
+  const [view, setView]   = useState<ViewState>({ type: 'overview' })
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ 신설: true })
 
-  const branches = [...new Set([
-    ...Object.keys(scoreHistory),
-    ...Object.keys(agodaDist),
-    ...Object.keys(agodaComplaints),
-    ...Object.keys(agodaVoc),
-  ])].filter(b => ['신설','동대문','제주시티','고성'].includes(b))
-    .sort((a, b) => ['신설','동대문','제주시티','고성'].indexOf(a) - ['신설','동대문','제주시티','고성'].indexOf(b))
+  const branches = BRANCH_ORDER.filter(b =>
+    Object.keys(scoreHistory).includes(b) || Object.keys(agodaDist).includes(b)
+  )
 
   const data: OtaData = {
     branches,
-    otaList:         otaList.length > 0 ? otaList : [
-      { name: 'Agoda', max: 10, okr: 9.0 }, { name: 'Booking', max: 10, okr: 9.0 },
-      { name: 'Trip.com', max: 10, okr: 9.0 }, { name: 'Expedia', max: 10, okr: 9.0 },
-      { name: '여기어때', max: 10, okr: 9.0 }, { name: 'Airbnb', max: 5, okr: 4.5 },
+    otaList: otaList.length > 0 ? otaList : [
+      { name: 'Agoda', max: 10, okr: 9.0 }, { name: 'Booking', max: 10, okr: 8.8 },
+      { name: 'Trip.com', max: 10, okr: 8.8 }, { name: 'Expedia', max: 10, okr: 8.8 },
+      { name: '여기어때', max: 10, okr: 9.0 }, { name: 'Airbnb', max: 5, okr: 4.8 },
       { name: 'NOL', max: 5, okr: 4.5 },
     ],
-    dateLabels,
-    scoreHistory,
-    reviewHistory,
-    agodaDist,
-    agodaComplaints,
-    complaintMemos,
-    agodaVoc,
-    agodaReviewRate,
+    dateLabels, scoreHistory, reviewHistory,
+    agodaDist, agodaComplaints, complaintMemos, agodaVoc, agodaReviewRate,
+  }
+
+  const handleToggleBranch = (b: string) =>
+    setExpanded(prev => ({ ...prev, [b]: !prev[b] }))
+
+  const handleSelectOTA = (branch: string, ota: string) => {
+    setView({ type: 'detail', branch, ota })
   }
 
   return (
-    <div style={{ padding: '32px 36px' }}>
-      {/* 헤더 */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <Star size={20} color="var(--medium)" />
-          <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800 }}>OTA 현황</h1>
-        </div>
-        <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
-          OTA 플랫폼 점수 · OKR 달성 추이 · Agoda 심층 분석
-          <span style={{ color: 'var(--text-3)', marginLeft: 8 }}>기준일: {recordedAt}</span>
-        </div>
-      </div>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      {/* 좌측 OTA 서브 사이드바 */}
+      <OtaSubSidebar
+        branches={branches}
+        scoreHistory={scoreHistory}
+        otaList={data.otaList}
+        view={view}
+        expandedBranches={expanded}
+        onToggleBranch={handleToggleBranch}
+        onSelectOverview={() => setView({ type: 'overview' })}
+        onSelectOTA={handleSelectOTA}
+      />
 
-      {/* 탭 네비게이션 */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
-        {INNER_TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: '9px 16px', background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 13, fontWeight: tab === t ? 700 : 400,
-            color: tab === t ? 'var(--text-1)' : 'var(--text-3)',
-            borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
-            marginBottom: -1, transition: 'all 0.15s',
-          }}>
-            {t === '종합 현황' && '📊 '}
-            {t === 'OKR 트래커' && '🎯 '}
-            {t === 'OTA 추이'   && '📈 '}
-            {t === 'Agoda 상세' && '🔍 '}
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {/* OKR 기준 안내 */}
-      <div style={{ display: 'flex', gap: 20, marginBottom: 20, padding: '8px 16px', background: 'rgba(74,158,255,0.04)', border: '1px solid rgba(74,158,255,0.15)', borderRadius: 8, fontSize: 11, flexWrap: 'wrap' }}>
-        {[['var(--done)','OKR 달성','10점 ≥ 9.0 · 5점 ≥ 4.5'],['var(--medium)','근접','OKR -0.5 이내'],['var(--critical)','미달','OKR -0.5 초과']].map(([color, label, desc]) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: color }} />
-            <span style={{ color: color as string, fontWeight: 600 }}>{label}</span>
-            <span style={{ color: 'var(--text-3)' }}>{desc}</span>
+      {/* 메인 콘텐츠 */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {view.type === 'overview' ? (
+          <div style={{ padding: '28px 32px' }}>
+            <div style={{ marginBottom: 24 }}>
+              <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800 }}>⭐ OTA 현황 — 종합</h1>
+              <div style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>기준일: {recordedAt}</div>
+            </div>
+            <TabOverview d={data} recordedAt={recordedAt} />
           </div>
-        ))}
+        ) : (
+          <OtaDetailView
+            branch={view.branch}
+            ota={view.ota}
+            d={data}
+            branchOtaToId={branchOtaToId}
+            onSaved={() => router.refresh()}
+          />
+        )}
       </div>
-
-      {tab === '종합 현황' && <TabOverview d={data} recordedAt={recordedAt} />}
-      {tab === 'OKR 트래커' && <TabOKR d={data} />}
-      {tab === 'OTA 추이'   && <TabTrend d={data} />}
-      {tab === 'Agoda 상세' && <TabAgoda d={data} />}
     </div>
   )
 }
