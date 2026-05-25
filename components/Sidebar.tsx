@@ -7,16 +7,40 @@ import { useTheme } from './ThemeProvider'
 
 const EXTERNAL_LINKS: { href: string; icon: any; label: string }[] = []
 
-const NAV = [
-  { href: '/dashboard',   icon: LayoutDashboard, label: '대시보드',       mobileLabel: '대시보드' },
-  { href: '/reviews',     icon: FileText,        label: '리뷰 데이터',     mobileLabel: '리뷰' },
-  { href: '/report',      icon: BarChart2,       label: '월간 리포트',     mobileLabel: '리포트' },
-  { href: '/tasks',       icon: CheckSquare,     label: '수행과제',        mobileLabel: '수행과제' },
-  { href: '/achievement', icon: Trophy,          label: '성과 & 개선 이력', mobileLabel: '성과' },
-  { href: '/analytics',   icon: TrendingUp,      label: '분석 & 트렌드',   mobileLabel: '분석' },
-  { href: '/ota-scores',  icon: Star,            label: 'OTA 현황',       mobileLabel: 'OTA' },
-  { href: '/rawdata',     icon: Database,        label: 'Raw Data',       mobileLabel: 'Raw' },
+type NavItem = { href: string; icon: any; label: string; mobileLabel: string }
+type NavSection = { title?: string; items: NavItem[] }
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'Dashboard',
+    items: [
+      { href: '/dashboard',   icon: LayoutDashboard, label: '대시보드',        mobileLabel: '대시보드' },
+    ],
+  },
+  {
+    title: 'Review & Data',
+    items: [
+      { href: '/ota-scores',  icon: Star,            label: 'OTA 점수 현황',   mobileLabel: 'OTA' },
+      { href: '/reviews',     icon: FileText,        label: '리뷰 데이터',      mobileLabel: '리뷰' },
+      { href: '/tasks',       icon: CheckSquare,     label: '수행과제',         mobileLabel: '수행과제' },
+    ],
+  },
+  {
+    title: 'Data Analysis',
+    items: [
+      { href: '/report',      icon: BarChart2,       label: '월간 리포트',      mobileLabel: '리포트' },
+      { href: '/analytics',   icon: TrendingUp,      label: '분석 & 트렌드',    mobileLabel: '분석' },
+      { href: '/achievement', icon: Trophy,          label: '성과 & 개선 이력', mobileLabel: '성과' },
+    ],
+  },
+  {
+    items: [
+      { href: '/rawdata',     icon: Database,        label: 'Raw Data',        mobileLabel: 'Raw' },
+    ],
+  },
 ]
+
+const NAV = NAV_SECTIONS.flatMap(s => s.items)
 
 export default function Sidebar({ userName, userEmail, userImage }: { userName: string; userEmail: string; userImage: string }) {
   const path = usePathname()
@@ -39,30 +63,48 @@ export default function Sidebar({ userName, userEmail, userImage }: { userName: 
         </div>
 
         {/* 네비 */}
-        <nav style={{ flex: 1, padding: '10px 8px' }}>
-          {NAV.map(({ href, icon: Icon, label }) => {
-            const active = path === href || path.startsWith(href + '/')
-            return (
-              <Link key={href} href={href} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 12px', borderRadius: 8, marginBottom: 2,
-                color: active ? 'var(--text-1)' : 'var(--text-2)',
-                background: active ? 'var(--bg-card)' : 'transparent',
-                border: active ? '1px solid var(--border)' : '1px solid transparent',
-                textDecoration: 'none', fontSize: 13,
-                fontWeight: active ? 600 : 400,
-                transition: 'all 0.15s',
-              }}>
-                <Icon size={15} />
-                {label}
-              </Link>
-            )
-          })}
-
-          {/* 구분선 */}
-          <div style={{ height: 1, background: 'var(--border)', margin: '8px 4px 6px' }} />
+        <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
+          {NAV_SECTIONS.map((section, si) => (
+            <div key={si}>
+              {/* 첫 섹션 제외 구분선 */}
+              {si > 0 && (
+                <div style={{ height: 1, background: 'var(--border)', margin: '6px 4px 4px' }} />
+              )}
+              {/* 섹션 소제목 */}
+              {section.title && (
+                <div style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                  color: 'var(--text-3)', textTransform: 'uppercase',
+                  padding: '6px 12px 3px',
+                }}>
+                  {section.title}
+                </div>
+              )}
+              {section.items.map(({ href, icon: Icon, label }) => {
+                const active = path === href || path.startsWith(href + '/')
+                return (
+                  <Link key={href} href={href} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 12px', borderRadius: 8, marginBottom: 2,
+                    color: active ? 'var(--text-1)' : 'var(--text-2)',
+                    background: active ? 'var(--bg-card)' : 'transparent',
+                    border: active ? '1px solid var(--border)' : '1px solid transparent',
+                    textDecoration: 'none', fontSize: 13,
+                    fontWeight: active ? 600 : 400,
+                    transition: 'all 0.15s',
+                  }}>
+                    <Icon size={15} />
+                    {label}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
 
           {/* 외부 링크 탭 */}
+          {EXTERNAL_LINKS.length > 0 && (
+            <div style={{ height: 1, background: 'var(--border)', margin: '6px 4px 4px' }} />
+          )}
           {EXTERNAL_LINKS.map(({ href, icon: Icon, label }) => (
             <a key={href} href={href} target="_blank" rel="noopener noreferrer" style={{
               display: 'flex', alignItems: 'center', gap: 10,
