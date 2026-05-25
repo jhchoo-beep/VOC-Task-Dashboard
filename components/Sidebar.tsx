@@ -56,7 +56,7 @@ export default function Sidebar({ userName, userEmail, userImage }: { userName: 
       }}>
         {/* 로고 */}
         <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid var(--border)' }}>
-          <div className="font-display" style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.3px' }}>
+          <div className="font-display" style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
             🧳 MGRV VOC
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>리뷰 대시보드</div>
