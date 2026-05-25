@@ -325,16 +325,16 @@ function TabOverview({ d, recordedAt }: { d: OtaData; recordedAt: string }) {
 // 기본 추이 — 8주 평점 + 리뷰 수 차트
 // ════════════════════════════════════════════════════════════════════════════
 function OtaDetailBasic({
-  branch, ota, otaEntry, last8Labels, last8Scores, last8Reviews,
+  branch, ota, otaEntry, last8Labels, last8Scores, weeklyReviews,
 }: {
   branch: string; ota: string; otaEntry?: OtaEntry
-  last8Labels: string[]; last8Scores: number[]; last8Reviews: number[]
+  last8Labels: string[]; last8Scores: number[]; weeklyReviews: number[]
 }) {
   const okr   = otaEntry?.okr ?? 9.0
   const color = BRANCH_COLOR[branch] ?? 'var(--accent)'
 
   const scoreData  = last8Labels.map((w, i) => ({ week: w, 평점: last8Scores[i] ?? 0 })).filter(d => d.평점 > 0)
-  const reviewData = last8Labels.map((w, i) => ({ week: w, 리뷰: last8Reviews[i] ?? 0 }))
+  const reviewData = last8Labels.map((w, i) => ({ week: w, 신규리뷰: weeklyReviews[i] ?? 0 }))
 
   const yMin = scoreData.length ? Math.max(0, Math.min(...scoreData.map(d => d.평점)) - 0.5) : 0
   const yMax = scoreData.length ? Math.min(otaEntry?.max ?? 10, Math.max(...scoreData.map(d => d.평점)) + 0.3) : otaEntry?.max ?? 10
@@ -366,16 +366,21 @@ function OtaDetailBasic({
       </div>
 
       <div className="card" style={{ padding: 24 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 16 }}>지난 8주 리뷰 수 추이</div>
-        {reviewData.every(d => d.리뷰 === 0)
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>지난 8주 주간 신규 리뷰 수</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>총 리뷰 수 증가분 (이번 주 총 리뷰 − 전 주 총 리뷰)</div>
+          </div>
+        </div>
+        {reviewData.every(d => d.신규리뷰 === 0)
           ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
           : <ResponsiveContainer width="100%" height={220}>
               <BarChart data={reviewData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="week" stroke="var(--text-3)" tick={{ fontSize: 11 }} />
                 <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any) => [`${v}건`, '리뷰 수']} />
-                <Bar dataKey="리뷰" fill={color} opacity={0.75} radius={[4, 4, 0, 0]} />
+                <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any) => [`${v}건`, '신규 리뷰']} />
+                <Bar dataKey="신규리뷰" fill={color} opacity={0.75} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
         }
@@ -398,7 +403,8 @@ function AgodaDetailTabs({ branch, d }: { branch: string; d: OtaData }) {
   const scoreHist   = d.scoreHistory[branch]?.['Agoda'] ?? []
   const curScore    = scoreHist[scoreHist.length - 1] ?? 0
   const prevScore   = scoreHist[scoreHist.length - 2] ?? 0
-  const totalReviews = (d.reviewHistory[branch]?.['Agoda'] ?? []).reduce((s, v) => s + v, 0)
+  const reviewHist   = d.reviewHistory[branch]?.['Agoda'] ?? []
+  const totalReviews = reviewHist[reviewHist.length - 1] ?? 0
 
   const distHistoryRaw = d.agodaDist[branch] ?? []
   const distHistory    = timeMode === 'monthly' ? groupDistByMonth(distHistoryRaw) : distHistoryRaw
@@ -887,16 +893,25 @@ function OtaDetailView({
   const [mainTab, setMainTab] = useState<'basic' | 'agoda'>('basic')
   const [showModal, setShowModal] = useState(false)
 
-  const otaEntry     = d.otaList.find(o => o.name === ota)
-  const allScores    = d.scoreHistory[branch]?.[ota] ?? []
-  const allReviews   = d.reviewHistory[branch]?.[ota] ?? []
-  const last8Labels  = d.dateLabels.slice(-8)
-  const last8Scores  = allScores.slice(-8)
-  const last8Reviews = allReviews.slice(-8)
-  const curScore     = allScores[allScores.length - 1] ?? 0
-  const prevScore    = allScores[allScores.length - 2] ?? 0
-  const curReviews   = allReviews[allReviews.length - 1] ?? 0
-  const propertyId   = branchOtaToId?.[branch]?.[ota]
+  const otaEntry      = d.otaList.find(o => o.name === ota)
+  const allScores     = d.scoreHistory[branch]?.[ota] ?? []
+  const allReviews    = d.reviewHistory[branch]?.[ota] ?? []  // 누적 총 리뷰수 시계열
+  const last8Labels   = d.dateLabels.slice(-8)
+  const last8Scores   = allScores.slice(-8)
+  const curScore      = allScores[allScores.length - 1] ?? 0
+  const prevScore     = allScores[allScores.length - 2] ?? 0
+  const curReviews    = allReviews[allReviews.length - 1] ?? 0   // 최신 총 리뷰수
+  const prevReviews   = allReviews[allReviews.length - 2] ?? 0
+  const weeklyNew     = curReviews > 0 && prevReviews > 0 ? curReviews - prevReviews : 0
+  const propertyId    = branchOtaToId?.[branch]?.[ota]
+
+  // 주간 신규 리뷰 = 누적값 차이 (delta). 한 주 앞 값이 필요하므로 9개 슬라이스
+  const last9Reviews  = allReviews.slice(-9)
+  const weeklyReviews = last8Labels.map((_, i) => {
+    const cur  = last9Reviews[i + 1] ?? 0
+    const prev = last9Reviews[i] ?? 0
+    return cur > 0 && prev > 0 ? Math.max(0, cur - prev) : 0
+  })
 
   return (
     <div style={{ padding: '28px 32px' }}>
@@ -935,11 +950,13 @@ function OtaDetailView({
           <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>직전주 {prevScore ? prevScore.toFixed(1) : '—'}</div>
         </div>
         <div className="card" style={{ padding: '14px 18px' }}>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>최근 주 리뷰</div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>총 리뷰 수</div>
           <div className="font-display" style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1 }}>
             {curReviews.toLocaleString()}
           </div>
-          <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>8주 누적 {allReviews.slice(-8).reduce((s, v) => s + v, 0).toLocaleString()}건</div>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>
+            {weeklyNew > 0 ? `이번 주 신규 +${weeklyNew.toLocaleString()}건` : '이전 데이터 없음'}
+          </div>
         </div>
       </div>
 
@@ -961,7 +978,7 @@ function OtaDetailView({
       {/* 기본 추이 */}
       {(mainTab === 'basic' || ota !== 'Agoda') && (
         <OtaDetailBasic branch={branch} ota={ota} otaEntry={otaEntry}
-          last8Labels={last8Labels} last8Scores={last8Scores} last8Reviews={last8Reviews} />
+          last8Labels={last8Labels} last8Scores={last8Scores} weeklyReviews={weeklyReviews} />
       )}
 
       {/* Agoda 상세 */}
