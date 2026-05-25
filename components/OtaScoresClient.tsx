@@ -11,6 +11,7 @@ import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight, Plus } from
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 type ScoreHistory  = Record<string, Record<string, number[]>>
 type ReviewHistory = Record<string, Record<string, number[]>>
+type ModalMode = 'basic' | 'review-rate' | 'score-dist' | 'complaints' | 'voc'
 
 interface OtaEntry { name: string; max: number; okr: number }
 interface AgodaDistWeek { week: string; scores: number[]; avgScore?: number }
@@ -394,8 +395,12 @@ function OtaDetailBasic({
 // ════════════════════════════════════════════════════════════════════════════
 type AgodaSubTab = '리뷰 작성률' | '점수 분포' | '불만 분석' | 'VOC'
 
-function AgodaDetailTabs({ branch, d }: { branch: string; d: OtaData }) {
-  const [sub, setSub]               = useState<AgodaSubTab>('리뷰 작성률')
+function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
+  branch: string; d: OtaData
+  sub: AgodaSubTab
+  onSubChange: (s: AgodaSubTab) => void
+}) {
+  const setSub = onSubChange
   const [distViewMode, setDistView] = useState<'count' | 'ratio'>('count')
   const [timeMode, setTimeMode]     = useState<'weekly' | 'monthly'>('weekly')
 
@@ -732,63 +737,99 @@ function AgodaDetailTabs({ branch, d }: { branch: string; d: OtaData }) {
 // ════════════════════════════════════════════════════════════════════════════
 // 데이터 입력 모달
 // ════════════════════════════════════════════════════════════════════════════
+const MODAL_TITLE: Record<ModalMode, string> = {
+  'basic':       '기본 추이 입력 — 평점 & 리뷰 수',
+  'review-rate': 'Agoda 리뷰 작성률 입력',
+  'score-dist':  'Agoda 점수 분포 입력',
+  'complaints':  'Agoda 불만 분석 입력',
+  'voc':         'Agoda VOC 키워드 입력',
+}
+
+const VOC_BANDS = ['10점', '9점대', '8점대', '7점대', '6점대 이하']
+
 function InputModal({
-  branch, ota, propertyId, otaEntry, onClose, onSaved,
+  branch, ota, propertyId, otaEntry, mode, onClose, onSaved,
 }: {
   branch: string; ota: string; propertyId?: number; otaEntry?: OtaEntry
+  mode: ModalMode
   onClose: () => void; onSaved: () => void
 }) {
   const today = new Date(); const pad = (n: number) => String(n).padStart(2, '0')
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
 
-  const [date, setDate]         = useState(todayStr)
-  const [score, setScore]       = useState('')
-  const [reviews, setReviews]   = useState('')
+  const [date, setDate]           = useState(todayStr)
+  const [score, setScore]         = useState('')
+  const [reviews, setReviews]     = useState('')
   const [checkouts, setCheckouts] = useState('')
   const [s2,setS2]   = useState('0'); const [s3,setS3]   = useState('0'); const [s4,setS4]   = useState('0')
   const [s5,setS5]   = useState('0'); const [s6,setS6]   = useState('0'); const [s7,setS7]   = useState('0')
   const [s8,setS8]   = useState('0'); const [s9,setS9]   = useState('0'); const [s10,setS10] = useState('0')
-  const [roomComp, setRoom]     = useState('0')
-  const [bathComp, setBath]     = useState('0')
-  const [memo, setMemo]         = useState('')
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState('')
+  const [roomComp, setRoom] = useState('0')
+  const [bathComp, setBath] = useState('0')
+  const [memo, setMemo]     = useState('')
+  const [vocItems, setVocItems] = useState<{ band: string; sentiment: 'good' | 'bad'; keyword: string }[]>([
+    { band: '10점', sentiment: 'good', keyword: '' },
+  ])
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
 
-  const isAgoda = ota === 'Agoda'
-  const rateDisplay = reviews && checkouts ? `${(parseInt(reviews) / parseInt(checkouts) * 100).toFixed(1)}%` : ''
+  const rateDisplay = reviews && checkouts
+    ? `${(parseInt(reviews) / parseInt(checkouts) * 100).toFixed(1)}%` : ''
+
+  const addVocItem = () => setVocItems(prev => [...prev, { band: '10점', sentiment: 'good', keyword: '' }])
+  const removeVocItem = (i: number) => setVocItems(prev => prev.filter((_, idx) => idx !== i))
+  const updateVocItem = (i: number, field: string, value: string) =>
+    setVocItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item))
 
   const save = async () => {
-    if (!date || !score || !reviews) { setError('날짜, 평점, 리뷰 수는 필수입니다.'); return }
     if (!propertyId) { setError('property_id를 찾을 수 없습니다. 관리자에게 문의하세요.'); return }
     setSaving(true); setError('')
     try {
-      const res = await fetch('/api/ota/scores', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId, recordedAt: date, overallScore: parseFloat(score), reviewCount: parseInt(reviews) }),
-      })
-      if (!res.ok) throw new Error(await res.text())
+      if (mode === 'basic') {
+        if (!date || !score || !reviews) { setError('날짜, 평점, 리뷰 수는 필수입니다.'); setSaving(false); return }
+        const res = await fetch('/api/ota/scores', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ propertyId, recordedAt: date, overallScore: parseFloat(score), reviewCount: parseInt(reviews) }),
+        })
+        if (!res.ok) throw new Error(await res.text())
 
-      if (isAgoda) {
-        if (checkouts) {
-          await fetch('/api/ota/agoda-rate', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ propertyId, weekStart: date, reviewCount: parseInt(reviews), checkoutCount: parseInt(checkouts), ratePct: parseFloat(rateDisplay) }),
-          })
-        }
+      } else if (mode === 'review-rate') {
+        if (!date || !reviews || !checkouts) { setError('날짜, 리뷰 수, 체크아웃 수는 필수입니다.'); setSaving(false); return }
+        const res = await fetch('/api/ota/agoda-rate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ propertyId, weekStart: date, reviewCount: parseInt(reviews), checkoutCount: parseInt(checkouts), ratePct: parseFloat(rateDisplay) }),
+        })
+        if (!res.ok) throw new Error(await res.text())
+
+      } else if (mode === 'score-dist') {
+        if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
         const distVals = [s2,s3,s4,s5,s6,s7,s8,s9,s10].map(Number)
-        if (distVals.some(v => v > 0)) {
-          await fetch('/api/ota/agoda-dist', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ propertyId, weekStart: date, score2:distVals[0],score3:distVals[1],score4:distVals[2],score5:distVals[3],score6:distVals[4],score7:distVals[5],score8:distVals[6],score9:distVals[7],score10:distVals[8] }),
-          })
-        }
-        if (parseInt(roomComp) > 0 || parseInt(bathComp) > 0 || memo) {
-          await fetch('/api/ota/agoda-complaints', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ propertyId, weekStart: date, roomComplaints: parseInt(roomComp)||0, bathroomComplaints: parseInt(bathComp)||0, memo }),
-          })
-        }
+        if (!distVals.some(v => v > 0)) { setError('점수 분포 값을 1개 이상 입력하세요.'); setSaving(false); return }
+        const res = await fetch('/api/ota/agoda-dist', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ propertyId, weekStart: date, score2:distVals[0],score3:distVals[1],score4:distVals[2],score5:distVals[3],score6:distVals[4],score7:distVals[5],score8:distVals[6],score9:distVals[7],score10:distVals[8] }),
+        })
+        if (!res.ok) throw new Error(await res.text())
+
+      } else if (mode === 'complaints') {
+        if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
+        const res = await fetch('/api/ota/agoda-complaints', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ propertyId, weekStart: date, roomComplaints: parseInt(roomComp)||0, bathroomComplaints: parseInt(bathComp)||0, memo }),
+        })
+        if (!res.ok) throw new Error(await res.text())
+
+      } else if (mode === 'voc') {
+        if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
+        const validItems = vocItems.filter(v => v.keyword.trim())
+        if (!validItems.length) { setError('키워드를 1개 이상 입력하세요.'); setSaving(false); return }
+        const res = await fetch('/api/ota/agoda-voc', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ propertyId, weekStart: date, items: validItems }),
+        })
+        if (!res.ok) throw new Error(await res.text())
       }
+
       onSaved()
     } catch (e: any) {
       setError(e.message ?? '저장 중 오류가 발생했습니다.')
@@ -799,79 +840,130 @@ function InputModal({
 
   const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-1)', fontSize: 13 }
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }
+  const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 28, width: 520, maxHeight: '84vh', overflowY: 'auto' }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', marginBottom: 20 }}>
-          데이터 입력 — {branch} {ota}
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)', marginBottom: 4 }}>
+          {MODAL_TITLE[mode]}
         </div>
+        <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>{branch} · {ota}</div>
 
+        {/* 날짜 — 공통 */}
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>기준 날짜 (주 시작일)</label>
           <input style={inputStyle} type="date" value={date} onChange={e => setDate(e.target.value)} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-          <div>
-            <label style={labelStyle}>평점</label>
-            <input style={inputStyle} type="number" step="0.1" min="0" max={otaEntry?.max ?? 10} placeholder="예: 9.2" value={score} onChange={e => setScore(e.target.value)} />
-          </div>
-          <div>
-            <label style={labelStyle}>리뷰 수</label>
-            <input style={inputStyle} type="number" placeholder="예: 58" value={reviews} onChange={e => setReviews(e.target.value)} />
-          </div>
-        </div>
 
-        {isAgoda && (
-          <>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 10px', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              Agoda 상세 입력 (선택)
+        {/* ── 기본 추이: 평점 + 리뷰 수 ── */}
+        {mode === 'basic' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={labelStyle}>평점</label>
+              <input style={inputStyle} type="number" step="0.1" min="0" max={otaEntry?.max ?? 10} placeholder="예: 9.2" value={score} onChange={e => setScore(e.target.value)} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div>
-                <label style={labelStyle}>체크아웃 수</label>
-                <input style={inputStyle} type="number" placeholder="예: 120" value={checkouts} onChange={e => setCheckouts(e.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>리뷰 작성률</label>
-                <input style={{ ...inputStyle, background: 'var(--bg-hover)' }} type="text" readOnly value={rateDisplay} placeholder="자동 계산" />
-              </div>
+            <div>
+              <label style={labelStyle}>리뷰 수 (누적)</label>
+              <input style={inputStyle} type="number" placeholder="예: 1580" value={reviews} onChange={e => setReviews(e.target.value)} />
             </div>
+          </div>
+        )}
 
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>점수 분포</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
-              {[['2점대',s2,setS2],['3점대',s3,setS3],['4점대',s4,setS4],['5점대',s5,setS5],['6점대',s6,setS6],['7점대',s7,setS7],['8점대',s8,setS8],['9점대',s9,setS9],['10점',s10,setS10]].map(([label, val, setter]) => (
-                <div key={label as string}>
-                  <label style={labelStyle}>{label as string}</label>
-                  <input style={inputStyle} type="number" min="0" value={val as string} onChange={e => (setter as (v: string) => void)(e.target.value)} />
+        {/* ── 리뷰 작성률: 체크아웃 + 리뷰 수 ── */}
+        {mode === 'review-rate' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={labelStyle}>체크아웃 수</label>
+              <input style={inputStyle} type="number" placeholder="예: 120" value={checkouts} onChange={e => setCheckouts(e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>리뷰 수</label>
+              <input style={inputStyle} type="number" placeholder="예: 58" value={reviews} onChange={e => setReviews(e.target.value)} />
+            </div>
+            {rateDisplay && (
+              <div style={{ gridColumn: '1/-1' }}>
+                <label style={labelStyle}>리뷰 작성률 (자동 계산)</label>
+                <div style={{ ...inputStyle, background: 'var(--bg-hover)', color: 'var(--done)', fontWeight: 700, fontSize: 18, textAlign: 'center' }}>
+                  {rateDisplay}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+          </div>
+        )}
 
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>불만 건수</div>
+        {/* ── 점수 분포 ── */}
+        {mode === 'score-dist' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+            {[['2점대',s2,setS2],['3점대',s3,setS3],['4점대',s4,setS4],['5점대',s5,setS5],['6점대',s6,setS6],['7점대',s7,setS7],['8점대',s8,setS8],['9점대',s9,setS9],['10점',s10,setS10]].map(([label, val, setter]) => (
+              <div key={label as string}>
+                <label style={labelStyle}>{label as string}</label>
+                <input style={inputStyle} type="number" min="0" value={val as string} onChange={e => (setter as (v: string) => void)(e.target.value)} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── 불만 분석 ── */}
+        {mode === 'complaints' && (
+          <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <div>
-                <label style={labelStyle}>객실 정비 불만</label>
+                <label style={labelStyle}>객실 정비 불만 건수</label>
                 <input style={inputStyle} type="number" min="0" value={roomComp} onChange={e => setRoom(e.target.value)} />
               </div>
               <div>
-                <label style={labelStyle}>욕실 불만</label>
+                <label style={labelStyle}>욕실 불만 건수</label>
                 <input style={inputStyle} type="number" min="0" value={bathComp} onChange={e => setBath(e.target.value)} />
               </div>
             </div>
-            <div style={{ marginBottom: 14 }}>
+            <div>
               <label style={labelStyle}>운영 메모</label>
               <input style={inputStyle} type="text" placeholder="예: 3층 욕실 배수 점검 완료" value={memo} onChange={e => setMemo(e.target.value)} />
             </div>
           </>
         )}
 
-        {error && <div style={{ fontSize: 12, color: 'var(--critical)', marginBottom: 12, padding: '8px 12px', background: 'rgba(255,59,92,0.08)', borderRadius: 6 }}>{error}</div>}
+        {/* ── VOC 키워드 ── */}
+        {mode === 'voc' && (
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 14 }}>점수 밴드별 긍정/부정 키워드를 입력합니다.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+              {vocItems.map((item, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr auto', gap: 8, alignItems: 'end' }}>
+                  <div>
+                    {i === 0 && <label style={labelStyle}>점수 밴드</label>}
+                    <select style={selectStyle} value={item.band} onChange={e => updateVocItem(i, 'band', e.target.value)}>
+                      {VOC_BANDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    {i === 0 && <label style={labelStyle}>감정</label>}
+                    <select style={selectStyle} value={item.sentiment} onChange={e => updateVocItem(i, 'sentiment', e.target.value)}>
+                      <option value="good">👍 좋아요</option>
+                      <option value="bad">👎 나빠요</option>
+                    </select>
+                  </div>
+                  <div>
+                    {i === 0 && <label style={labelStyle}>키워드</label>}
+                    <input style={inputStyle} type="text" placeholder="예: 청결한 침구" value={item.keyword} onChange={e => updateVocItem(i, 'keyword', e.target.value)} />
+                  </div>
+                  <button onClick={() => removeVocItem(i)} style={{ padding: '8px 10px', background: 'rgba(255,59,92,0.1)', border: '1px solid rgba(255,59,92,0.3)', borderRadius: 6, color: 'var(--critical)', cursor: 'pointer', fontSize: 12, marginBottom: 0 }}>✕</button>
+                </div>
+              ))}
+            </div>
+            <button onClick={addVocItem} style={{ padding: '7px 14px', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+              + 키워드 추가
+            </button>
+          </div>
+        )}
+
+        {error && <div style={{ fontSize: 12, color: 'var(--critical)', marginTop: 14, padding: '8px 12px', background: 'rgba(255,59,92,0.08)', borderRadius: 6 }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text-2)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>취소</button>
-          <button onClick={save} disabled={saving} style={{ padding: '9px 18px', borderRadius: 7, border: 'none', background: saving ? 'var(--bg-hover)' : 'var(--accent)', color: saving ? 'var(--text-3)' : '#000', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+          <button onClick={save} disabled={saving} style={{ padding: '9px 18px', borderRadius: 7, border: 'none', background: saving ? 'var(--bg-hover)' : 'var(--accent)', color: saving ? 'var(--text-3)' : '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}>
             {saving ? '저장 중...' : '저장'}
           </button>
         </div>
@@ -890,8 +982,17 @@ function OtaDetailView({
   branchOtaToId: Record<string, Record<string, number>>
   onSaved: () => void
 }) {
-  const [mainTab, setMainTab] = useState<'basic' | 'agoda'>('basic')
+  const [mainTab, setMainTab]   = useState<'basic' | 'agoda'>('basic')
+  const [agodaSub, setAgodaSub] = useState<AgodaSubTab>('리뷰 작성률')
   const [showModal, setShowModal] = useState(false)
+
+  function getModalMode(): ModalMode {
+    if (ota !== 'Agoda' || mainTab === 'basic') return 'basic'
+    if (agodaSub === '리뷰 작성률') return 'review-rate'
+    if (agodaSub === '점수 분포')   return 'score-dist'
+    if (agodaSub === '불만 분석')   return 'complaints'
+    return 'voc'
+  }
 
   const otaEntry      = d.otaList.find(o => o.name === ota)
   const allScores     = d.scoreHistory[branch]?.[ota] ?? []
@@ -926,7 +1027,7 @@ function OtaDetailView({
         </div>
         <button onClick={() => setShowModal(true)} style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px',
-          background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 8,
+          background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8,
           fontSize: 13, fontWeight: 700, cursor: 'pointer',
         }}>
           <Plus size={14} /> 데이터 입력
@@ -983,12 +1084,13 @@ function OtaDetailView({
 
       {/* Agoda 상세 */}
       {mainTab === 'agoda' && ota === 'Agoda' && (
-        <AgodaDetailTabs branch={branch} d={d} />
+        <AgodaDetailTabs branch={branch} d={d} sub={agodaSub} onSubChange={setAgodaSub} />
       )}
 
       {/* 입력 모달 */}
       {showModal && (
         <InputModal branch={branch} ota={ota} propertyId={propertyId} otaEntry={otaEntry}
+          mode={getModalMode()}
           onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); onSaved() }} />
       )}
     </div>
