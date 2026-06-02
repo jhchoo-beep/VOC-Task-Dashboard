@@ -94,16 +94,16 @@ export default async function OtaScoresPage() {
     complaintMemos[p.branch] = latest?.memo ?? ''
   })
 
-  // VOC: branch → [{band, sentiment, keyword}[]] latest week only
-  const agodaVoc: Record<string, { band: string; sentiment: string; keyword: string }[]> = {}
+  // VOC: branch → [{week_start, band, sentiment, keyword}[]] all weeks sorted desc
+  const agodaVoc: Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]> = {}
   agodaProps.forEach((p: any) => {
     const rows = (voc as any[]).filter(v => v.property_id === p.property_id)
-    if (rows.length > 0) {
-      const latestWeek = rows[0].week_start // sorted desc
-      agodaVoc[p.branch] = rows
-        .filter(v => v.week_start === latestWeek)
-        .map(v => ({ band: v.band, sentiment: v.sentiment, keyword: v.keyword }))
-    }
+    agodaVoc[p.branch] = rows.map(v => ({
+      week_start: v.week_start,
+      band: v.band,
+      sentiment: v.sentiment,
+      keyword: v.keyword,
+    }))
   })
 
   // Review rate: branch → [{week, reviewCount, checkoutCount, ratePct}[]]

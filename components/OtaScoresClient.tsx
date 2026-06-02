@@ -27,7 +27,7 @@ interface OtaData {
   agodaDist:       Record<string, AgodaDistWeek[]>
   agodaComplaints: Record<string, { week: string; room: number; bathroom: number }[]>
   complaintMemos:  Record<string, string>
-  agodaVoc:        Record<string, { band: string; sentiment: string; keyword: string }[]>
+  agodaVoc:        Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>
   agodaReviewRate: Record<string, AgodaReviewRateWeek[]>
 }
 
@@ -403,6 +403,8 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
   const setSub = onSubChange
   const [distViewMode, setDistView] = useState<'count' | 'ratio'>('count')
   const [timeMode, setTimeMode]     = useState<'weekly' | 'monthly'>('weekly')
+  const [vocTimeMode, setVocTimeMode] = useState<'weekly' | 'monthly'>('weekly')
+  const [vocPeriod, setVocPeriod]     = useState<string>('')
 
   const agodaOTA    = d.otaList.find(o => o.name === 'Agoda') ?? { okr: 9.0, max: 10 }
   const scoreHist   = d.scoreHistory[branch]?.['Agoda'] ?? []
@@ -429,9 +431,6 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
   const reviewRateRaw = d.agodaReviewRate?.[branch] ?? []
   const reviewRate    = timeMode === 'monthly' ? groupReviewRateByMonth(reviewRateRaw) : reviewRateRaw
   const latestRate    = reviewRateRaw[reviewRateRaw.length - 1]
-
-  const voc      = d.agodaVoc[branch] ?? []
-  const allBands = [...new Set(voc.map(v => v.band))]
 
   const timeModeToggle = (
     <div style={{ display: 'flex', gap: 4 }}>
@@ -687,49 +686,101 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
       )}
 
       {/* VOC */}
-      {sub === 'VOC' && (
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>💬 VOC 키워드 — {branch} Agoda</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>점수대별 긍정/부정 키워드 분석 (최근 기록)</div>
-          {voc.length === 0
-            ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
-            : allBands.map(band => {
-                const items = voc.filter(v => v.band === band)
-                const good  = items.filter(v => v.sentiment === 'good')
-                const bad   = items.filter(v => v.sentiment === 'bad')
-                return (
-                  <div key={band} style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {band}<div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: good.length && bad.length ? '1fr 1fr' : '1fr', gap: 12 }}>
-                      {good.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: 10, color: 'var(--done)', fontWeight: 600, marginBottom: 6 }}>👍 좋아요</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {good.map((v, i) => (
-                              <div key={i} style={{ padding: '6px 10px', background: 'rgba(0,229,102,0.08)', border: '1px solid rgba(0,229,102,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-1)' }}>{v.keyword}</div>
-                            ))}
+      {sub === 'VOC' && (() => {
+        const allVoc    = d.agodaVoc[branch] ?? []
+        const allWeeks  = [...new Set(allVoc.map(v => v.week_start))].sort().reverse()
+        const allMonths = [...new Set(allVoc.map(v => v.week_start.substring(0, 7)))].sort().reverse()
+
+        const effectivePeriod = vocPeriod ||
+          (vocTimeMode === 'weekly' ? (allWeeks[0] ?? '') : (allMonths[0] ?? ''))
+
+        const filteredVoc = vocTimeMode === 'weekly'
+          ? allVoc.filter(v => v.week_start === effectivePeriod)
+          : allVoc.filter(v => v.week_start.startsWith(effectivePeriod))
+
+        const vocBands = [...new Set(filteredVoc.map(v => v.band))]
+
+        const fmtWeekChip  = (ws: string) => `${parseInt(ws.substring(5, 7))}/${parseInt(ws.substring(8, 10))}`
+        const fmtMonthChip = (ym: string) => `${parseInt(ym.substring(5, 7))}월`
+        const fmtMonthFull = (ym: string) => `${ym.substring(0, 4)}년 ${parseInt(ym.substring(5, 7))}월`
+
+        const periodLabel = effectivePeriod
+          ? (vocTimeMode === 'weekly' ? `${fmtWeekChip(effectivePeriod)} 주` : fmtMonthFull(effectivePeriod))
+          : ''
+
+        return (
+          <div className="card" style={{ padding: 24 }}>
+            {/* 헤더 + 시간 모드 토글 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>💬 VOC 키워드 — {branch} Agoda</div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['weekly', 'monthly'] as const).map(m => (
+                  <button key={m} onClick={() => { setVocTimeMode(m); setVocPeriod('') }} style={TOGGLE_BTN(vocTimeMode === m)}>
+                    {m === 'weekly' ? '📅 주별' : '📅 월별'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 기간 선택 칩 */}
+            {(vocTimeMode === 'weekly' ? allWeeks : allMonths).length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                {(vocTimeMode === 'weekly' ? allWeeks : allMonths).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setVocPeriod(p)}
+                    style={TOGGLE_BTN(effectivePeriod === p)}
+                  >
+                    {vocTimeMode === 'weekly' ? fmtWeekChip(p) : fmtMonthChip(p)}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>
+              점수대별 긍정/부정 키워드 분석{periodLabel ? ` · ${periodLabel}` : ''}
+            </div>
+
+            {filteredVoc.length === 0
+              ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
+              : vocBands.map(band => {
+                  const items = filteredVoc.filter(v => v.band === band)
+                  const good  = items.filter(v => v.sentiment === 'good')
+                  const bad   = items.filter(v => v.sentiment === 'bad')
+                  return (
+                    <div key={band} style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {band}<div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: good.length && bad.length ? '1fr 1fr' : '1fr', gap: 12 }}>
+                        {good.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 10, color: 'var(--done)', fontWeight: 600, marginBottom: 6 }}>👍 좋아요</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {good.map((v, i) => (
+                                <div key={i} style={{ padding: '6px 10px', background: 'rgba(0,229,102,0.08)', border: '1px solid rgba(0,229,102,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-1)' }}>{v.keyword}</div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {bad.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: 10, color: 'var(--critical)', fontWeight: 600, marginBottom: 6 }}>👎 나빠요</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {bad.map((v, i) => (
-                              <div key={i} style={{ padding: '6px 10px', background: 'rgba(255,59,92,0.08)', border: '1px solid rgba(255,59,92,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-1)' }}>{v.keyword}</div>
-                            ))}
+                        )}
+                        {bad.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 10, color: 'var(--critical)', fontWeight: 600, marginBottom: 6 }}>👎 나빠요</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {bad.map((v, i) => (
+                                <div key={i} style={{ padding: '6px 10px', background: 'rgba(255,59,92,0.08)', border: '1px solid rgba(255,59,92,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-1)' }}>{v.keyword}</div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })
-          }
-        </div>
-      )}
+                  )
+                })
+            }
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -1109,7 +1160,7 @@ interface OtaScoresClientProps {
   agodaDist?:        Record<string, AgodaDistWeek[]>
   agodaComplaints?:  Record<string, { week: string; room: number; bathroom: number }[]>
   complaintMemos?:   Record<string, string>
-  agodaVoc?:         Record<string, { band: string; sentiment: string; keyword: string }[]>
+  agodaVoc?:         Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>
   agodaReviewRate?:  Record<string, AgodaReviewRateWeek[]>
   branchOtaToId?:    Record<string, Record<string, number>>
 }
