@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveBranchTarget, formatCommentForSlack } from './slack'
+import { resolveBranchTarget, formatCommentForSlack, buildTaskDeepLink, buildSlackText } from './slack'
 
 describe('resolveBranchTarget', () => {
   it('신설을 ssd 스쿼드 채널/유저그룹으로 매핑한다', () => {
@@ -35,5 +35,35 @@ describe('formatCommentForSlack', () => {
     const out = formatCommentForSlack(long)
     expect(out.length).toBe(301) // 300 + '…'
     expect(out.endsWith('…')).toBe(true)
+  })
+})
+
+describe('buildTaskDeepLink', () => {
+  it('task/month 쿼리가 포함된 tasks 딥링크를 만든다', () => {
+    expect(buildTaskDeepLink('abc-123', '2026-06'))
+      .toBe('https://voc-task-dashboard.vercel.app/tasks?task=abc-123&month=2026-06')
+  })
+
+  it('month가 없으면 task만 붙인다', () => {
+    expect(buildTaskDeepLink('abc-123', ''))
+      .toBe('https://voc-task-dashboard.vercel.app/tasks?task=abc-123')
+  })
+})
+
+describe('buildSlackText', () => {
+  it('지점/제목/유저그룹멘션/작성자/내용/딥링크를 포함한다', () => {
+    const text = buildSlackText({
+      branch: '신설',
+      taskTitle: '체크인 동선 개선',
+      usergroup: 'ssdsquad',
+      author: '추재헌',
+      content: '시안 공유드립니다',
+      link: 'https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-06',
+    })
+    expect(text).toContain('[VOC 새 댓글] 신설 · 체크인 동선 개선')
+    expect(text).toContain('<!subteam^ssdsquad>')
+    expect(text).toContain('작성자: 추재헌')
+    expect(text).toContain('시안 공유드립니다')
+    expect(text).toContain('<https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-06|대시보드에서 보기>')
   })
 })

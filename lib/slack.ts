@@ -34,3 +34,30 @@ export function formatCommentForSlack(content: string): string {
   }
   return text
 }
+
+const APP_URL = 'https://voc-task-dashboard.vercel.app'
+
+export function buildTaskDeepLink(taskId: string, taskMonth: string): string {
+  const base = `${APP_URL}/tasks?task=${encodeURIComponent(taskId)}`
+  return taskMonth ? `${base}&month=${encodeURIComponent(taskMonth)}` : base
+}
+
+export interface SlackTextArgs {
+  branch: string
+  taskTitle: string
+  usergroup: string
+  author: string
+  content: string
+  link: string
+}
+
+export function buildSlackText(args: SlackTextArgs): string {
+  const { branch, taskTitle, usergroup, author, content, link } = args
+  return [
+    `[VOC 새 댓글] ${branch} · ${taskTitle}`,
+    `<!subteam^${usergroup}>`,
+    `작성자: ${author}`,
+    formatCommentForSlack(content),
+    `<${link}|대시보드에서 보기>`,
+  ].join('\n')
+}
