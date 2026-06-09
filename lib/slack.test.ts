@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { resolveBranchTarget, formatCommentForSlack, buildTaskDeepLink, buildSlackText } from './slack'
 
 describe('resolveBranchTarget', () => {
@@ -65,5 +65,52 @@ describe('buildSlackText', () => {
     expect(text).toContain('작성자: 추재헌')
     expect(text).toContain('시안 공유드립니다')
     expect(text).toContain('<https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-06|대시보드에서 보기>')
+  })
+})
+
+import { notifyNewComment } from './slack'
+
+describe('notifyNewComment', () => {
+  beforeEach(() => {
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test'
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true }),
+    })))
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete process.env.SLACK_BOT_TOKEN
+  })
+
+  it('매핑된 지점이면 chat.postMessage를 올바른 페이로드로 호출한다', async () => {
+    await notifyNewComment({
+      branch: '신설', taskId: 't1', taskTitle: '동선 개선',
+      taskMonth: '2026-06', author: '추재헌', content: '공유드립니다',
+    })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    const [url, opts] = (fetch as any).mock.calls[0]
+    expect(url).toBe('https://slack.com/api/chat.postMessage')
+    const body = JSON.parse(opts.body)
+    expect(body.channel).toBe('be-ops-ssd-squad')
+    expect(body.text).toContain('<!subteam^ssdsquad>')
+    expect(opts.headers.Authorization).toBe('Bearer xoxb-test')
+  })
+
+  it('매핑에 없는 지점이면 발송하지 않는다', async () => {
+    await notifyNewComment({
+      branch: '없는지점', taskId: 't1', taskTitle: 'x',
+      taskMonth: '2026-06', author: 'a', content: 'b',
+    })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('토큰이 없으면 발송하지 않는다', async () => {
+    delete process.env.SLACK_BOT_TOKEN
+    await notifyNewComment({
+      branch: '신설', taskId: 't1', taskTitle: 'x',
+      taskMonth: '2026-06', author: 'a', content: 'b',
+    })
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

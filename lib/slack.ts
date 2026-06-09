@@ -61,3 +61,48 @@ export function buildSlackText(args: SlackTextArgs): string {
     `<${link}|대시보드에서 보기>`,
   ].join('\n')
 }
+
+export interface NotifyArgs {
+  branch: string
+  taskId: string
+  taskTitle: string
+  taskMonth: string
+  author: string
+  content: string
+}
+
+export async function notifyNewComment(args: NotifyArgs): Promise<void> {
+  const token = process.env.SLACK_BOT_TOKEN
+  if (!token) {
+    console.warn('[slack] SLACK_BOT_TOKEN 미설정 — 알림 스킵')
+    return
+  }
+
+  const target = resolveBranchTarget(args.branch)
+  if (!target) {
+    console.warn(`[slack] 매핑 없는 지점 "${args.branch}" — 알림 스킵`)
+    return
+  }
+
+  const text = buildSlackText({
+    branch: args.branch,
+    taskTitle: args.taskTitle,
+    usergroup: target.usergroup,
+    author: args.author,
+    content: args.content,
+    link: buildTaskDeepLink(args.taskId, args.taskMonth),
+  })
+
+  const res = await fetch('https://slack.com/api/chat.postMessage', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ channel: target.channel, text }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!data?.ok) {
+    console.error('[slack] chat.postMessage 실패:', data?.error ?? res.status)
+  }
+}
