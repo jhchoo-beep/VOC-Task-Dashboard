@@ -10,5 +10,5 @@ export default async function EmbedTasksPage({
 }) {
   const { month, task } = await searchParams
   const props = await getTasksProps(month, task)
-  return <TasksClient {...props} />
+  return <TasksClient {...props} embed />
 }

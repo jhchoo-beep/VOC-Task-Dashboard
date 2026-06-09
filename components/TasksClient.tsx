@@ -33,7 +33,7 @@ function Field({ label, children }: any) {
   )
 }
 
-export default function TasksClient({ tasks, months, currentMonth, highlightTaskId }: any) {
+export default function TasksClient({ tasks, months, currentMonth, highlightTaskId, embed = false }: any) {
   const router = useRouter()
   const pathname = usePathname()
   // 현재 경로(/tasks 또는 /embed/tasks)와 기존 쿼리(임베드 토큰 ?key= 등)를 보존한 채 월만 교체
@@ -160,7 +160,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
               onClick={() => setViewMode('list')}
             >목록</button>
           </div>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={14} /> 추가</button>
+          {!embed && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={14} /> 추가</button>}
         </div>
       </div>
 
@@ -234,6 +234,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
               {triggerGroups.map(({ trigger, tasks }) => (
                 <TriggerGroupSection
                   key={trigger}
+                  embed={embed}
                   trigger={trigger}
                   tasks={tasks}
                   collapsed={!expandedGroups.has(trigger)}
@@ -267,6 +268,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
               {filtered.map((task: any, i: number) => (
                 <TaskCard
                   key={task.id} task={task}
+                  embed={embed}
                   expanded={expanded === task.id}
                   onToggle={() => setExpanded(expanded === task.id ? null : task.id)}
                   onStatusChange={handleStatus}
@@ -287,7 +289,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
 }
 
 /* ─── 트리거 그룹 섹션 ─── */
-function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expandedTaskId, onToggleTask, onStatusChange, onEdit, onDelete, updatingId, highlightTaskId, triggerLink, onTriggerLinkSave, onTriggerLinkDelete }: any) {
+function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expandedTaskId, onToggleTask, onStatusChange, onEdit, onDelete, updatingId, highlightTaskId, triggerLink, onTriggerLinkSave, onTriggerLinkDelete, embed = false }: any) {
   const [showLinkEdit, setShowLinkEdit] = useState(false)
   const [linkUrl, setLinkUrl] = useState(triggerLink?.url ?? '')
   const [linkLabel, setLinkLabel] = useState(triggerLink?.label ?? '')
@@ -341,7 +343,7 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
               {triggerLink.label || '참고'}
             </a>
           )}
-          {!isMisc && (
+          {!isMisc && !embed && (
             <button
               onClick={e => { e.stopPropagation(); setLinkUrl(triggerLink?.url ?? ''); setLinkLabel(triggerLink?.label ?? ''); setShowLinkEdit(v => !v) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'inline-flex', alignItems: 'center' }}
@@ -478,6 +480,7 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
             <TaskCard
               key={task.id}
               task={task}
+              embed={embed}
               expanded={expandedTaskId === task.id}
               onToggle={() => onToggleTask(task.id)}
               onStatusChange={onStatusChange}
@@ -577,7 +580,7 @@ function StatusBadge({ status, onChange, updating }: { status: string; onChange:
 }
 
 /* ─── 수행과제 카드 ─── */
-function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, updating, delay, highlight }: any) {
+function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, updating, delay, highlight, embed = false }: any) {
   const router = useRouter()
   const [comment, setComment] = useState('')
   const [logType, setLogType] = useState<'업데이트' | '이슈' | '해결'>('업데이트')
@@ -592,19 +595,25 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   const [logs, setLogs] = useState<any[]>([])
   const [logsLoaded, setLogsLoaded] = useState(false)
 
+  // 로그 읽기는 인증 API 대신 Supabase에서 직접 조회한다(anon 키, 공개 읽기).
+  // 이렇게 해야 비로그인 임베드(/embed)에서도 진행 사항이 보인다. (API GET과 동일 쿼리)
+  const loadLogs = async () => {
+    const { data } = await supabase
+      .from('task_logs').select('*')
+      .eq('task_id', task.id)
+      .order('created_at', { ascending: false })
+    setLogs(data ?? [])
+  }
+
   const handleToggle = async () => {
     onToggle()
     if (!expanded && !logsLoaded) {
-      const res = await fetch(`/api/tasks/logs?taskId=${task.id}`)
-      setLogs(await res.json())
+      await loadLogs()
       setLogsLoaded(true)
     }
   }
 
-  const refreshLogs = async () => {
-    const res = await fetch(`/api/tasks/logs?taskId=${task.id}`)
-    setLogs(await res.json())
-  }
+  const refreshLogs = loadLogs
 
   const addLog = async () => {
     if (!comment.trim()) return
@@ -674,7 +683,11 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
           </div>
 
           <div className="task-card-right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-            <StatusBadge status={task.status} onChange={s => onStatusChange(task.id, s)} updating={updating} />
+            {embed
+              ? <span className="badge" style={{ background: (STATUS_STYLES[task.status]?.bg ?? 'var(--bg-input)'), color: (STATUS_STYLES[task.status]?.color ?? 'var(--text-2)'), border: `1px solid ${STATUS_STYLES[task.status]?.border ?? 'var(--border)'}`, whiteSpace: 'nowrap' }}>{task.status}</span>
+              : <StatusBadge status={task.status} onChange={s => onStatusChange(task.id, s)} updating={updating} />}
+            {/* 수정·삭제는 쓰기 작업이라 임베드(비로그인)에서는 숨김 */}
+            {!embed && (<>
             <button onClick={onEdit} title="수정"
               style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
@@ -687,6 +700,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
               <Trash2 size={13} />
             </button>
+            </>)}
             <ChevronDown size={15} color="var(--text-3)" style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', cursor: 'pointer' }} onClick={handleToggle} />
           </div>
         </div>
@@ -754,12 +768,14 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{new Date(l.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            {!embed && (
                             <button onClick={() => deleteLog(l.id)} title="삭제"
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'flex', alignItems: 'center', borderRadius: 4, transition: 'color 0.15s' }}
                               onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--critical)'}
                               onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'}>
                               <X size={12} />
                             </button>
+                            )}
                           </div>
                         </div>
                         {isLink
@@ -777,7 +793,8 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
             </div>
           )}
 
-          {/* 진행 사항 입력 */}
+          {/* 진행 사항 입력 — 쓰기 작업이라 임베드(비로그인)에서는 숨김 */}
+          {!embed && (
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>진행 사항 추가</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: showLinkInput ? 10 : 0 }}>
@@ -849,6 +866,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
               </div>
             )}
           </div>
+          )}
         </div>
       )}
     </div>
