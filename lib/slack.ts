@@ -16,3 +16,21 @@ export const BRANCH_SLACK_MAP: Record<string, BranchTarget> = {
 export function resolveBranchTarget(branch: string): BranchTarget | null {
   return BRANCH_SLACK_MAP[branch] ?? null
 }
+
+const MAX_LEN = 300
+
+export function formatCommentForSlack(content: string): string {
+  let text = content.trim()
+
+  // 앱 내부 링크 댓글 형식: "[링크] 제목||URL"
+  const linkMatch = text.match(/^\[링크\]\s*(.*?)\|\|(.+)$/)
+  if (linkMatch) {
+    const [, label, url] = linkMatch
+    text = `${label.trim()} (${url.trim()})`
+  }
+
+  if (text.length > MAX_LEN) {
+    text = text.slice(0, MAX_LEN) + '…'
+  }
+  return text
+}
