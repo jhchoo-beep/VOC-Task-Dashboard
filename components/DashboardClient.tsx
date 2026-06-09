@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { formatMonth } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckSquare, CheckCircle2, Trophy } from 'lucide-react'
 
@@ -24,8 +24,17 @@ function clxLabel(clx: number) {
   return { text: '위험', color: 'var(--critical)' }
 }
 
-export default function DashboardClient({ clxData, criticals, completedCriticals = [], taskProgress, completedTasks = [], resolvedTriggers = [], avgClxDiff, currentMonth, months = [] }: any) {
+export default function DashboardClient({ clxData, criticals, completedCriticals = [], taskProgress, completedTasks = [], resolvedTriggers = [], avgClxDiff, currentMonth, months = [], embed = false }: any) {
   const router = useRouter()
+  const pathname = usePathname()
+  // 현재 경로(/dashboard 또는 /embed/dashboard)와 기존 쿼리(임베드 토큰 ?key= 등)를 보존한 채 월만 교체
+  const changeMonth = (m: string) => {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+    params.set('month', m)
+    router.push(`${pathname}?${params.toString()}`)
+  }
+  // 임베드(노션 iframe·비로그인) 컨텍스트에서는 타 페이지 링크를 새 탭으로 열어 로그인 벽에 막히지 않게 한다
+  const linkProps = embed ? { target: '_blank' as const, rel: 'noopener noreferrer' } : {}
 
   return (
     <div className="page-pad" style={{ padding: '32px 36px' }}>
@@ -41,7 +50,7 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
         {months.length > 0 && (
           <select
             value={currentMonth}
-            onChange={e => router.push(`/dashboard?month=${e.target.value}`)}
+            onChange={e => changeMonth(e.target.value)}
             className="input"
             style={{ width: 'auto', padding: '7px 12px', fontSize: 13 }}
           >
@@ -66,7 +75,7 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
               Critical {criticals.filter((c: any) => c.severity === 'Critical').length}건 · High {criticals.filter((c: any) => c.severity === 'High').length}건
             </span>
           </div>
-          <a href="/reviews" style={{ color: 'var(--critical)', fontSize: 12, textDecoration: 'none' }}>확인 →</a>
+          <a href="/reviews" {...linkProps} style={{ color: 'var(--critical)', fontSize: 12, textDecoration: 'none' }}>확인 →</a>
         </div>
       )}
 
@@ -129,7 +138,7 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
               <Trophy size={14} color="var(--done)" />
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>이번 달 해결한 것</span>
             </div>
-            <a href={`/achievement?month=${currentMonth}`} style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>성과 전체 보기 →</a>
+            <a href={`/achievement?month=${currentMonth}`} {...linkProps} style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>성과 전체 보기 →</a>
           </div>
           {/* 통계 row */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
@@ -150,7 +159,7 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
           {/* 미니카드 그리드 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
             {completedTasks.slice(0, 6).map((t: any) => (
-              <a key={t.id} href={`/tasks?month=${currentMonth}`} style={{ textDecoration: 'none' }}>
+              <a key={t.id} href={`/tasks?month=${currentMonth}`} {...linkProps} style={{ textDecoration: 'none' }}>
                 <div className="card" style={{ padding: '12px 14px', borderLeft: '3px solid var(--done)', cursor: 'pointer', transition: 'all 0.15s' }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--done)'}
@@ -198,18 +207,18 @@ export default function DashboardClient({ clxData, criticals, completedCriticals
                 })}
               </div>
           }
-          <a href={`/tasks?month=${currentMonth}`} style={{ display: 'inline-block', marginTop: 16, color: 'var(--accent)', fontSize: 12, textDecoration: 'none' }}>수행과제 전체 보기 →</a>
+          <a href={`/tasks?month=${currentMonth}`} {...linkProps} style={{ display: 'inline-block', marginTop: 16, color: 'var(--accent)', fontSize: 12, textDecoration: 'none' }}>수행과제 전체 보기 →</a>
         </div>
 
         {/* 미처리 이슈 */}
-        <CriticalList criticals={criticals} completedCriticals={completedCriticals} />
+        <CriticalList criticals={criticals} completedCriticals={completedCriticals} embed={embed} linkProps={linkProps} />
       </div>
     </div>
   )
 }
 
 /* ─── 미처리 이슈 카드 (번역 표시 + 처리완료/되돌리기 버튼) ─── */
-function CriticalList({ criticals: initial, completedCriticals = [] }: any) {
+function CriticalList({ criticals: initial, completedCriticals = [], embed = false, linkProps = {} }: any) {
   const router = useRouter()
   const [items, setItems]         = useState<any[]>(initial ?? [])
   const [done,  setDone]          = useState<any[]>(completedCriticals)
@@ -268,17 +277,19 @@ function CriticalList({ criticals: initial, completedCriticals = [] }: any) {
               {items.slice(0, 5).map((c: any) => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', background: 'var(--bg-hover)', borderRadius: 8, border: '1px solid var(--border)' }}>
                   <span className={`badge ${SEV_BADGE[c.severity] ?? 'badge-low'}`} style={{ flexShrink: 0, marginTop: 1 }}>{c.severity}</span>
-                  <a href={`/reviews?month=${c.review_month}&review=${c.id}`} style={{ flex: 1, textDecoration: 'none' }}>
+                  <a href={`/reviews?month=${c.review_month}&review=${c.id}`} {...linkProps} style={{ flex: 1, textDecoration: 'none' }}>
                     <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.4 }}>{(c.content_ko ?? c.content ?? '').slice(0, 60)}...</div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>{c.branch} · {c.ota_site} · ★{c.rating}</div>
                   </a>
-                  {/* 처리완료 버튼 - 눈에 잘 띄게 */}
+                  {/* 처리완료 버튼 - 눈에 잘 띄게 (임베드/비로그인에서는 쓰기 불가하므로 숨김) */}
+                  {!embed && (
                   <button onClick={e => handleComplete(e, c)} disabled={loading === c.id} title="처리 완료로 변경"
                     style={{ background: 'rgba(0,229,102,0.12)', border: '1px solid rgba(0,229,102,0.4)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--done)', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 11, fontWeight: 600, transition: 'all 0.15s' }}
                     onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(0,229,102,0.22)' }}
                     onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(0,229,102,0.12)' }}>
                     {loading === c.id ? '...' : <><CheckCircle2 size={12} /> 처리완료</>}
                   </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -295,13 +306,15 @@ function CriticalList({ criticals: initial, completedCriticals = [] }: any) {
                 <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.4 }}>{(c.content_ko ?? c.content ?? '').slice(0, 60)}...</div>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>{c.branch} · {c.ota_site} · ★{c.rating}</div>
               </div>
-              {/* 되돌리기 버튼 */}
+              {/* 되돌리기 버튼 (임베드/비로그인에서는 숨김) */}
+              {!embed && (
               <button onClick={e => handleUndo(e, c)} disabled={loading === c.id} title="미처리로 되돌리기"
                 style={{ background: 'rgba(255,59,92,0.1)', border: '1px solid rgba(255,59,92,0.3)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--critical)', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 11, fontWeight: 600, transition: 'all 0.15s' }}
                 onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,59,92,0.2)' }}
                 onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,59,92,0.1)' }}>
                 {loading === c.id ? '...' : '↩ 되돌리기'}
               </button>
+              )}
             </div>
           ))}
         </div>
