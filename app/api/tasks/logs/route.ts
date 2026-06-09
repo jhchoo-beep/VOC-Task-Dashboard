@@ -1,6 +1,6 @@
 import { auth } from '@/auth'
 import { supabase } from '@/lib/supabase'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { notifyNewComment } from '@/lib/slack'
 
 export async function GET(req: NextRequest) {
@@ -33,23 +33,26 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // 슬랙 알림 (fire-and-forget): 실패해도 댓글 저장 응답은 정상 반환
-  try {
-    const { data: task } = await supabase
-      .from('tasks').select('branch, title, task_month').eq('id', taskId).single()
-    if (task) {
-      void notifyNewComment({
-        branch: task.branch,
-        taskId,
-        taskTitle: task.title,
-        taskMonth: task.task_month ?? '',
-        author,
-        content,
-      }).catch((e) => console.error('[slack] 알림 실패:', e))
+  // 슬랙 알림: 응답 반환 후 실행(after) — 서버리스에서 누락 없이 보장되며 댓글 저장 응답을 지연시키지 않음.
+  // 실패해도 댓글 저장에는 영향 없음.
+  after(async () => {
+    try {
+      const { data: task } = await supabase
+        .from('tasks').select('branch, title, task_month').eq('id', taskId).single()
+      if (task) {
+        await notifyNewComment({
+          branch: task.branch,
+          taskId,
+          taskTitle: task.title,
+          taskMonth: task.task_month ?? '',
+          author,
+          content,
+        })
+      }
+    } catch (e) {
+      console.error('[slack] 알림 처리 실패:', e)
     }
-  } catch (e) {
-    console.error('[slack] 과제 조회 실패:', e)
-  }
+  })
 
   return NextResponse.json(data)
 }
