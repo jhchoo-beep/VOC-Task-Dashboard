@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink, Search } from 'lucide-react'
 import { formatMonth, generateMonthOptions } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
@@ -35,6 +35,13 @@ function Field({ label, children }: any) {
 
 export default function TasksClient({ tasks, months, currentMonth, highlightTaskId }: any) {
   const router = useRouter()
+  const pathname = usePathname()
+  // 현재 경로(/tasks 또는 /embed/tasks)와 기존 쿼리(임베드 토큰 ?key= 등)를 보존한 채 월만 교체
+  const changeMonth = (m: string) => {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+    params.set('month', m)
+    router.push(`${pathname}?${params.toString()}`)
+  }
   const [branch, setBranch] = useState('전체')
   const [status, setStatus] = useState('전체')
   const [expanded, setExpanded] = useState<string|null>(highlightTaskId ?? null)
@@ -159,7 +166,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
 
       {/* 필터 — 데스크탑 (한 줄) */}
       <div className="filter-desktop" style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select value={currentMonth} onChange={e => router.push(`/tasks?month=${e.target.value}`)} className="input" style={{ width: 'auto', padding: '7px 12px' }}>
+        <select value={currentMonth} onChange={e => changeMonth(e.target.value)} className="input" style={{ width: 'auto', padding: '7px 12px' }}>
           {months.map((m: string) => <option key={m} value={m}>{formatMonth(m)}</option>)}
         </select>
         <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
@@ -176,7 +183,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
       <div className="filter-mobile" style={{ display: 'none', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
         {/* 1줄: 날짜 */}
         <div>
-          <select value={currentMonth} onChange={e => router.push(`/tasks?month=${e.target.value}`)} className="input" style={{ width: 'auto', padding: '7px 12px' }}>
+          <select value={currentMonth} onChange={e => changeMonth(e.target.value)} className="input" style={{ width: 'auto', padding: '7px 12px' }}>
             {months.map((m: string) => <option key={`mob-${m}`} value={m}>{formatMonth(m)}</option>)}
           </select>
         </div>
