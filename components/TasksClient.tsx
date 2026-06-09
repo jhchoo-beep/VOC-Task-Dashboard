@@ -330,9 +330,9 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
       >
         <span style={{ fontSize: 14 }}>{isMisc ? '📁' : '📌'}</span>
         {/* 트리거명 + 링크 아이콘 */}
-        <span style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, flexShrink: 1 }}>
           {trigger}
-          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-3)' }}>{tasks.length}건</span>
+          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{tasks.length}건</span>
           {triggerLink?.url && (
             <a href={triggerLink.url} target="_blank" rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
@@ -377,7 +377,8 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
             ))}
           </div>
         )}
-        <div style={{ flex: 1 }} />
+        {/* 우측 컨트롤 묶음 — 좁은 화면에서 통째로 줄바꿈되어 정렬 유지 */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           {(['Critical','High','Medium','Low'] as const).map(sev => sevCounts[sev] ? (
             <span key={sev} className={`badge ${SEV_BADGE[sev]}`} style={{ fontSize: 10, padding: '2px 7px' }}>
@@ -423,6 +424,7 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
           {collapsed ? '수행과제 보기' : '접기'}
           <ChevronDown size={11} style={{ transform: collapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
         </span>
+        </div>
       </div>
 
       {/* 링크 편집 패널 */}
