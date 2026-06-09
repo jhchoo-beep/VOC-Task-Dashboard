@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { resolveBranchTarget, formatCommentForSlack, buildTaskDeepLink, buildSlackText } from './slack'
+import { resolveBranchTarget, formatCommentForSlack, buildTaskDeepLink, buildSlackText, parseLogType } from './slack'
 
 describe('resolveBranchTarget', () => {
   it('신설을 ssd 스쿼드 채널/유저그룹으로 매핑한다', () => {
@@ -50,8 +50,20 @@ describe('buildTaskDeepLink', () => {
   })
 })
 
+describe('parseLogType', () => {
+  it('접두사 없으면 업데이트', () => {
+    expect(parseLogType('시안 공유드립니다')).toEqual({ type: '업데이트', body: '시안 공유드립니다' })
+  })
+  it('[이슈] 접두사를 이슈로 파싱하고 본문을 분리한다', () => {
+    expect(parseLogType('[이슈] 사인 누락됨')).toEqual({ type: '이슈', body: '사인 누락됨' })
+  })
+  it('[해결] 접두사를 해결로 파싱하고 본문을 분리한다', () => {
+    expect(parseLogType('[해결] 사인 부착 완료')).toEqual({ type: '해결', body: '사인 부착 완료' })
+  })
+})
+
 describe('buildSlackText', () => {
-  it('지점/제목/유저그룹멘션/작성자/내용/딥링크를 포함한다', () => {
+  it('지점/제목/멘션/작성자·유형/내용(볼드)/딥링크를 포함한다', () => {
     const text = buildSlackText({
       branch: '신설',
       taskTitle: '체크인 동선 개선',
@@ -60,11 +72,22 @@ describe('buildSlackText', () => {
       content: '시안 공유드립니다',
       link: 'https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-06',
     })
-    expect(text).toContain('[VOC 새 댓글] 신설 · 체크인 동선 개선')
+    expect(text).toContain('[수행과제 새 댓글] 신설 · 체크인 동선 개선')
     expect(text).toContain('<!subteam^ssdsquad>')
-    expect(text).toContain('작성자: 추재헌')
-    expect(text).toContain('시안 공유드립니다')
+    expect(text).toContain('작성자: 추재헌 · 유형: 업데이트')
+    expect(text).toContain('내용: *시안 공유드립니다*')
     expect(text).toContain('<https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-06|대시보드에서 보기>')
+  })
+
+  it('이슈 댓글이면 유형: 이슈로 표시하고 접두사를 본문에서 제거한다', () => {
+    const text = buildSlackText({
+      branch: '동대문', taskTitle: '야간 매너', usergroup: 'ddmsquad',
+      author: '추재헌', content: '[이슈] 표지 분실',
+      link: 'https://x/tasks?task=t1',
+    })
+    expect(text).toContain('유형: 이슈')
+    expect(text).toContain('내용: *표지 분실*')
+    expect(text).not.toContain('[이슈]')
   })
 })
 

@@ -43,6 +43,16 @@ export function buildTaskDeepLink(taskId: string, taskMonth: string): string {
   return taskMonth ? `${base}&month=${encodeURIComponent(taskMonth)}` : base
 }
 
+// 진행사항 유형: 앱에서 댓글 작성 시 업데이트/이슈/해결을 선택하며, content 접두사로 저장됨.
+// 업데이트=접두사 없음, 이슈='[이슈] ', 해결='[해결] '.
+export type LogType = '업데이트' | '이슈' | '해결'
+
+export function parseLogType(content: string): { type: LogType; body: string } {
+  if (content.startsWith('[이슈] ')) return { type: '이슈', body: content.slice('[이슈] '.length) }
+  if (content.startsWith('[해결] ')) return { type: '해결', body: content.slice('[해결] '.length) }
+  return { type: '업데이트', body: content }
+}
+
 export interface SlackTextArgs {
   branch: string
   taskTitle: string
@@ -54,11 +64,12 @@ export interface SlackTextArgs {
 
 export function buildSlackText(args: SlackTextArgs): string {
   const { branch, taskTitle, usergroup, author, content, link } = args
+  const { type, body } = parseLogType(content)
   return [
-    `[VOC 새 댓글] ${branch} · ${taskTitle}`,
+    `[수행과제 새 댓글] ${branch} · ${taskTitle}`,
     `<!subteam^${usergroup}>`,
-    `작성자: ${author}`,
-    formatCommentForSlack(content),
+    `작성자: ${author} · 유형: ${type}`,
+    `내용: *${formatCommentForSlack(body)}*`,
     `<${link}|대시보드에서 보기>`,
   ].join('\n')
 }
