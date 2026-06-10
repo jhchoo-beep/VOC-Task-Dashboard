@@ -70,7 +70,8 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
       })
   }, [])
 
-  const filtered = tasks
+  // useMemo로 참조를 고정해야 아래 triggerGroups useMemo도 실제로 캐시가 작동한다
+  const filtered = useMemo(() => tasks
     .filter((t: any) => {
       if (branch !== '전체' && t.branch !== branch) return false
       if (status !== '전체' && t.status !== status) return false
@@ -80,7 +81,7 @@ export default function TasksClient({ tasks, months, currentMonth, highlightTask
       const sevDiff = (SEV_ORDER[a.severity] ?? 99) - (SEV_ORDER[b.severity] ?? 99)
       if (sevDiff !== 0) return sevDiff
       return (b.priority_score ?? 0) - (a.priority_score ?? 0)
-    })
+    }), [tasks, branch, status])
   const done = filtered.filter((t: any) => t.status === '완료').length
   const pct  = filtered.length ? Math.round(done / filtered.length * 100) : 0
 
@@ -886,27 +887,26 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
     setOpen(true)
     if (reviews.length === 0) {
       setLoading(true)
-      // API 라우트 우회 — Supabase 클라이언트 직접 사용 + range로 최대 5000건 요청
+      // API 라우트 우회 — 표시·검색·연결에 필요한 컬럼만 조회, 정렬은 DB에서 처리
       const { data } = await supabase
         .from('reviews')
-        .select('*')
+        .select('id, branch, ota_site, rating, severity, review_month, content_ko, content')
+        .order('review_month', { ascending: false })
+        .order('rating', { ascending: false })
         .range(0, 4999)
-      // 최신 월 → 높은 평점 순 정렬
-      const sorted = (Array.isArray(data) ? data : []).sort((a: any, b: any) => {
-        if (b.review_month > a.review_month) return 1
-        if (b.review_month < a.review_month) return -1
-        return (b.rating ?? 0) - (a.rating ?? 0)
-      })
-      setReviews(sorted)
+      setReviews(Array.isArray(data) ? data : [])
       setLoading(false)
     }
   }
 
   const close = () => { setOpen(false); setSearch(''); setFilterBranch('전체'); setFilterMonth('전체') }
 
-  const months = ['전체', ...Array.from(new Set(reviews.map((r: any) => r.review_month).filter(Boolean))).sort().reverse()] as string[]
+  const months = useMemo(
+    () => ['전체', ...Array.from(new Set(reviews.map((r: any) => r.review_month).filter(Boolean))).sort().reverse()] as string[],
+    [reviews]
+  )
 
-  const filtered = reviews.filter((r: any) => {
+  const filtered = useMemo(() => reviews.filter((r: any) => {
     if (filterBranch !== '전체' && r.branch !== filterBranch) return false
     if (filterMonth !== '전체' && r.review_month !== filterMonth) return false
     if (search.trim()) {
@@ -915,7 +915,7 @@ function ReviewPickerField({ selectedReview, existingContent, onSelect, onClear 
           !(r.ota_site ?? '').toLowerCase().includes(q)) return false
     }
     return true
-  })
+  }), [reviews, filterBranch, filterMonth, search])
 
   const pickerProps = {
     reviews: filtered, loading, search, onSearch: setSearch,

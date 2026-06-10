@@ -143,29 +143,40 @@ export async function getOtaScoresProps() {
 
 // ─── 대시보드 (Dashboard) ───────────────────────────────────
 export async function getDashboardProps(month?: string) {
-  // 리뷰 + 수행과제 병렬 조회
-  const [{ data: reviews = [] }, { data: allTasks = [] }] = await Promise.all([
-    supabase.from('reviews').select('id, branch, ota_site, rating, review_month, content_ko, content, severity, status').order('review_month', { ascending: false }),
-    supabase.from('tasks').select('id, branch, status, task_month, title, churn_trigger, assignee, solution'),
+  // 1) 월 목록만 컬럼 한정 조회 (리뷰 원문 등 무거운 컬럼 제외, 1000행 기본 캡 회피)
+  const [{ data: reviewMonthsRaw }, { data: taskMonthsRaw }] = await Promise.all([
+    supabase.from('reviews').select('review_month').range(0, 9999),
+    supabase.from('tasks').select('task_month').range(0, 9999),
   ])
-
-  // 리뷰 월 목록 + 수행과제 월 목록 합쳐서 전체 월 목록 생성
-  const reviewMonths = (reviews ?? []).map((r: any) => r.review_month).filter(Boolean)
-  const taskMonths   = (allTasks ?? []).map((t: any) => t.task_month).filter(Boolean)
-  const months = [...new Set([...reviewMonths, ...taskMonths])].sort().reverse() as string[]
+  const months = [...new Set([
+    ...(reviewMonthsRaw ?? []).map((r: any) => r.review_month),
+    ...(taskMonthsRaw ?? []).map((t: any) => t.task_month),
+  ].filter(Boolean))].sort().reverse() as string[]
 
   const currentMonth = month ?? months[0] ?? ''
   const prevMonth    = months[months.indexOf(currentMonth) + 1] ?? ''
 
-  // 지점 목록 (리뷰 + 수행과제 모두 포함)
-  const reviewBranches = (reviews ?? []).map((r: any) => r.branch).filter(Boolean)
-  const taskBranches   = (allTasks ?? []).map((t: any) => t.branch).filter(Boolean)
-  const branches = [...new Set([...reviewBranches, ...taskBranches])] as string[]
+  if (!currentMonth) {
+    return { clxData: [], criticals: [], completedCriticals: [], taskProgress: [], completedTasks: [], resolvedTriggers: [], avgClxDiff: null, currentMonth, months }
+  }
+
+  // 2) 현재월·전월 데이터만 병렬 조회
+  //    - CLX 계산용은 평점만, 리뷰 원문(content)은 Critical/High 행에서만 내려받음
+  const targetMonths = [currentMonth, prevMonth].filter(Boolean)
+  const [{ data: ratingRows }, { data: criticalRows }, { data: monthTasksRaw }] = await Promise.all([
+    supabase.from('reviews').select('branch, rating, review_month').in('review_month', targetMonths).range(0, 9999),
+    supabase.from('reviews').select('id, branch, ota_site, rating, review_month, content_ko, content, severity, status').eq('review_month', currentMonth).in('severity', ['Critical', 'High']),
+    supabase.from('tasks').select('id, branch, status, task_month, title, churn_trigger, assignee, solution').eq('task_month', currentMonth),
+  ])
+  const reviews = ratingRows ?? []
+
+  // 지점 목록 (현재월·전월 리뷰 기준 — 리뷰 없는 지점은 어차피 CLX 계산에서 제외됨)
+  const branches = [...new Set(reviews.map((r: any) => r.branch).filter(Boolean))] as string[]
 
   // CLX 계산
   function calcBranchMetrics(m: string) {
     return branches.map(branch => {
-      const br = (reviews ?? []).filter((r: any) => r.review_month === m && r.branch === branch)
+      const br = reviews.filter((r: any) => r.review_month === m && r.branch === branch)
       if (!br.length) return null
       const total = br.length
       const lp = Math.round(br.filter((r: any) => r.rating >= 9).length / total * 1000) / 10
@@ -188,23 +199,19 @@ export async function getDashboardProps(month?: string) {
     return { ...m, diff: p ? m.clx - p.clx : null }
   }).sort((a: any, b: any) => b.clx - a.clx)
 
-  // Critical/High 미처리
+  // Critical/High 미처리 (criticalRows는 이미 현재월 + Critical/High만 조회됨)
   const sevSort = (a: any, b: any) => (a.severity === 'Critical' ? 0 : 1) - (b.severity === 'Critical' ? 0 : 1)
-  const criticals = (reviews ?? []).filter((r: any) =>
-    ['Critical', 'High'].includes(r.severity) &&
-    r.review_month === currentMonth &&
+  const criticals = (criticalRows ?? []).filter((r: any) =>
     !['완료', '문서화완료'].includes(r.status)
   ).sort(sevSort).slice(0, 10)
 
   // Critical/High 처리완료 (되돌리기용) - 항상 내려보냄
-  const completedCriticals = (reviews ?? []).filter((r: any) =>
-    ['Critical', 'High'].includes(r.severity) &&
-    r.review_month === currentMonth &&
+  const completedCriticals = (criticalRows ?? []).filter((r: any) =>
     ['완료', '문서화완료'].includes(r.status)
   ).sort(sevSort).slice(0, 10)
 
-  // 수행과제 진행률 - currentMonth 필터링
-  const monthTasks = (allTasks ?? []).filter((t: any) => t.task_month === currentMonth)
+  // 수행과제 진행률 (monthTasksRaw는 이미 currentMonth만 조회됨)
+  const monthTasks = monthTasksRaw ?? []
 
   // 수행과제가 있는 지점만 표시 (리뷰 없어도 수행과제 있으면 표시)
   const taskBranchSet = [...new Set(monthTasks.map((t: any) => t.branch).filter(Boolean))] as string[]
@@ -227,7 +234,7 @@ export async function getDashboardProps(month?: string) {
 
 // ─── 수행과제 (Tasks) ───────────────────────────────────────
 export async function getTasksProps(month?: string, task?: string) {
-  const monthsQuery = supabase.from('tasks').select('task_month').order('task_month', { ascending: false })
+  const monthsQuery = supabase.from('tasks').select('task_month').order('task_month', { ascending: false }).range(0, 9999)
 
   let months: string[]
   let currentMonth: string
@@ -261,7 +268,7 @@ export async function getTasksProps(month?: string, task?: string) {
 export async function getAnalyticsProps() {
   const [{ data: reviews = [] }, { data: allTasks = [] }] = await Promise.all([
     supabase.from('reviews').select('review_month, branch, rating, categories, severity, churn_triggers').order('review_month', { ascending: false }).range(0, 9999),
-    supabase.from('tasks').select('id, churn_trigger, status, task_month').order('task_month', { ascending: false }),
+    supabase.from('tasks').select('id, churn_trigger, status, task_month').order('task_month', { ascending: false }).range(0, 9999),
   ])
   const rv = reviews ?? []
   const tasks = allTasks ?? []

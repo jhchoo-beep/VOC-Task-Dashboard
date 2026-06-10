@@ -18,7 +18,7 @@ export default async function ReviewsPage({
     return q.order('severity', { ascending: true }).order('rating', { ascending: true })
   }
 
-  const monthsQuery = supabase.from('reviews').select('review_month').order('review_month', { ascending: false })
+  const monthsQuery = supabase.from('reviews').select('review_month').order('review_month', { ascending: false }).range(0, 9999)
   const linkedTasksQuery = supabase
     .from('tasks')
     .select('id, title, task_month, status, linked_review_ids')

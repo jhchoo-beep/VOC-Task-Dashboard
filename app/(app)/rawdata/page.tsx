@@ -10,18 +10,19 @@ export default async function RawDataPage({
 }) {
   const { month } = await searchParams
 
-  const { data: rawReviews = [] } = await supabase
+  // 월 목록만 컬럼 한정 조회 (1000행 기본 캡 회피)
+  const { data: monthRows } = await supabase
     .from('raw_reviews')
-    .select('*')
-    .order('review_month', { ascending: false })
-    .order('rating')
+    .select('review_month')
+    .range(0, 9999)
 
-  const months = [...new Set((rawReviews ?? []).map((r: any) => r.review_month).filter(Boolean))].sort().reverse() as string[]
+  const months = [...new Set((monthRows ?? []).map((r: any) => r.review_month).filter(Boolean))].sort().reverse() as string[]
   const currentMonth = month ?? months[0] ?? ''
 
-  const filtered = currentMonth
-    ? (rawReviews ?? []).filter((r: any) => r.review_month === currentMonth)
-    : (rawReviews ?? [])
+  // 선택된 월 데이터만 조회
+  const { data: rawReviews } = currentMonth
+    ? await supabase.from('raw_reviews').select('*').eq('review_month', currentMonth).order('rating').range(0, 9999)
+    : { data: [] }
 
-  return <RawDataClient rawReviews={filtered} months={months} currentMonth={currentMonth} />
+  return <RawDataClient rawReviews={rawReviews ?? []} months={months} currentMonth={currentMonth} />
 }

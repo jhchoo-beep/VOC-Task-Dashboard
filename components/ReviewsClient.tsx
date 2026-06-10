@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, ChevronUp, Star, Plus, Loader2, Trash2, Pencil, Download } from 'lucide-react'
 import { formatMonth } from '@/lib/utils'
@@ -76,7 +76,10 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
   const [sortCol, setSortCol] = useState<string>('severity')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc')
 
-  const otaSites = ['전체', ...Array.from(new Set(reviews.map((r: any) => r.ota_site).filter(Boolean))) as string[]]
+  const otaSites = useMemo(
+    () => ['전체', ...Array.from(new Set(reviews.map((r: any) => r.ota_site).filter(Boolean))) as string[]],
+    [reviews]
+  )
 
   const handleDownloadCsv = () => {
     const headers = ['지점', 'OTA', '평점', 'Severity', '세그먼트', '리뷰월', '카테고리', '변심트리거', '내용(한국어)', '내용(원문)']
@@ -120,15 +123,15 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
     }
   }
 
-  const filtered = reviews.filter((r: any) => {
+  const filtered = useMemo(() => reviews.filter((r: any) => {
     if (branch !== '전체' && r.branch !== branch) return false
     if (severity !== '전체' && r.severity !== severity) return false
     if (otaSite !== '전체' && r.ota_site !== otaSite) return false
     return true
-  })
+  }), [reviews, branch, severity, otaSite])
 
   // 정렬 적용
-  const sorted = [...filtered].sort((a: any, b: any) => {
+  const sorted = useMemo(() => [...filtered].sort((a: any, b: any) => {
     let av: any, bv: any
     if (sortCol === 'severity') {
       av = SEV_ORDER[a.severity] ?? 99
@@ -148,11 +151,13 @@ export default function ReviewsClient({ reviews, months, currentMonth, reviewTas
     if (av < bv) return sortDir === 'asc' ? -1 : 1
     if (av > bv) return sortDir === 'asc' ? 1 : -1
     return 0
-  })
+  }), [filtered, sortCol, sortDir])
 
-  const avgRating   = filtered.length ? (filtered.reduce((s: number, r: any) => s + r.rating, 0) / filtered.length).toFixed(2) : '-'
-  const criticalCnt = filtered.filter((r: any) => r.severity === 'Critical').length
-  const highCnt     = filtered.filter((r: any) => r.severity === 'High').length
+  const { avgRating, criticalCnt, highCnt } = useMemo(() => ({
+    avgRating:   filtered.length ? (filtered.reduce((s: number, r: any) => s + r.rating, 0) / filtered.length).toFixed(2) : '-',
+    criticalCnt: filtered.filter((r: any) => r.severity === 'Critical').length,
+    highCnt:     filtered.filter((r: any) => r.severity === 'High').length,
+  }), [filtered])
 
   // 정렬 가능한 헤더 셀
   const SortHeader = ({ col, label, style }: { col: string; label: string; style?: any }) => (

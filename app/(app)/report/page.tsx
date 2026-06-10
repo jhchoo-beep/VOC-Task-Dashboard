@@ -10,7 +10,7 @@ export default async function ReportPage({
 }) {
   const { month } = await searchParams
 
-  const monthsQuery = supabase.from('reviews').select('review_month').order('review_month', { ascending: false })
+  const monthsQuery = supabase.from('reviews').select('review_month').order('review_month', { ascending: false }).range(0, 9999)
 
   let months: string[]
   let currentMonth: string

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -21,22 +21,22 @@ const RANGE_OPTIONS = [
 ]
 
 export default function AnalyticsClient({ monthlyRaw, catData, severityData, triggerResolution = [], triggerMonthlyData = [], triggerNames = [] }: any) {
-  const allMonths = [...new Set(monthlyRaw.map((d: any) => d.review_month))].sort() as string[]
-  const branches  = [...new Set(monthlyRaw.map((d: any) => d.branch))] as string[]
+  const allMonths = useMemo(() => [...new Set(monthlyRaw.map((d: any) => d.review_month))].sort() as string[], [monthlyRaw])
+  const branches  = useMemo(() => [...new Set(monthlyRaw.map((d: any) => d.branch))] as string[], [monthlyRaw])
   const [range, setRange] = useState(12)
   const [selectedTrigger, setSelectedTrigger] = useState<string>(triggerNames[0] ?? '')
 
-  const months = range === 0 ? allMonths : allMonths.slice(-range)
-  const severityFiltered = (severityData ?? []).filter((d: any) => months.includes(d.month))
+  const months = useMemo(() => range === 0 ? allMonths : allMonths.slice(-range), [allMonths, range])
+  const severityFiltered = useMemo(() => (severityData ?? []).filter((d: any) => months.includes(d.month)), [severityData, months])
 
-  const clxChart = months.map(month => {
+  const clxChart = useMemo(() => months.map(month => {
     const entry: any = { month }
     branches.forEach(branch => {
       const row = monthlyRaw.find((d: any) => d.review_month === month && d.branch === branch)
       if (row) entry[branch] = Math.round(row.clx)
     })
     return entry
-  })
+  }), [months, branches, monthlyRaw])
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null

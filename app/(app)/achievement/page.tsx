@@ -27,6 +27,7 @@ export default async function AchievementPage({
     .from('tasks')
     .select('task_month, branch')
     .order('task_month', { ascending: false })
+    .range(0, 9999)
 
   const months = [...new Set((allTasks ?? []).map((t: any) => t.task_month).filter(Boolean))].sort().reverse() as string[]
   const branches = [...new Set((allTasks ?? []).map((t: any) => t.branch).filter(Boolean))] as string[]
