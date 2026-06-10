@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { resolveBranchTarget, formatCommentForSlack, buildTaskDeepLink, buildSlackText, parseLogType } from './slack'
+import { resolveBranchTarget, formatCommentForSlack, buildTaskDeepLink, buildSlackText, parseLogType, formatMonthLabel } from './slack'
 
 describe('resolveBranchTarget', () => {
   it('신설을 ssd 스쿼드 채널/유저그룹으로 매핑한다', () => {
@@ -62,17 +62,40 @@ describe('parseLogType', () => {
   })
 })
 
+describe('formatMonthLabel', () => {
+  it("'YYYY-MM'을 'N월'로 변환한다(앞 0 제거)", () => {
+    expect(formatMonthLabel('2026-04')).toBe('4월')
+    expect(formatMonthLabel('2026-11')).toBe('11월')
+  })
+
+  it('형식이 아니면 빈 문자열을 반환한다', () => {
+    expect(formatMonthLabel('')).toBe('')
+    expect(formatMonthLabel('2026')).toBe('')
+  })
+})
+
 describe('buildSlackText', () => {
+  it('taskMonth가 없으면 제목에 월 표시를 넣지 않는다', () => {
+    const text = buildSlackText({
+      branch: '신설', taskTitle: '체크인 동선 개선', taskMonth: '',
+      usergroup: 'ssdsquad', author: '추재헌', content: '내용',
+      link: 'https://x/tasks?task=t1',
+    })
+    expect(text).toContain('[수행과제 새 댓글] 신설 · 체크인 동선 개선')
+    expect(text).not.toContain('()')
+  })
+
   it('지점/제목/멘션/작성자·유형/내용(볼드)/딥링크를 포함한다', () => {
     const text = buildSlackText({
       branch: '신설',
       taskTitle: '체크인 동선 개선',
+      taskMonth: '2026-04',
       usergroup: 'ssdsquad',
       author: '추재헌',
       content: '시안 공유드립니다',
       link: 'https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-06',
     })
-    expect(text).toContain('[수행과제 새 댓글] 신설 · 체크인 동선 개선')
+    expect(text).toContain('[수행과제 새 댓글] 신설 · (4월) 체크인 동선 개선')
     expect(text).toContain('<!subteam^ssdsquad>')
     expect(text).toContain('작성자: 추재헌 · 유형: 업데이트')
     expect(text).toContain('내용: *시안 공유드립니다*')
@@ -81,10 +104,11 @@ describe('buildSlackText', () => {
 
   it('이슈 댓글이면 유형: 이슈로 표시하고 접두사를 본문에서 제거한다', () => {
     const text = buildSlackText({
-      branch: '동대문', taskTitle: '야간 매너', usergroup: 'ddmsquad',
+      branch: '동대문', taskTitle: '야간 매너', taskMonth: '2026-05', usergroup: 'ddmsquad',
       author: '추재헌', content: '[이슈] 표지 분실',
       link: 'https://x/tasks?task=t1',
     })
+    expect(text).toContain('[수행과제 새 댓글] 동대문 · (5월) 야간 매너')
     expect(text).toContain('유형: 이슈')
     expect(text).toContain('내용: *표지 분실*')
     expect(text).not.toContain('[이슈]')

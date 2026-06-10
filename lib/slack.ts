@@ -53,9 +53,17 @@ export function parseLogType(content: string): { type: LogType; body: string } {
   return { type: '업데이트', body: content }
 }
 
+// 'YYYY-MM' → 'N월' (제목의 수행과제 월 표시용). 형식이 아니면 빈 문자열.
+export function formatMonthLabel(taskMonth: string): string {
+  const m = taskMonth.match(/^(\d{4})-(\d{2})$/)
+  if (!m) return ''
+  return `${parseInt(m[2], 10)}월`
+}
+
 export interface SlackTextArgs {
   branch: string
   taskTitle: string
+  taskMonth: string
   usergroup: string
   author: string
   content: string
@@ -63,10 +71,12 @@ export interface SlackTextArgs {
 }
 
 export function buildSlackText(args: SlackTextArgs): string {
-  const { branch, taskTitle, usergroup, author, content, link } = args
+  const { branch, taskTitle, taskMonth, usergroup, author, content, link } = args
   const { type, body } = parseLogType(content)
+  const monthLabel = formatMonthLabel(taskMonth)
+  const titleTask = monthLabel ? `(${monthLabel}) ${taskTitle}` : taskTitle
   return [
-    `[수행과제 새 댓글] ${branch} · ${taskTitle}`,
+    `[수행과제 새 댓글] ${branch} · ${titleTask}`,
     `<!subteam^${usergroup}>`,
     `작성자: ${author} · 유형: ${type}`,
     `내용: *${formatCommentForSlack(body)}*`,
@@ -99,6 +109,7 @@ export async function notifyNewComment(args: NotifyArgs): Promise<void> {
   const text = buildSlackText({
     branch: args.branch,
     taskTitle: args.taskTitle,
+    taskMonth: args.taskMonth,
     usergroup: target.usergroup,
     author: args.author,
     content: args.content,
