@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { supabase } from '@/lib/supabase'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
+import { notifyNewTask } from '@/lib/slack'
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -34,6 +35,26 @@ export async function POST(req: NextRequest) {
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 슬랙 알림: 응답 반환 후 실행(after) — 신규 수행과제 등록을 해당 지점 스쿼드 채널에 통보.
+  // 실패해도 과제 저장 응답에는 영향 없음.
+  after(async () => {
+    try {
+      await notifyNewTask({
+        branch: data.branch,
+        taskId: data.id,
+        taskTitle: data.title,
+        taskMonth: data.task_month ?? '',
+        severity: data.severity ?? '',
+        assignee: data.assignee,
+        dueDate: data.due_date,
+        churnTrigger: data.churn_trigger,
+      })
+    } catch (e) {
+      console.error('[slack] 신규 과제 알림 처리 실패:', e)
+    }
+  })
+
   return NextResponse.json(data)
 }
 

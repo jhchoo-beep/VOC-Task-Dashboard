@@ -115,7 +115,73 @@ describe('buildSlackText', () => {
   })
 })
 
+import { buildNewTaskText, notifyNewTask } from './slack'
+
+describe('buildNewTaskText', () => {
+  const base = {
+    branch: '고성', taskTitle: '도어클로저 교체', taskMonth: '2026-04',
+    usergroup: 'S06LG96FGMB', severity: 'High', assignee: '정해선',
+    dueDate: '2026-04-30', churnTrigger: ['소음', '시설노후'],
+    link: 'https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-04',
+  }
+
+  it('제목·월·멘션·심각도·담당·기한·트리거·딥링크를 포함한다', () => {
+    const text = buildNewTaskText(base)
+    expect(text).toContain('[신규 수행과제 등록] 고성 · (4월) 도어클로저 교체')
+    expect(text).toContain('<!subteam^S06LG96FGMB>')
+    expect(text).toContain('심각도: High · 담당: 정해선 · 기한: 2026-04-30')
+    expect(text).toContain('변심 트리거: 소음, 시설노후')
+    expect(text).toContain('<https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-04|대시보드에서 보기>')
+  })
+
+  it('담당·기한·트리거가 없으면 해당 줄/항목을 생략한다', () => {
+    const text = buildNewTaskText({
+      ...base, assignee: null, dueDate: '', churnTrigger: [],
+    })
+    expect(text).toContain('심각도: High')
+    expect(text).not.toContain('담당:')
+    expect(text).not.toContain('기한:')
+    expect(text).not.toContain('변심 트리거:')
+  })
+})
+
 import { notifyNewComment } from './slack'
+
+describe('notifyNewTask', () => {
+  beforeEach(() => {
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test'
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true }),
+    })))
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete process.env.SLACK_BOT_TOKEN
+  })
+
+  it('매핑된 지점이면 해당 채널로 신규 과제 알림을 보낸다', async () => {
+    await notifyNewTask({
+      branch: '제주시티', taskId: 't9', taskTitle: '공기질 개선',
+      taskMonth: '2026-05', severity: 'Critical', assignee: '정해선',
+      dueDate: '2026-05-20', churnTrigger: ['냄새'],
+    })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    const [, opts] = (fetch as any).mock.calls[0]
+    const body = JSON.parse(opts.body)
+    expect(body.channel).toBe('C07HSELN5S9')
+    expect(body.text).toContain('[신규 수행과제 등록] 제주시티 · (5월) 공기질 개선')
+    expect(body.text).toContain('<!subteam^S07R8QSFCDD>')
+  })
+
+  it('매핑에 없는 지점이면 발송하지 않는다', async () => {
+    await notifyNewTask({
+      branch: '없는지점', taskId: 't9', taskTitle: 'x',
+      taskMonth: '2026-05', severity: 'High',
+    })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+})
 
 describe('notifyNewComment', () => {
   beforeEach(() => {

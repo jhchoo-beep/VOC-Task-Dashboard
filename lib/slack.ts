@@ -93,13 +93,28 @@ export interface NotifyArgs {
   content: string
 }
 
-export async function notifyNewComment(args: NotifyArgs): Promise<void> {
+// 슬랙 채널로 텍스트 발송(공통 I/O). 토큰 없으면 조용히 스킵.
+async function postToSlack(channel: string, text: string): Promise<void> {
   const token = process.env.SLACK_BOT_TOKEN
   if (!token) {
     console.warn('[slack] SLACK_BOT_TOKEN 미설정 — 알림 스킵')
     return
   }
+  const res = await fetch('https://slack.com/api/chat.postMessage', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ channel, text }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!data?.ok) {
+    console.error('[slack] chat.postMessage 실패:', data?.error ?? res.status)
+  }
+}
 
+export async function notifyNewComment(args: NotifyArgs): Promise<void> {
   const target = resolveBranchTarget(args.branch)
   if (!target) {
     console.warn(`[slack] 매핑 없는 지점 "${args.branch}" — 알림 스킵`)
@@ -116,16 +131,70 @@ export async function notifyNewComment(args: NotifyArgs): Promise<void> {
     link: buildTaskDeepLink(args.taskId, args.taskMonth),
   })
 
-  const res = await fetch('https://slack.com/api/chat.postMessage', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ channel: target.channel, text }),
-  })
-  const data = await res.json().catch(() => ({}))
-  if (!data?.ok) {
-    console.error('[slack] chat.postMessage 실패:', data?.error ?? res.status)
+  await postToSlack(target.channel, text)
+}
+
+export interface NewTaskTextArgs {
+  branch: string
+  taskTitle: string
+  taskMonth: string
+  usergroup: string
+  severity: string
+  assignee?: string | null
+  dueDate?: string | null
+  churnTrigger?: string[] | null
+  link: string
+}
+
+export function buildNewTaskText(args: NewTaskTextArgs): string {
+  const { branch, taskTitle, taskMonth, usergroup, severity, assignee, dueDate, churnTrigger, link } = args
+  const monthLabel = formatMonthLabel(taskMonth)
+  const titleTask = monthLabel ? `(${monthLabel}) ${taskTitle}` : taskTitle
+
+  const meta = [`심각도: ${severity || '-'}`]
+  if (assignee?.trim()) meta.push(`담당: ${assignee.trim()}`)
+  if (dueDate?.trim()) meta.push(`기한: ${dueDate.trim()}`)
+
+  const lines = [
+    `[신규 수행과제 등록] ${branch} · ${titleTask}`,
+    `<!subteam^${usergroup}>`,
+    meta.join(' · '),
+  ]
+  const triggers = (churnTrigger ?? []).filter((t) => t?.trim())
+  if (triggers.length) lines.push(`변심 트리거: ${triggers.join(', ')}`)
+  lines.push(`<${link}|대시보드에서 보기>`)
+  return lines.join('\n')
+}
+
+export interface NotifyNewTaskArgs {
+  branch: string
+  taskId: string
+  taskTitle: string
+  taskMonth: string
+  severity: string
+  assignee?: string | null
+  dueDate?: string | null
+  churnTrigger?: string[] | null
+}
+
+export async function notifyNewTask(args: NotifyNewTaskArgs): Promise<void> {
+  const target = resolveBranchTarget(args.branch)
+  if (!target) {
+    console.warn(`[slack] 매핑 없는 지점 "${args.branch}" — 신규 과제 알림 스킵`)
+    return
   }
+
+  const text = buildNewTaskText({
+    branch: args.branch,
+    taskTitle: args.taskTitle,
+    taskMonth: args.taskMonth,
+    usergroup: target.usergroup,
+    severity: args.severity,
+    assignee: args.assignee,
+    dueDate: args.dueDate,
+    churnTrigger: args.churnTrigger,
+    link: buildTaskDeepLink(args.taskId, args.taskMonth),
+  })
+
+  await postToSlack(target.channel, text)
 }
