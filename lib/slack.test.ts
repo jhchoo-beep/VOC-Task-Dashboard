@@ -81,7 +81,7 @@ describe('buildSlackText', () => {
       usergroup: 'ssdsquad', author: '추재헌', content: '내용',
       link: 'https://x/tasks?task=t1',
     })
-    expect(text).toContain('[수행과제 새 댓글] 신설 · 체크인 동선 개선')
+    expect(text).toContain('*[수행과제 새 댓글] 신설 · 체크인 동선 개선*')
     expect(text).not.toContain('()')
   })
 
@@ -95,7 +95,7 @@ describe('buildSlackText', () => {
       content: '시안 공유드립니다',
       link: 'https://voc-task-dashboard.vercel.app/tasks?task=t1&month=2026-06',
     })
-    expect(text).toContain('[수행과제 새 댓글] 신설 · (4월) 체크인 동선 개선')
+    expect(text).toContain('*[수행과제 새 댓글] 신설 · (4월) 체크인 동선 개선*')
     expect(text).toContain('<!subteam^ssdsquad>')
     expect(text).toContain('작성자: 추재헌 · 유형: 업데이트')
     expect(text).toContain('내용: *시안 공유드립니다*')
@@ -108,7 +108,7 @@ describe('buildSlackText', () => {
       author: '추재헌', content: '[이슈] 표지 분실',
       link: 'https://x/tasks?task=t1',
     })
-    expect(text).toContain('[수행과제 새 댓글] 동대문 · (5월) 야간 매너')
+    expect(text).toContain('*[수행과제 새 댓글] 동대문 · (5월) 야간 매너*')
     expect(text).toContain('유형: 이슈')
     expect(text).toContain('내용: *표지 분실*')
     expect(text).not.toContain('[이슈]')
@@ -127,7 +127,7 @@ describe('buildNewTaskText', () => {
 
   it('제목·월·멘션·심각도·담당·기한·트리거·딥링크를 포함한다', () => {
     const text = buildNewTaskText(base)
-    expect(text).toContain('[신규 수행과제 등록] 고성 · (4월) 도어클로저 교체')
+    expect(text).toContain('*[신규 수행과제 등록] 고성 · (4월) 도어클로저 교체*')
     expect(text).toContain('<!subteam^S06LG96FGMB>')
     expect(text).toContain('심각도: High · 담당: 정해선 · 기한: 2026-04-30')
     expect(text).toContain('변심 트리거: 소음, 시설노후')
@@ -157,7 +157,7 @@ describe('buildTaskDoneText', () => {
 
   it('완료 제목(축하)·멘션·담당·완료메모·딥링크를 포함한다', () => {
     const text = buildTaskDoneText(base)
-    expect(text).toContain('[수행과제 완료] 고성 · (4월) 도어클로저 교체 🎉')
+    expect(text).toContain('*[수행과제 완료] 고성 · (4월) 도어클로저 교체 🎉*')
     expect(text).toContain('<!subteam^S06LG96FGMB>')
     expect(text).toContain('담당: 정해선 · 수고하셨습니다!')
     expect(text).toContain('완료 메모: 신규 도어클로저 교체 완료 — 소음 민원 해소')
@@ -196,7 +196,7 @@ describe('notifyTaskDone', () => {
     const [, opts] = (fetch as any).mock.calls[0]
     const body = JSON.parse(opts.body)
     expect(body.channel).toBe('C047LG1EV0C')
-    expect(body.text).toContain('[수행과제 완료] 동대문 · (5월) 야간 소음 대응 🎉')
+    expect(body.text).toContain('*[수행과제 완료] 동대문 · (5월) 야간 소음 대응 🎉*')
     expect(body.text).toContain('<!subteam^S0ABQ11JG9G>')
   })
 
@@ -231,7 +231,7 @@ describe('notifyNewTask', () => {
     const [, opts] = (fetch as any).mock.calls[0]
     const body = JSON.parse(opts.body)
     expect(body.channel).toBe('C07HSELN5S9')
-    expect(body.text).toContain('[신규 수행과제 등록] 제주시티 · (5월) 공기질 개선')
+    expect(body.text).toContain('*[신규 수행과제 등록] 제주시티 · (5월) 공기질 개선*')
     expect(body.text).toContain('<!subteam^S07R8QSFCDD>')
   })
 

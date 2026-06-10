@@ -76,7 +76,7 @@ export function buildSlackText(args: SlackTextArgs): string {
   const monthLabel = formatMonthLabel(taskMonth)
   const titleTask = monthLabel ? `(${monthLabel}) ${taskTitle}` : taskTitle
   return [
-    `[수행과제 새 댓글] ${branch} · ${titleTask}`,
+    `*[수행과제 새 댓글] ${branch} · ${titleTask}*`,
     `<!subteam^${usergroup}>`,
     `작성자: ${author} · 유형: ${type}`,
     `내용: *${formatCommentForSlack(body)}*`,
@@ -156,7 +156,7 @@ export function buildNewTaskText(args: NewTaskTextArgs): string {
   if (dueDate?.trim()) meta.push(`기한: ${dueDate.trim()}`)
 
   const lines = [
-    `[신규 수행과제 등록] ${branch} · ${titleTask}`,
+    `*[신규 수행과제 등록] ${branch} · ${titleTask}*`,
     `<!subteam^${usergroup}>`,
     meta.join(' · '),
   ]
@@ -215,7 +215,7 @@ export function buildTaskDoneText(args: TaskDoneTextArgs): string {
   const titleTask = monthLabel ? `(${monthLabel}) ${taskTitle}` : taskTitle
 
   const lines = [
-    `[수행과제 완료] ${branch} · ${titleTask} 🎉`,
+    `*[수행과제 완료] ${branch} · ${titleTask} 🎉*`,
     `<!subteam^${usergroup}>`,
   ]
   if (assignee?.trim()) lines.push(`담당: ${assignee.trim()} · 수고하셨습니다!`)
