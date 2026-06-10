@@ -198,3 +198,58 @@ export async function notifyNewTask(args: NotifyNewTaskArgs): Promise<void> {
 
   await postToSlack(target.channel, text)
 }
+
+export interface TaskDoneTextArgs {
+  branch: string
+  taskTitle: string
+  taskMonth: string
+  usergroup: string
+  assignee?: string | null
+  doneMemo?: string | null
+  link: string
+}
+
+export function buildTaskDoneText(args: TaskDoneTextArgs): string {
+  const { branch, taskTitle, taskMonth, usergroup, assignee, doneMemo, link } = args
+  const monthLabel = formatMonthLabel(taskMonth)
+  const titleTask = monthLabel ? `(${monthLabel}) ${taskTitle}` : taskTitle
+
+  const lines = [
+    `[수행과제 완료] ${branch} · ${titleTask} 🎉`,
+    `<!subteam^${usergroup}>`,
+  ]
+  if (assignee?.trim()) lines.push(`담당: ${assignee.trim()} · 수고하셨습니다!`)
+  else lines.push('수고하셨습니다!')
+  if (doneMemo?.trim()) lines.push(`완료 메모: ${formatCommentForSlack(doneMemo)}`)
+  lines.push(`<${link}|대시보드에서 보기>`)
+  return lines.join('\n')
+}
+
+export interface NotifyTaskDoneArgs {
+  branch: string
+  taskId: string
+  taskTitle: string
+  taskMonth: string
+  assignee?: string | null
+  doneMemo?: string | null
+}
+
+export async function notifyTaskDone(args: NotifyTaskDoneArgs): Promise<void> {
+  const target = resolveBranchTarget(args.branch)
+  if (!target) {
+    console.warn(`[slack] 매핑 없는 지점 "${args.branch}" — 완료 알림 스킵`)
+    return
+  }
+
+  const text = buildTaskDoneText({
+    branch: args.branch,
+    taskTitle: args.taskTitle,
+    taskMonth: args.taskMonth,
+    usergroup: target.usergroup,
+    assignee: args.assignee,
+    doneMemo: args.doneMemo,
+    link: buildTaskDeepLink(args.taskId, args.taskMonth),
+  })
+
+  await postToSlack(target.channel, text)
+}
