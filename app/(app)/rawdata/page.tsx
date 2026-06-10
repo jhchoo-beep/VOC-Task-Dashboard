@@ -10,10 +10,11 @@ export default async function RawDataPage({
 }) {
   const { month } = await searchParams
 
-  // 월 목록만 컬럼 한정 조회 (1000행 기본 캡 회피)
+  // 월 목록만 컬럼 한정 조회 — 행 수가 range를 넘어도 최신 월이 누락되지 않도록 반드시 최신순 정렬
   const { data: monthRows } = await supabase
     .from('raw_reviews')
     .select('review_month')
+    .order('review_month', { ascending: false })
     .range(0, 9999)
 
   const months = [...new Set((monthRows ?? []).map((r: any) => r.review_month).filter(Boolean))].sort().reverse() as string[]

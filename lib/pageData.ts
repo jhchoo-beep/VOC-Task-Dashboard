@@ -145,8 +145,8 @@ export async function getOtaScoresProps() {
 export async function getDashboardProps(month?: string) {
   // 1) 월 목록만 컬럼 한정 조회 (리뷰 원문 등 무거운 컬럼 제외, 1000행 기본 캡 회피)
   const [{ data: reviewMonthsRaw }, { data: taskMonthsRaw }] = await Promise.all([
-    supabase.from('reviews').select('review_month').range(0, 9999),
-    supabase.from('tasks').select('task_month').range(0, 9999),
+    supabase.from('reviews').select('review_month').order('review_month', { ascending: false }).range(0, 9999),
+    supabase.from('tasks').select('task_month').order('task_month', { ascending: false }).range(0, 9999),
   ])
   const months = [...new Set([
     ...(reviewMonthsRaw ?? []).map((r: any) => r.review_month),
