@@ -1,15 +1,10 @@
-export const revalidate = 60 // 60초 캐시
-
+import { unstable_cache } from 'next/cache'
 import { supabase, calcCLX } from '@/lib/supabase'
 import ReportClient from '@/components/ReportClient'
 
-export default async function ReportPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ month?: string }>
-}) {
-  const { month } = await searchParams
-
+// 페이지가 auth()로 동적 렌더링되므로 데이터 레이어를 unstable_cache로 캐시.
+// 쓰기 API(/api/reviews*, /api/tasks*)의 revalidateTag로 즉시 무효화된다.
+const getReportPageData = unstable_cache(async (month?: string) => {
   const monthsQuery = supabase.from('reviews').select('review_month').order('review_month', { ascending: false }).range(0, 9999)
 
   let months: string[]
@@ -108,6 +103,17 @@ export default async function ReportPage({
       return b.tasks.length - a.tasks.length
     })
 
+  return { metrics, cci, triggers, months, currentMonth, completedTriggerGroups, completedTaskCount: (completedTasksRaw ?? []).length }
+}, ['report-page-data'], { revalidate: 60, tags: ['reviews', 'tasks'] })
+
+export default async function ReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>
+}) {
+  const { month } = await searchParams
+  const { metrics, cci, triggers, months, currentMonth, completedTriggerGroups, completedTaskCount } = await getReportPageData(month)
+
   return (
     <ReportClient
       metrics={metrics}
@@ -116,7 +122,7 @@ export default async function ReportPage({
       months={months}
       currentMonth={currentMonth}
       completedTriggerGroups={completedTriggerGroups}
-      completedTaskCount={(completedTasksRaw ?? []).length}
+      completedTaskCount={completedTaskCount}
     />
   )
 }

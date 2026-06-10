@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { supabase } from '@/lib/supabase'
 import { NextRequest, NextResponse, after } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { notifyNewTask } from '@/lib/slack'
 
 export async function POST(req: NextRequest) {
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest) {
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  revalidateTag('tasks', 'max')
 
   // 슬랙 알림: 응답 반환 후 실행(after) — 신규 수행과제 등록을 해당 지점 스쿼드 채널에 통보.
   // 실패해도 과제 저장 응답에는 영향 없음.

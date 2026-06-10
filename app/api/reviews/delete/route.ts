@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { supabase } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 
 export async function DELETE(req: NextRequest) {
   const session = await auth()
@@ -11,5 +12,6 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await supabase.from('reviews').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag('reviews', 'max')
   return NextResponse.json({ ok: true })
 }

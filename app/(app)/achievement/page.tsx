@@ -1,15 +1,10 @@
-export const revalidate = 60
-
+import { unstable_cache } from 'next/cache'
 import { supabase } from '@/lib/supabase'
 import AchievementClient from '@/components/AchievementClient'
 
-export default async function AchievementPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ month?: string; branch?: string }>
-}) {
-  const { month, branch } = await searchParams
-
+// 페이지가 auth()로 동적 렌더링되므로 데이터 레이어를 unstable_cache로 캐시.
+// 쓰기 API(/api/tasks*)의 revalidateTag('tasks')로 즉시 무효화된다.
+const getAchievementPageData = unstable_cache(async (month?: string, branch?: string) => {
   // 완료된 수행과제 전체 조회 (최근 12개월)
   let query = supabase
     .from('tasks')
@@ -20,7 +15,8 @@ export default async function AchievementPage({
   if (month && month !== 'all') query = query.eq('task_month', month)
   if (branch && branch !== '전체') query = query.eq('branch', branch)
 
-  const { data: tasks = [] } = await query
+  const { data: tasksRaw } = await query
+  const tasks = tasksRaw ?? []
 
   // 전체 과제 목록 (월 목록 추출용)
   const { data: allTasks = [] } = await supabase
@@ -34,7 +30,7 @@ export default async function AchievementPage({
 
   // 트리거별 그룹 집계
   const triggerMap: Record<string, any[]> = {}
-  for (const t of tasks ?? []) {
+  for (const t of tasks) {
     const triggers: string[] = t.churn_trigger ?? []
     if (triggers.length === 0) {
       if (!triggerMap['미분류']) triggerMap['미분류'] = []
@@ -63,7 +59,7 @@ export default async function AchievementPage({
 
   // 월별 완료 현황
   const monthSummary: Record<string, { count: number; triggers: Set<string> }> = {}
-  for (const t of tasks ?? []) {
+  for (const t of tasks) {
     const m = t.task_month
     if (!m) continue
     if (!monthSummary[m]) monthSummary[m] = { count: 0, triggers: new Set() }
@@ -75,20 +71,31 @@ export default async function AchievementPage({
     .sort((a, b) => b.month.localeCompare(a.month))
 
   // 상단 통계
-  const totalDone = (tasks ?? []).length
-  const totalTriggers = new Set((tasks ?? []).flatMap((t: any) => t.churn_trigger ?? [])).size
-  const totalBranches = new Set((tasks ?? []).map((t: any) => t.branch).filter(Boolean)).size
+  const totalDone = tasks.length
+  const totalTriggers = new Set(tasks.flatMap((t: any) => t.churn_trigger ?? [])).size
+  const totalBranches = new Set(tasks.map((t: any) => t.branch).filter(Boolean)).size
+
+  return { tasks, triggerGroups, monthSummaryList, months, branches, stats: { totalDone, totalTriggers, totalBranches } }
+}, ['achievement-page-data'], { revalidate: 60, tags: ['tasks'] })
+
+export default async function AchievementPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string; branch?: string }>
+}) {
+  const { month, branch } = await searchParams
+  const { tasks, triggerGroups, monthSummaryList, months, branches, stats } = await getAchievementPageData(month, branch)
 
   return (
     <AchievementClient
-      tasks={tasks ?? []}
+      tasks={tasks}
       triggerGroups={triggerGroups}
       monthSummaryList={monthSummaryList}
       months={months}
       branches={branches}
       selectedMonth={month ?? 'all'}
       selectedBranch={branch ?? '전체'}
-      stats={{ totalDone, totalTriggers, totalBranches }}
+      stats={stats}
     />
   )
 }

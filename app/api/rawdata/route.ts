@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { supabase } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -46,5 +47,6 @@ export async function POST(req: NextRequest) {
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag('raw-reviews', 'max')
   return NextResponse.json(data)
 }

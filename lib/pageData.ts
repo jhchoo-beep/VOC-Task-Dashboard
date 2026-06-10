@@ -1,7 +1,12 @@
+import { unstable_cache } from 'next/cache'
 import { supabase, calcCLX } from '@/lib/supabase'
 
+// 모든 페이지가 auth()로 인해 동적 렌더링되므로 revalidate만으로는 캐시가 작동하지 않는다.
+// unstable_cache로 데이터 레이어를 직접 캐시하고, 쓰기 API에서 revalidateTag로 즉시 무효화한다.
+// 태그: reviews / tasks / raw-reviews / ota (테이블 단위)
+
 // ─── 점수 현황 (OTA Scores) ─────────────────────────────────
-export async function getOtaScoresProps() {
+export const getOtaScoresProps = unstable_cache(async () => {
   const [
     { data: scoresRaw },
     { data: propsRaw },
@@ -139,10 +144,10 @@ export async function getOtaScoresProps() {
     agodaReviewRate,
     branchOtaToId,
   }
-}
+}, ['ota-scores-props'], { revalidate: 300, tags: ['ota'] })
 
 // ─── 대시보드 (Dashboard) ───────────────────────────────────
-export async function getDashboardProps(month?: string) {
+export const getDashboardProps = unstable_cache(async (month?: string) => {
   // 1) 월 목록만 컬럼 한정 조회 (리뷰 원문 등 무거운 컬럼 제외, 1000행 기본 캡 회피)
   const [{ data: reviewMonthsRaw }, { data: taskMonthsRaw }] = await Promise.all([
     supabase.from('reviews').select('review_month').order('review_month', { ascending: false }).range(0, 9999),
@@ -230,10 +235,11 @@ export async function getDashboardProps(month?: string) {
     : null
 
   return { clxData, criticals, completedCriticals, taskProgress, completedTasks, resolvedTriggers, avgClxDiff, currentMonth, months }
-}
+}, ['dashboard-props'], { revalidate: 60, tags: ['reviews', 'tasks'] })
 
 // ─── 수행과제 (Tasks) ───────────────────────────────────────
-export async function getTasksProps(month?: string, task?: string) {
+// highlightTaskId(URL의 ?task=)는 캐시 키에 들어가지 않도록 데이터 조회만 캐시한다
+const getTasksData = unstable_cache(async (month?: string) => {
   const monthsQuery = supabase.from('tasks').select('task_month').order('task_month', { ascending: false }).range(0, 9999)
 
   let months: string[]
@@ -261,11 +267,16 @@ export async function getTasksProps(month?: string, task?: string) {
     tasks = tasksData ?? []
   }
 
-  return { tasks, months, currentMonth, highlightTaskId: task ?? null }
+  return { tasks, months, currentMonth }
+}, ['tasks-data'], { revalidate: 60, tags: ['tasks'] })
+
+export async function getTasksProps(month?: string, task?: string) {
+  const data = await getTasksData(month)
+  return { ...data, highlightTaskId: task ?? null }
 }
 
 // ─── 분석 & 트렌드 (Analytics) ──────────────────────────────
-export async function getAnalyticsProps() {
+export const getAnalyticsProps = unstable_cache(async () => {
   const [{ data: reviews = [] }, { data: allTasks = [] }] = await Promise.all([
     supabase.from('reviews').select('review_month, branch, rating, categories, severity, churn_triggers').order('review_month', { ascending: false }).range(0, 9999),
     supabase.from('tasks').select('id, churn_trigger, status, task_month').order('task_month', { ascending: false }).range(0, 9999),
@@ -344,4 +355,4 @@ export async function getAnalyticsProps() {
   })
 
   return { monthlyRaw, catData, severityData, triggerResolution, triggerMonthlyData, triggerNames }
-}
+}, ['analytics-props'], { revalidate: 60, tags: ['reviews', 'tasks'] })

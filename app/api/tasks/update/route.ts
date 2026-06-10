@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { supabase } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 
 // 수행과제 수정
 export async function PATCH(req: NextRequest) {
@@ -16,6 +17,7 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await supabase.from('tasks').update(fields).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag('tasks', 'max')
   return NextResponse.json({ ok: true })
 }
 
@@ -29,5 +31,6 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await supabase.from('tasks').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag('tasks', 'max')
   return NextResponse.json({ ok: true })
 }

@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { supabase } from '@/lib/supabase'
 import { NextRequest, NextResponse, after } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { notifyTaskDone } from '@/lib/slack'
 
 export async function PATCH(req: NextRequest) {
@@ -16,6 +17,8 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await supabase.from('tasks').update({ status }).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  revalidateTag('tasks', 'max')
 
   // 상태가 '완료'로 새로 바뀐 경우에만 스쿼드 채널에 축하 알림 발송.
   // 최신 done_memo 반영을 위해 after() 안에서 과제를 재조회한다.
