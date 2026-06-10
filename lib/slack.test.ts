@@ -11,7 +11,7 @@ describe('resolveBranchTarget', () => {
 
   it('동대문/고성/제주시티도 매핑한다', () => {
     expect(resolveBranchTarget('동대문')?.usergroup).toBe('S0ABQ11JG9G')
-    expect(resolveBranchTarget('고성')?.channel).toBe('be-ops-gs-squad')
+    expect(resolveBranchTarget('고성')?.channel).toBe('C047VLS9QMP')
     expect(resolveBranchTarget('제주시티')?.usergroup).toBe('S07R8QSFCDD')
   })
 

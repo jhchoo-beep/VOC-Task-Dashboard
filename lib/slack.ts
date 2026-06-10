@@ -1,7 +1,7 @@
 // 지점 → 슬랙 스쿼드 채널 / 유저그룹 매핑
 // channel = 채널 ID(C…) 또는 이름(chat.postMessage가 이름도 해석),
 // usergroup = subteam ID(S…) — <!subteam^S…> 멘션이 실제로 울리려면 ID여야 함.
-// 신설/동대문은 봇 입장·채널 ID 검증 완료. 고성/제주는 채널 이름 사용(봇이 해당 채널에 초대돼 있어야 동작).
+// 4개 지점 모두 봇 입장·채널 ID 검증 완료(고성/제주는 private 채널, 봇 초대 완료).
 export interface BranchTarget {
   channel: string
   usergroup: string
@@ -10,8 +10,8 @@ export interface BranchTarget {
 export const BRANCH_SLACK_MAP: Record<string, BranchTarget> = {
   '신설': { channel: 'C028UUVJ0FL', usergroup: 'S0ABTJP3GEQ' },
   '동대문': { channel: 'C047LG1EV0C', usergroup: 'S0ABQ11JG9G' },
-  '고성': { channel: 'be-ops-gs-squad', usergroup: 'S06LG96FGMB' },
-  '제주시티': { channel: 'be-ops-jj-squad', usergroup: 'S07R8QSFCDD' },
+  '고성': { channel: 'C047VLS9QMP', usergroup: 'S06LG96FGMB' },
+  '제주시티': { channel: 'C07HSELN5S9', usergroup: 'S07R8QSFCDD' },
 }
 
 export function resolveBranchTarget(branch: string): BranchTarget | null {
