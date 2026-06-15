@@ -21,9 +21,10 @@ export async function uploadImage(buffer: Buffer, filename: string, mime: string
     requestBody: { name: filename, parents: [folderId] },
     media: { mimeType: mime, body: Readable.from(buffer) },
     fields: 'id, name',
+    supportsAllDrives: true, // 공유 드라이브(Shared Drive) 폴더 지원
   })
   const fileId = created.data.id!
-  await drive.permissions.create({ fileId, requestBody: { role: 'reader', type: 'anyone' } })
+  await drive.permissions.create({ fileId, requestBody: { role: 'reader', type: 'anyone' }, supportsAllDrives: true })
   return { fileId, name: created.data.name ?? filename }
 }
 
@@ -31,7 +32,7 @@ export async function uploadImage(buffer: Buffer, filename: string, mime: string
 export async function deleteImage(fileId: string): Promise<void> {
   try {
     const { drive } = driveClient()
-    await drive.files.delete({ fileId })
+    await drive.files.delete({ fileId, supportsAllDrives: true })
   } catch (e) {
     console.error('[drive] 파일 삭제 실패:', fileId, e)
   }
