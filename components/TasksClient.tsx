@@ -811,6 +811,16 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                             </a>
                           : <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{displayContent}</div>
                         }
+                        {Array.isArray(l.attachments) && l.attachments.length > 0 && (
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                            {l.attachments.map((a: { fileId: string; name: string }) => (
+                              <a key={a.fileId} href={driveViewUrl(a.fileId)} target="_blank" rel="noopener noreferrer">
+                                <img src={driveThumbUrl(a.fileId, 400)} alt={a.name}
+                                  style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
