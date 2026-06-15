@@ -1,29 +1,7 @@
 import { google } from 'googleapis'
 import { Readable } from 'node:stream'
 
-export const MAX_FILES = 5
-export const MAX_BYTES = 10 * 1024 * 1024 // 10MB
-
-export function driveThumbUrl(fileId: string, width = 1000): string {
-  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${width}`
-}
-
-export function driveViewUrl(fileId: string): string {
-  return `https://drive.google.com/file/d/${fileId}/view`
-}
-
-type UploadLike = { size: number; type: string }
-type ValidateResult = { ok: true } | { ok: false; error: string }
-
-export function validateUploads(files: UploadLike[]): ValidateResult {
-  if (files.length === 0) return { ok: false, error: '파일이 없습니다' }
-  if (files.length > MAX_FILES) return { ok: false, error: `사진은 최대 ${MAX_FILES}장까지 첨부할 수 있습니다` }
-  for (const f of files) {
-    if (!f.type.startsWith('image/')) return { ok: false, error: '이미지 파일만 첨부할 수 있습니다' }
-    if (f.size > MAX_BYTES) return { ok: false, error: '각 사진은 10MB 이하만 가능합니다' }
-  }
-  return { ok: true }
-}
+export { MAX_FILES, MAX_BYTES, driveThumbUrl, driveViewUrl, validateUploads } from './driveUrl'
 
 export type Attachment = { fileId: string; name: string }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { driveThumbUrl, driveViewUrl, validateUploads, MAX_FILES, MAX_BYTES } from './drive'
+import { driveThumbUrl, driveViewUrl, validateUploads, MAX_FILES, MAX_BYTES } from './driveUrl'
 
 describe('driveThumbUrl', () => {
   it('fileId로 썸네일 URL을 만든다 (기본 사이즈 w1000)', () => {
