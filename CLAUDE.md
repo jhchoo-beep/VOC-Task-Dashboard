@@ -114,6 +114,7 @@ id         UUID PK
 task_id    UUID FK → tasks
 author     TEXT
 content    TEXT    -- '[링크] 제목||URL' 형식이면 링크로 렌더링
+attachments JSONB  -- Drive fileId 배열 [{fileId,name}], 최대 5장. 진행사항 첨부 사진
 created_at TIMESTAMPTZ
 ```
 
@@ -210,7 +211,11 @@ NEXTAUTH_SECRET=<random string>
 GOOGLE_CLIENT_ID=<google oauth client id>
 GOOGLE_CLIENT_SECRET=<google oauth client secret>
 ALLOWED_EMAIL_DOMAIN=mgrv.company
+GOOGLE_SERVICE_ACCOUNT_JSON=<진행사항 사진 업로드용 서비스 계정 키 JSON(한 줄)>
+DRIVE_VOC_FOLDER_ID=<사진 저장 Drive 전용 폴더 ID>
 ```
+
+> 진행사항 사진 첨부: 서비스 계정으로 Drive 전용 폴더에 업로드(`lib/drive.ts`), 업로드 파일은 '링크 있는 누구나 보기' 권한 부여(임베드 비로그인 표시용). 위 두 환경변수가 `.env.local`·Vercel에 모두 있어야 업로드가 동작한다.
 
 ---
 
