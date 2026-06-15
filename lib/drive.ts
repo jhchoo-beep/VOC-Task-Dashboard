@@ -28,12 +28,16 @@ export async function uploadImage(buffer: Buffer, filename: string, mime: string
   return { fileId, name: created.data.name ?? filename }
 }
 
-/** best-effort 삭제. 실패해도 throw하지 않는다. */
+/**
+ * best-effort 삭제(휴지통 이동). 실패해도 throw하지 않는다.
+ * 공유 드라이브에서 영구삭제(files.delete)는 '관리자' 역할이 필요해 404가 나므로,
+ * '콘텐츠 관리자' 권한으로도 되는 trashed=true(휴지통 이동)를 사용한다. 실수 복구도 가능.
+ */
 export async function deleteImage(fileId: string): Promise<void> {
   try {
     const { drive } = driveClient()
-    await drive.files.delete({ fileId, supportsAllDrives: true })
+    await drive.files.update({ fileId, requestBody: { trashed: true }, supportsAllDrives: true })
   } catch (e) {
-    console.error('[drive] 파일 삭제 실패:', fileId, e)
+    console.error('[drive] 파일 삭제(휴지통 이동) 실패:', fileId, e)
   }
 }
