@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS task_logs (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 진행 로그 첨부 사진 (Google Drive fileId 배열, 최대 5)
+ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 -- 인덱스
 CREATE INDEX IF NOT EXISTS idx_reviews_branch       ON reviews(branch);
 CREATE INDEX IF NOT EXISTS idx_reviews_month        ON reviews(review_month);

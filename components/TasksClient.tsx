@@ -2,9 +2,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink, Search } from 'lucide-react'
+import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Trash2, Link, X, ExternalLink, Search, ImagePlus } from 'lucide-react'
 import { formatMonth, generateMonthOptions } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { driveThumbUrl, driveViewUrl } from '@/lib/driveUrl'
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; border: string }> = {
   '시작전': { bg: 'rgba(74,82,112,0.25)',   color: 'var(--todo)',     border: 'rgba(74,82,112,0.5)'   },
@@ -595,6 +596,8 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [logs, setLogs] = useState<any[]>([])
   const [logsLoaded, setLogsLoaded] = useState(false)
+  const [photos, setPhotos] = useState<File[]>([])
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   // 로그 읽기는 인증 API 대신 Supabase에서 직접 조회한다(anon 키, 공개 읽기).
   // 이렇게 해야 비로그인 임베드(/embed)에서도 진행 사항이 보인다. (API GET과 동일 쿼리)
@@ -616,15 +619,37 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
 
   const refreshLogs = loadLogs
 
+  const onPickPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? [])
+    setPhotos(prev => [...prev, ...picked].slice(0, 5))
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
+  const removePhoto = (idx: number) => setPhotos(prev => prev.filter((_, i) => i !== idx))
+
   const addLog = async () => {
     if (!comment.trim()) return
     setSubmitting(true)
-    const prefix = logType === '이슈' ? '[이슈] ' : logType === '해결' ? '[해결] ' : ''
-    const content = prefix + comment.trim()
-    await fetch('/api/tasks/logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: task.id, content, author: logAuthor.trim() || undefined }) })
-    setComment('')
-    await refreshLogs()
-    setSubmitting(false)
+    try {
+      let attachments: { fileId: string; name: string }[] = []
+      if (photos.length > 0) {
+        const fd = new FormData()
+        photos.forEach(p => fd.append('files', p))
+        const up = await fetch('/api/tasks/logs/upload', { method: 'POST', body: fd })
+        if (!up.ok) { alert((await up.json()).error ?? '사진 업로드 실패'); setSubmitting(false); return }
+        attachments = (await up.json()).attachments
+      }
+      const prefix = logType === '이슈' ? '[이슈] ' : logType === '해결' ? '[해결] ' : ''
+      const content = prefix + comment.trim()
+      await fetch('/api/tasks/logs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id, content, author: logAuthor.trim() || undefined, attachments }),
+      })
+      setComment('')
+      setPhotos([])
+      await refreshLogs()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const addLink = async () => {
@@ -786,6 +811,16 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                             </a>
                           : <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{displayContent}</div>
                         }
+                        {Array.isArray(l.attachments) && l.attachments.length > 0 && (
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                            {l.attachments.map((a: { fileId: string; name: string }) => (
+                              <a key={a.fileId} href={driveViewUrl(a.fileId)} target="_blank" rel="noopener noreferrer">
+                                <img src={driveThumbUrl(a.fileId, 400)} alt={a.name}
+                                  style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -847,7 +882,23 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
               <button className="btn btn-ghost" onClick={() => setShowLinkInput(!showLinkInput)} title="링크 첨부" style={{ padding: '8px 10px' }}>
                 <Link size={14} />
               </button>
+              <button className="btn btn-ghost" onClick={() => photoInputRef.current?.click()} title="사진 첨부" style={{ padding: '8px 10px' }}>
+                <ImagePlus size={14} />
+              </button>
+              <input ref={photoInputRef} type="file" accept="image/*" multiple onChange={onPickPhotos} style={{ display: 'none' }} />
             </div>
+
+            {photos.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                {photos.map((p, i) => (
+                  <div key={i} style={{ position: 'relative' }}>
+                    <img src={URL.createObjectURL(p)} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                    <button onClick={() => removePhoto(i)} title="제거"
+                      style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: 'var(--critical)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, lineHeight: 1 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {showLinkInput && (
               <div style={{ background: 'var(--bg-hover)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--border)' }}>
