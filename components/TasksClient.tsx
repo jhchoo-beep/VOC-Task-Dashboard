@@ -609,13 +609,21 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
     setLogs(data ?? [])
   }
 
-  const handleToggle = async () => {
+  const handleToggle = () => {
     onToggle()
-    if (!expanded && !logsLoaded) {
-      await loadLogs()
+  }
+
+  // 로그 로드는 '펼쳐짐'을 기준으로 각 카드가 스스로 수행한다.
+  // 한 과제가 여러 트리거 그룹에 복제되어 그려질 때, 클릭하지 않은 복제본도
+  // expanded 공유 상태로 함께 펼쳐지므로 — 클릭 카드에서만 로드하면 나머지 복제본은
+  // 빈 상태로 보인다(진행 사항 누락). expanded 전이 시점에 각자 로드하게 하여 해결.
+  useEffect(() => {
+    if (expanded && !logsLoaded) {
+      loadLogs()
       setLogsLoaded(true)
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded])
 
   const refreshLogs = loadLogs
 
@@ -640,10 +648,15 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
       }
       const prefix = logType === '이슈' ? '[이슈] ' : logType === '해결' ? '[해결] ' : ''
       const content = prefix + comment.trim()
-      await fetch('/api/tasks/logs', {
+      const res = await fetch('/api/tasks/logs', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId: task.id, content, author: logAuthor.trim() || undefined, attachments }),
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error ?? '진행 사항 저장에 실패했습니다. 다시 시도해 주세요.')
+        return  // 입력값(comment·photos)을 유지해 재시도 가능하게 둔다
+      }
       setComment('')
       setPhotos([])
       await refreshLogs()
@@ -656,7 +669,13 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
     if (!linkUrl.trim()) return
     setSubmitting(true)
     const content = linkLabel.trim() ? `[링크] ${linkLabel}||${linkUrl}` : `[링크] ${linkUrl}||${linkUrl}`
-    await fetch('/api/tasks/logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: task.id, content }) })
+    const res = await fetch('/api/tasks/logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: task.id, content }) })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert(err.error ?? '링크 저장에 실패했습니다. 다시 시도해 주세요.')
+      setSubmitting(false)
+      return  // 입력값을 유지해 재시도 가능하게 둔다
+    }
     setLinkUrl(''); setLinkLabel(''); setShowLinkInput(false)
     await refreshLogs()
     setSubmitting(false)
