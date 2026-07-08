@@ -581,6 +581,34 @@ function StatusBadge({ status, onChange, updating }: { status: string; onChange:
   )
 }
 
+/* 진행 사항 본문 렌더 — 줄바꿈 보존 + '- '/'* ' 글머리표 + 공백 2칸당 1단계 들여쓰기 */
+function LogBody({ text }: { text: string }) {
+  const lines = String(text ?? '').split('\n')
+  const levelOf = (ws: string) => Math.floor(ws.replace(/\t/g, '  ').length / 2)
+  return (
+    <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
+      {lines.map((line, i) => {
+        const bullet = line.match(/^(\s*)[-*]\s+(.*)$/)
+        if (bullet) {
+          return (
+            <div key={i} style={{ display: 'flex', gap: 6, paddingLeft: levelOf(bullet[1]) * 16 }}>
+              <span style={{ color: 'var(--text-3)', flexShrink: 0, lineHeight: 1.6 }}>•</span>
+              <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}>{bullet[2]}</span>
+            </div>
+          )
+        }
+        if (line.trim() === '') return <div key={i} style={{ height: 6 }} />
+        const plain = line.match(/^(\s*)(.*)$/)
+        return (
+          <div key={i} style={{ paddingLeft: levelOf(plain?.[1] ?? '') * 16, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {plain?.[2]}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ─── 수행과제 카드 ─── */
 function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, updating, delay, highlight, embed = false }: any) {
   const router = useRouter()
@@ -598,6 +626,15 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
   const [logsLoaded, setLogsLoaded] = useState(false)
   const [photos, setPhotos] = useState<File[]>([])
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const commentRef = useRef<HTMLTextAreaElement>(null)
+
+  // 여러 줄 입력이 늘어나면 높이를 자동으로 키운다(최대 220px). 프로그래밍 변경(글머리 자동 이어가기)에도 반응.
+  useEffect(() => {
+    const ta = commentRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    ta.style.height = Math.min(ta.scrollHeight, 220) + 'px'
+  }, [comment])
 
   // 로그 읽기는 인증 API 대신 Supabase에서 직접 조회한다(anon 키, 공개 읽기).
   // 이렇게 해야 비로그인 임베드(/embed)에서도 진행 사항이 보인다. (API GET과 동일 쿼리)
@@ -662,6 +699,72 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
       await refreshLogs()
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // 진행 사항 입력창 키 처리: 여러 줄·글머리표·Tab 들여쓰기
+  const INDENT = '  ' // 들여쓰기 1단계 = 공백 2칸
+  const handleCommentKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const ta = e.currentTarget
+    const s = ta.selectionStart, eSel = ta.selectionEnd, value = ta.value
+    const applyValue = (newVal: string, caretStart: number, caretEnd: number = caretStart) => {
+      setComment(newVal)
+      requestAnimationFrame(() => {
+        const el = commentRef.current
+        if (el) { el.selectionStart = caretStart; el.selectionEnd = caretEnd }
+      })
+    }
+
+    // Ctrl/Cmd+Enter → 추가(제출)
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addLog(); return }
+
+    // Enter → 줄바꿈. 글머리표 줄이면 다음 줄도 같은 들여쓰기·마커로 이어간다.
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const lineStart = value.lastIndexOf('\n', s - 1) + 1
+      const curLine = value.slice(lineStart, s)
+      const m = curLine.match(/^(\s*)([-*]\s)(.*)$/)
+      if (m) {
+        // 빈 글머리표에서 Enter → 마커 제거(목록 빠져나가기)
+        if (m[3].trim() === '') {
+          e.preventDefault()
+          applyValue(value.slice(0, lineStart) + value.slice(s), lineStart)
+          return
+        }
+        e.preventDefault()
+        const insert = '\n' + m[1] + m[2]
+        applyValue(value.slice(0, s) + insert + value.slice(eSel), s + insert.length)
+        return
+      }
+      // 일반 줄은 기본 개행 동작에 맡긴다.
+      return
+    }
+
+    // Tab / Shift+Tab → 현재 줄(또는 선택 영역의 모든 줄) 들여쓰기 증감
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      const blockStart = value.lastIndexOf('\n', s - 1) + 1
+      const block = value.slice(blockStart, eSel)
+      if (e.shiftKey) {
+        let firstRemoved = 0, totalRemoved = 0
+        const newBlock = block.split('\n').map((line, i) => {
+          const cut = line.startsWith(INDENT) ? INDENT.length : (line.match(/^\s{1,2}/)?.[0].length ?? 0)
+          if (i === 0) firstRemoved = cut
+          totalRemoved += cut
+          return line.slice(cut)
+        }).join('\n')
+        applyValue(
+          value.slice(0, blockStart) + newBlock + value.slice(eSel),
+          Math.max(blockStart, s - firstRemoved),
+          eSel - totalRemoved,
+        )
+      } else if (s === eSel) {
+        applyValue(value.slice(0, blockStart) + INDENT + value.slice(blockStart), s + INDENT.length)
+      } else {
+        const newBlock = block.split('\n').map(line => INDENT + line).join('\n')
+        const added = newBlock.length - block.length
+        applyValue(value.slice(0, blockStart) + newBlock + value.slice(eSel), s + INDENT.length, eSel + added)
+      }
+      return
     }
   }
 
@@ -828,7 +931,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                               style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                               <ExternalLink size={11} /> {linkText}
                             </a>
-                          : <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{displayContent}</div>
+                          : <LogBody text={displayContent} />
                         }
                         {Array.isArray(l.attachments) && l.attachments.length > 0 && (
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
@@ -852,7 +955,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
           {!embed && (
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>진행 사항 추가</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: showLinkInput ? 10 : 0 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: showLinkInput ? 10 : 0 }}>
               {/* 타입 드롭다운 */}
               <div style={{ flexShrink: 0 }}>
                 <button
@@ -864,7 +967,7 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
                     setShowTypeMenu(v => !v)
                   }}
                   onBlur={() => setTimeout(() => setShowTypeMenu(false), 150)}
-                  style={{ fontSize: 12, gap: 4, padding: '0 10px', height: '100%', minWidth: 90,
+                  style={{ fontSize: 12, gap: 4, padding: '0 10px', height: 36, minWidth: 90,
                     borderLeft: logType === '이슈' ? '3px solid #e53e3e' : logType === '해결' ? '3px solid #38a169' : undefined }}
                 >
                   {logType === '이슈' && <span style={{ color: '#e53e3e', fontSize: 10 }}>●</span>}
@@ -891,10 +994,11 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
               </div>
               {/* 작성자 */}
               <input className="input" placeholder="작성자" value={logAuthor} onChange={e => setLogAuthor(e.target.value)} style={{ width: 90, flexShrink: 0 }} />
-              {/* 내용 */}
-              <input className="input" placeholder="내용 입력 후 Enter..." value={comment} onChange={e => setComment(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addLog() } }}
-                style={{ flex: 1 }} />
+              {/* 내용 — 여러 줄·글머리표·Tab 들여쓰기 지원 */}
+              <textarea className="input" ref={commentRef} rows={1}
+                placeholder="내용 입력 (Enter 줄바꿈 · '- ' 글머리표 · Tab/Shift+Tab 들여쓰기 · Ctrl+Enter 추가)"
+                value={comment} onChange={e => setComment(e.target.value)} onKeyDown={handleCommentKey}
+                style={{ flex: 1, resize: 'none', minHeight: 36, lineHeight: 1.6, overflowY: 'auto' }} />
               <button className="btn btn-primary" onClick={addLog} disabled={submitting || !comment.trim()}>
                 {submitting ? <Loader2 size={13} className="spin" /> : '+ 추가'}
               </button>
