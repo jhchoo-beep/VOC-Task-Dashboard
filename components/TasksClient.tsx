@@ -588,7 +588,7 @@ function LogBody({ text }: { text: string }) {
   return (
     <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
       {lines.map((line, i) => {
-        const bullet = line.match(/^(\s*)[-*]\s+(.*)$/)
+        const bullet = line.match(/^(\s*)[-*•]\s+(.*)$/)
         if (bullet) {
           return (
             <div key={i} style={{ display: 'flex', gap: 6, paddingLeft: levelOf(bullet[1]) * 16 }}>
@@ -718,11 +718,23 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
     // Ctrl/Cmd+Enter → 추가(제출)
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addLog(); return }
 
+    // 하이픈/별표 + 스페이스 → 즉시 글머리표(•)로 변환. 줄 시작에서 마커 하나만 있을 때만.
+    if (e.key === ' ' && s === eSel) {
+      const lineStart = value.lastIndexOf('\n', s - 1) + 1
+      const m = value.slice(lineStart, s).match(/^(\s*)([-*])$/)
+      if (m) {
+        e.preventDefault()
+        const replaced = m[1] + '• '
+        applyValue(value.slice(0, lineStart) + replaced + value.slice(s), lineStart + replaced.length)
+        return
+      }
+    }
+
     // Enter → 줄바꿈. 글머리표 줄이면 다음 줄도 같은 들여쓰기·마커로 이어간다.
     if (e.key === 'Enter' && !e.shiftKey) {
       const lineStart = value.lastIndexOf('\n', s - 1) + 1
       const curLine = value.slice(lineStart, s)
-      const m = curLine.match(/^(\s*)([-*]\s)(.*)$/)
+      const m = curLine.match(/^(\s*)([-*•]\s)(.*)$/)
       if (m) {
         // 빈 글머리표에서 Enter → 마커 제거(목록 빠져나가기)
         if (m[3].trim() === '') {
