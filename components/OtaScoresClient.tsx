@@ -1,12 +1,17 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
   ComposedChart, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight, Plus, X } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import {
+  buildTrendRows, rollupMonthly, drilldownMonths, INTEGRATED,
+  type TrendRow,
+} from '@/lib/otaTrend'
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 type ScoreHistory  = Record<string, Record<string, number[]>>
@@ -224,11 +229,266 @@ function OtaSubSidebar({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// 종합 현황 탭 (기존 그대로 유지)
+// 지점별 점수 추이 (종합) — 주차별 변화 시각화 + 하락 시 원인 리뷰 드릴다운
 // ════════════════════════════════════════════════════════════════════════════
-function TabOverview({ d, recordedAt }: { d: OtaData; recordedAt: string }) {
+// reviews.ota_site는 한글명이므로 ota_properties의 영문명과 매핑이 필요하다
+const OTA_SITE_ALIAS: Record<string, string[]> = {
+  Agoda: ['아고다'], Booking: ['부킹닷컴'], 'Trip.com': ['트립닷컴'],
+  Expedia: ['익스피디아'], Airbnb: ['에어비앤비'], 여기어때: ['여기어때'], NOL: ['NOL', '야놀자'],
+}
+
+interface DrillTarget {
+  branch: string
+  ota: string            // INTEGRATED 또는 OTA명
+  label: string          // '7월 1주차'
+  delta: number | null
+  months: string[]       // 하락 구간이 걸치는 월들 (최신 먼저)
+}
+
+interface DrillReview {
+  id: string; ota_site: string; rating: number
+  content_ko: string | null; content: string | null
+  categories: string[] | null; severity: string | null
+}
+
+function ratingColor(r: number) {
+  if (r >= 9) return 'var(--done)'
+  if (r >= 7) return 'var(--medium)'
+  if (r >= 5) return 'var(--high)'
+  return 'var(--critical)'
+}
+
+const SEVERITY_COLOR: Record<string, string> = {
+  Critical: 'var(--critical)', High: 'var(--high)', Medium: 'var(--medium)', Low: 'var(--text-3)',
+}
+
+function DrilldownPanel({ target, onClose }: { target: DrillTarget; onClose: () => void }) {
+  const [month, setMonth]     = useState(target.months[0])
+  const [lowOnly, setLowOnly] = useState(true)
+  const [reviews, setReviews] = useState<DrillReview[] | null>(null)
+
+  useEffect(() => { setMonth(target.months[0]); setLowOnly(true) }, [target])
+
+  useEffect(() => {
+    let cancelled = false
+    setReviews(null)
+    ;(async () => {
+      let q = supabase.from('reviews')
+        .select('id,ota_site,rating,content_ko,content,categories,severity')
+        .eq('branch', target.branch)
+        .eq('review_month', month)
+        .order('rating', { ascending: true })
+        .limit(30)
+      if (target.ota !== INTEGRATED) q = q.in('ota_site', OTA_SITE_ALIAS[target.ota] ?? [target.ota])
+      if (lowOnly) q = q.lte('rating', 8)
+      const { data, error } = await q
+      if (!cancelled) setReviews(error ? [] : ((data as DrillReview[]) ?? []))
+    })()
+    return () => { cancelled = true }
+  }, [target, month, lowOnly])
+
+  const monthChip = (m: string) => `${parseInt(m.substring(5, 7))}월 리뷰`
+
+  return (
+    <div className="card" style={{ marginTop: 16, padding: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: BRANCH_COLOR[target.branch], display: 'inline-block' }} />
+            {target.branch} · {target.ota === INTEGRATED ? '전체 OTA' : target.ota} — {target.label} 원인 리뷰
+            {target.delta != null && target.delta < 0 && (
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--critical)', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                <TrendingDown size={12} /> {target.delta.toFixed(2)}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+            리뷰 데이터는 월 단위 수집 — 하락 구간이 걸치는 월의 리뷰를 낮은 점수부터 표시
+          </div>
+        </div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4 }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
+        {target.months.map(m => (
+          <button key={m} onClick={() => setMonth(m)} style={TOGGLE_BTN(month === m)}>{monthChip(m)}</button>
+        ))}
+        <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', margin: '0 4px' }} />
+        {([['low', '8점 이하'], ['all', '전체']] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setLowOnly(key === 'low')} style={TOGGLE_BTN(lowOnly === (key === 'low'))}>{label}</button>
+        ))}
+      </div>
+
+      {reviews === null
+        ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 28, fontSize: 13 }}>리뷰 불러오는 중…</div>
+        : reviews.length === 0
+          ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 28, fontSize: 13 }}>
+              {lowOnly ? '해당 월에 8점 이하 리뷰가 없습니다 — "전체"로 확인해보세요' : '해당 월에 리뷰가 없습니다'}
+            </div>
+          : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
+              {reviews.map(r => (
+                <div key={r.id} style={{ padding: '10px 14px', background: 'var(--bg-hover)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span className="font-display" style={{
+                      fontSize: 14, fontWeight: 800, color: ratingColor(r.rating),
+                      background: 'var(--bg-card)', borderRadius: 6, padding: '2px 8px',
+                      border: `1px solid ${ratingColor(r.rating)}40`,
+                    }}>{Number(r.rating).toFixed(1)}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{r.ota_site}</span>
+                    {r.severity && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: SEVERITY_COLOR[r.severity] ?? 'var(--text-3)' }}>{r.severity}</span>
+                    )}
+                    {(r.categories ?? []).map(c => (
+                      <span key={c} style={{ fontSize: 10, color: 'var(--text-3)', background: 'var(--bg-card)', borderRadius: 10, padding: '2px 8px', border: '1px solid var(--border)' }}>{c}</span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                    {r.content_ko || r.content || '(본문 없음)'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+      }
+    </div>
+  )
+}
+
+function BranchTrendSection({ d, dates }: { d: OtaData; dates: string[] }) {
+  const [trendOta, setTrendOta] = useState<string>(INTEGRATED)
+  const [timeMode, setTimeMode] = useState<'weekly' | 'monthly'>('weekly')
+  const [drill, setDrill]       = useState<DrillTarget | null>(null)
+
+  const weeklyRows = useMemo(
+    () => buildTrendRows(d.branches, d.otaList, d.scoreHistory, d.reviewHistory, dates, trendOta),
+    [d.branches, d.otaList, d.scoreHistory, d.reviewHistory, dates, trendOta],
+  )
+  const rows: TrendRow[] = useMemo(
+    () => timeMode === 'monthly' ? rollupMonthly(weeklyRows, d.branches) : weeklyRows.slice(-12),
+    [weeklyRows, timeMode, d.branches],
+  )
+
+  if (dates.length === 0) return null
+
+  const chartData = rows.map(r => {
+    const rec: Record<string, any> = { label: r.label, dateIso: r.dateIso, prevIso: r.prevIso }
+    d.branches.forEach(b => { rec[b] = r.values[b]; rec[`${b}__d`] = r.deltas[b] })
+    return rec
+  })
+
+  const otaEntry = d.otaList.find(o => o.name === trendOta)
+  const okr      = trendOta === INTEGRATED ? 9.0 : (otaEntry?.okr ?? 9.0)
+  const scaleMax = trendOta === INTEGRATED ? 10  : (otaEntry?.max ?? 10)
+  const vals = chartData.flatMap(r => d.branches.map(b => r[b]).filter((v): v is number => v != null))
+  const yDomain: [number, number] = vals.length
+    ? [Math.max(0, Math.min(...vals, okr) - 0.4), Math.min(scaleMax, Math.max(...vals, okr) + 0.2)]
+    : [0, scaleMax]
+
+  const otaChips = [
+    INTEGRATED,
+    ...d.otaList
+      .filter(o => d.branches.some(b => (d.scoreHistory[b]?.[o.name] ?? []).some(v => v > 0)))
+      .map(o => o.name),
+  ]
+
+  const openDrill = (branch: string, payload: any) => {
+    setDrill({
+      branch,
+      ota: trendOta,
+      label: payload.label,
+      delta: payload[`${branch}__d`] ?? null,
+      months: timeMode === 'monthly'
+        ? [payload.dateIso.substring(0, 7)]
+        : drilldownMonths(payload.dateIso, payload.prevIso),
+    })
+  }
+
+  // 하락 스냅샷은 빨간 점으로 마킹, 모든 점은 클릭 시 원인 리뷰 드릴다운
+  const renderDot = (branch: string) => (p: any) => {
+    const { cx, cy, payload, index } = p
+    if (cx == null || cy == null || payload[branch] == null) return <g key={`${branch}-${index}`} />
+    const delta  = payload[`${branch}__d`]
+    const isDrop = delta != null && delta < 0
+    return (
+      <g key={`${branch}-${index}`} onClick={() => openDrill(branch, payload)} style={{ cursor: 'pointer' }}>
+        <circle cx={cx} cy={cy} r={11} fill="transparent" />
+        <circle cx={cx} cy={cy} r={isDrop ? 5.5 : 4}
+          fill={isDrop ? 'var(--critical)' : BRANCH_COLOR[branch]}
+          stroke="var(--bg-card)" strokeWidth={2} />
+      </g>
+    )
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div className="card" style={{ padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>📈 지점별 점수 추이</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+              통합 = OTA 점수 10점 환산 후 리뷰 수 가중 평균 · <span style={{ color: 'var(--critical)' }}>●</span> 하락 지점 · 점 클릭 시 원인 리뷰
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['weekly', 'monthly'] as const).map(m => (
+              <button key={m} onClick={() => { setTimeMode(m); setDrill(null) }} style={TOGGLE_BTN(timeMode === m)}>
+                {m === 'weekly' ? '📅 주별' : '📅 월별'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+          {otaChips.map(name => (
+            <button key={name} onClick={() => { setTrendOta(name); setDrill(null) }} style={TOGGLE_BTN(trendOta === name)}>
+              {name === INTEGRATED ? '⭐ 통합' : name}
+            </button>
+          ))}
+        </div>
+
+        {vals.length === 0
+          ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
+          : <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={chartData} margin={{ top: 10, right: 24, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="label" stroke="var(--text-3)" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} domain={yDomain}
+                  tickFormatter={(v: number) => v.toFixed(1)} width={40} />
+                <Tooltip {...CHART_TOOLTIP_STYLE}
+                  formatter={(v: any, name: any, item: any) => {
+                    const delta = item?.payload?.[`${name}__d`]
+                    const deltaTxt = delta == null ? '' : ` (${delta > 0 ? '+' : ''}${Number(delta).toFixed(2)})`
+                    return [`${Number(v).toFixed(2)}점${deltaTxt}`, name]
+                  }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <ReferenceLine y={okr} stroke="rgba(0,229,102,0.45)" strokeDasharray="6 3"
+                  label={{ value: `OKR ${okr}`, fill: 'var(--done)', fontSize: 10, position: 'right' }} />
+                {d.branches.map(b => (
+                  <Line key={b} type="monotone" dataKey={b} name={b}
+                    stroke={BRANCH_COLOR[b]} strokeWidth={2.2} connectNulls
+                    dot={renderDot(b)}
+                    activeDot={{ r: 6, style: { pointerEvents: 'none' } }} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+        }
+      </div>
+
+      {drill && <DrilldownPanel target={drill} onClose={() => setDrill(null)} />}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 종합 현황 탭
+// ════════════════════════════════════════════════════════════════════════════
+function TabOverview({ d, recordedAt, dates }: { d: OtaData; recordedAt: string; dates: string[] }) {
   return (
     <div>
+      <BranchTrendSection d={d} dates={dates} />
       <div className="card" style={{ marginBottom: 16, overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600 }}>
           📊 지점 × OTA 현재 점수 (기준일: {recordedAt})
@@ -1156,6 +1416,7 @@ interface OtaScoresClientProps {
   scoreHistory?:     ScoreHistory
   reviewHistory?:    ReviewHistory
   dateLabels?:       string[]
+  dates?:            string[]   // ISO 스냅샷 날짜 (추이 섹션용)
   otaList?:          OtaEntry[]
   agodaDist?:        Record<string, AgodaDistWeek[]>
   agodaComplaints?:  Record<string, { week: string; room: number; bathroom: number }[]>
@@ -1170,6 +1431,7 @@ export default function OtaScoresClient({
   scoreHistory    = {},
   reviewHistory   = {},
   dateLabels      = [],
+  dates           = [],
   otaList         = [],
   agodaDist       = {},
   agodaComplaints = {},
@@ -1227,7 +1489,7 @@ export default function OtaScoresClient({
               <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800 }}>⭐ OTA 현황 — 종합</h1>
               <div style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>기준일: {recordedAt}</div>
             </div>
-            <TabOverview d={data} recordedAt={recordedAt} />
+            <TabOverview d={data} recordedAt={recordedAt} dates={dates} />
           </div>
         ) : (
           <OtaDetailView

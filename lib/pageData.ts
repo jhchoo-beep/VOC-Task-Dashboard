@@ -136,6 +136,7 @@ export const getOtaScoresProps = unstable_cache(async () => {
     scoreHistory,
     reviewHistory,
     dateLabels,
+    dates: allDates,
     otaList,
     agodaDist,
     agodaComplaints,
