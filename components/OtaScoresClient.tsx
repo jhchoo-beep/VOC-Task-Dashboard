@@ -358,9 +358,28 @@ function DrilldownPanel({ target, onClose }: { target: DrillTarget; onClose: () 
 }
 
 function BranchTrendSection({ d, dates }: { d: OtaData; dates: string[] }) {
-  const [trendOta, setTrendOta] = useState<string>(INTEGRATED)
-  const [timeMode, setTimeMode] = useState<'weekly' | 'monthly'>('weekly')
-  const [drill, setDrill]       = useState<DrillTarget | null>(null)
+  const [trendOta, setTrendOta]         = useState<string>(INTEGRATED)
+  const [timeMode, setTimeMode]         = useState<'weekly' | 'monthly'>('weekly')
+  const [selBranches, setSelBranches]   = useState<string[]>([])   // 빈 배열 = 전체 지점
+  const [drill, setDrill]               = useState<DrillTarget | null>(null)
+
+  const visibleBranches = selBranches.length ? selBranches : d.branches
+
+  // 전체 상태에서 지점 클릭 = 그 지점만 격리, 이후 클릭 = 추가/해제, 전부 해제 = 전체 복귀
+  const toggleBranch = (b: string) => {
+    setSelBranches(prev => {
+      let next: string[]
+      if (prev.length === 0) next = [b]
+      else if (prev.includes(b)) next = prev.filter(x => x !== b)
+      else next = [...prev, b]
+      const covers = next.length === 0 || d.branches.every(x => next.includes(x))
+      const result = covers ? [] : next
+      // 드릴다운 중인 지점이 숨겨지면 패널도 닫는다
+      const vis = result.length ? result : d.branches
+      setDrill(cur => (cur && !vis.includes(cur.branch) ? null : cur))
+      return result
+    })
+  }
 
   const weeklyRows = useMemo(
     () => buildTrendRows(d.branches, d.otaList, d.scoreHistory, d.reviewHistory, dates, trendOta),
@@ -382,7 +401,7 @@ function BranchTrendSection({ d, dates }: { d: OtaData; dates: string[] }) {
   const otaEntry = d.otaList.find(o => o.name === trendOta)
   const okr      = trendOta === INTEGRATED ? 9.0 : (otaEntry?.okr ?? 9.0)
   const scaleMax = trendOta === INTEGRATED ? 10  : (otaEntry?.max ?? 10)
-  const vals = chartData.flatMap(r => d.branches.map(b => r[b]).filter((v): v is number => v != null))
+  const vals = chartData.flatMap(r => visibleBranches.map(b => r[b]).filter((v): v is number => v != null))
   const yDomain: [number, number] = vals.length
     ? [Math.max(0, Math.min(...vals, okr) - 0.4), Math.min(scaleMax, Math.max(...vals, okr) + 0.2)]
     : [0, scaleMax]
@@ -441,12 +460,32 @@ function BranchTrendSection({ d, dates }: { d: OtaData; dates: string[] }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
           {otaChips.map(name => (
             <button key={name} onClick={() => { setTrendOta(name); setDrill(null) }} style={TOGGLE_BTN(trendOta === name)}>
               {name === INTEGRATED ? '⭐ 통합' : name}
             </button>
           ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
+          <button onClick={() => setSelBranches([])} style={TOGGLE_BTN(selBranches.length === 0)}>
+            전체 지점
+          </button>
+          {d.branches.map(b => {
+            const active = visibleBranches.includes(b)
+            return (
+              <button key={b} onClick={() => toggleBranch(b)}
+                style={{
+                  ...TOGGLE_BTN(selBranches.length > 0 && active),
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  opacity: active ? 1 : 0.45,
+                }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: BRANCH_COLOR[b], display: 'inline-block' }} />
+                {b}
+              </button>
+            )
+          })}
         </div>
 
         {vals.length === 0
@@ -466,7 +505,7 @@ function BranchTrendSection({ d, dates }: { d: OtaData; dates: string[] }) {
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <ReferenceLine y={okr} stroke="rgba(0,229,102,0.45)" strokeDasharray="6 3"
                   label={{ value: `OKR ${okr}`, fill: 'var(--done)', fontSize: 10, position: 'right' }} />
-                {d.branches.map(b => (
+                {visibleBranches.map(b => (
                   <Line key={b} type="monotone" dataKey={b} name={b}
                     stroke={BRANCH_COLOR[b]} strokeWidth={2.2} connectNulls
                     dot={renderDot(b)}
