@@ -17,6 +17,10 @@ export function normalizeTo10(score: number, max: number): number {
  * 특정 스냅샷(idx)에서 한 지점의 통합 점수.
  * 점수가 있는 OTA만 포함, 가중치 = 해당 OTA 누적 리뷰 수(0이면 1로 간주).
  * 데이터가 하나도 없으면 null.
+ *
+ * ⚠️ 반올림하지 않은 원값을 반환한다. 표시 반올림은 렌더 시점(toFixed)에만.
+ * 여기서 2자리로 반올림하면 fillDeltas가 반올림된 값끼리 빼게 되어
+ * 원값 차이 0.0003이 Δ+0.01로 증폭된다(2026-07-20 동대문 오표시 사례).
  */
 export function branchIntegratedScore(
   otaList: TrendOtaEntry[],
@@ -35,7 +39,7 @@ export function branchIntegratedScore(
     weightTotal += weight
   }
   if (weightTotal === 0) return null
-  return Math.round(weightedSum / weightTotal * 100) / 100
+  return weightedSum / weightTotal
 }
 
 /** ISO 날짜('2026-07-06') → '7월 1주차' (주차 = ceil(일/7)) */
@@ -98,7 +102,11 @@ export function rollupMonthly(rows: TrendRow[], branches: string[]): TrendRow[] 
   return monthly
 }
 
-/** 직전 non-null 값 대비 Δ 채우기 (하락 마킹용) */
+/**
+ * 직전 non-null 값 대비 Δ 채우기 (하락 마킹용).
+ * 원값끼리 뺀 뒤 2자리로 반올림한다 — 순서를 뒤집으면(반올림 후 뺄셈)
+ * 반올림 경계를 스치는 미세 변동이 ±0.01로 부풀려진다.
+ */
 function fillDeltas(rows: TrendRow[], branches: string[]): void {
   for (const b of branches) {
     let prev: number | null = null

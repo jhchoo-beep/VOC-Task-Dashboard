@@ -92,6 +92,51 @@ describe('buildTrendRows', () => {
   })
 })
 
+// 회귀: 2026-07-20 동대문이 실제로는 +0.0003 움직였는데 Δ+0.01로 표시된 사고.
+// 원인은 스냅샷 값을 2자리로 반올림한 뒤 그 값끼리 뺀 것(8.96 − 8.95).
+describe('통합 점수는 반올림 전 원값으로 Δ를 계산한다', () => {
+  const PROD_OTA = [
+    { name: 'Agoda',   max: 10, okr: 9.0 },
+    { name: 'Airbnb',  max: 5,  okr: 9.0 },
+    { name: 'Booking', max: 10, okr: 8.8 },
+    { name: 'Trip',    max: 10, okr: 9.0 },
+    { name: 'Expedia', max: 10, okr: 9.0 },
+    { name: 'NOL',     max: 5,  okr: 9.0 },
+    { name: '여기어때', max: 10, okr: 9.0 },
+  ]
+  // 실측: 07-06 → 07-13 → 07-20 (동대문). 07-13에 Agoda가 9.0→8.9로 실제 하락.
+  const scores = {
+    동대문: {
+      Agoda: [9.0, 8.9, 8.9], Airbnb: [4.83, 4.83, 4.83], Booking: [8.6, 8.6, 8.6],
+      Trip: [9.1, 9.1, 9.1], Expedia: [9.0, 9.0, 9.0], NOL: [4.2, 4.2, 4.2], 여기어때: [5.9, 5.9, 5.9],
+    },
+  }
+  const reviews = {
+    동대문: {
+      Agoda: [7452, 7474, 7494], Airbnb: [944, 944, 945], Booking: [831, 825, 823],
+      Trip: [690, 692, 708], Expedia: [114, 114, 114], NOL: [97, 97, 97], 여기어때: [5, 5, 5],
+    },
+  }
+  const dates = ['2026-07-06', '2026-07-13', '2026-07-20']
+  const rows = buildTrendRows(['동대문'], PROD_OTA, scores, reviews, dates, INTEGRATED)
+
+  it('원값을 반올림 없이 보존한다', () => {
+    expect(rows[1].values['동대문']).toBeCloseTo(8.9548, 4)
+    expect(rows[2].values['동대문']).toBeCloseTo(8.95506, 4)
+  })
+
+  it('점수 무변동 + 리뷰 구성비만 바뀐 주는 Δ 0으로 본다', () => {
+    // 채널 7개 점수가 전부 동일 → 표시상 8.95→8.96이어도 Δ는 0이어야 한다
+    expect(rows[2].deltas['동대문']).toBe(0)
+  })
+
+  it('진짜 하락은 그대로 잡아낸다', () => {
+    // Agoda 9.0 → 8.9 실제 하락은 Δ가 살아 있어야 (하락 마킹·드릴다운 근거)
+    expect(rows[1].deltas['동대문']).toBeCloseTo(-0.07, 2)
+    expect(rows[1].deltas['동대문']).toBeLessThan(0)
+  })
+})
+
 describe('rollupMonthly', () => {
   it('각 월의 마지막 스냅샷만 남긴다', () => {
     const dates = ['2026-06-22', '2026-06-29', '2026-07-06', '2026-07-13']
