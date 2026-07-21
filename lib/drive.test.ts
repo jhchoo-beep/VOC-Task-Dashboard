@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { driveThumbUrl, driveViewUrl, validateUploads, MAX_FILES, MAX_BYTES } from './driveUrl'
+import { driveThumbUrl, driveViewUrl, validateUploads, MAX_FILES } from './driveUrl'
 
 describe('driveThumbUrl', () => {
   it('fileId로 썸네일 URL을 만든다 (기본 사이즈 w1000)', () => {
@@ -31,7 +31,7 @@ describe('validateUploads', () => {
   it('이미지가 아니면 실패한다', () => {
     expect(validateUploads([img(1000, 'application/pdf')])).toEqual({ ok: false, error: '이미지 파일만 첨부할 수 있습니다' })
   })
-  it(`${MAX_BYTES}바이트를 초과하면 실패한다`, () => {
-    expect(validateUploads([img(MAX_BYTES + 1)])).toEqual({ ok: false, error: '각 사진은 10MB 이하만 가능합니다' })
+  it('큰 이미지도 용량 제한 없이 통과한다 (클라이언트 압축·개별 전송으로 대응)', () => {
+    expect(validateUploads([img(50 * 1024 * 1024)])).toEqual({ ok: true })
   })
 })

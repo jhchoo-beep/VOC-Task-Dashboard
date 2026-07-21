@@ -6,6 +6,7 @@ import { ChevronDown, MessageSquare, Calendar, User, Plus, Loader2, Pencil, Tras
 import { formatMonth, generateMonthOptions } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { driveThumbUrl, driveViewUrl } from '@/lib/driveUrl'
+import { compressImage } from '@/lib/imageCompress'
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; border: string }> = {
   '시작전': { bg: 'rgba(74,82,112,0.25)',   color: 'var(--todo)',     border: 'rgba(74,82,112,0.5)'   },
@@ -676,12 +677,20 @@ function TaskCard({ task, expanded, onToggle, onStatusChange, onEdit, onDelete, 
     setSubmitting(true)
     try {
       let attachments: { fileId: string; name: string }[] = []
-      if (photos.length > 0) {
+      // 사진은 업로드 전 브라우저에서 압축하고 1장씩 개별 전송한다.
+      // (5장을 한 요청에 묶으면 합계가 Vercel 본문 한도 4.5MB를 넘어 413으로 막힌다.)
+      for (let i = 0; i < photos.length; i++) {
+        const compressed = await compressImage(photos[i])
         const fd = new FormData()
-        photos.forEach(p => fd.append('files', p))
+        fd.append('files', compressed)
         const up = await fetch('/api/tasks/logs/upload', { method: 'POST', body: fd })
-        if (!up.ok) { alert((await up.json()).error ?? '사진 업로드 실패'); setSubmitting(false); return }
-        attachments = (await up.json()).attachments
+        if (!up.ok) {
+          const err = await up.json().catch(() => ({}))
+          alert(`${i + 1}번째 사진 업로드에 실패했습니다${err.error ? ` (${err.error})` : ''}. 다시 시도해 주세요.`)
+          setSubmitting(false)
+          return // 입력값·나머지 사진을 유지해 재시도 가능하게 둔다
+        }
+        attachments.push(...(await up.json()).attachments)
       }
       const prefix = logType === '이슈' ? '[이슈] ' : logType === '해결' ? '[해결] ' : ''
       const content = prefix + comment.trim()

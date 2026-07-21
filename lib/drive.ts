@@ -1,7 +1,7 @@
 import { google } from 'googleapis'
 import { Readable } from 'node:stream'
 
-export { MAX_FILES, MAX_BYTES, driveThumbUrl, driveViewUrl, validateUploads } from './driveUrl'
+export { MAX_FILES, driveThumbUrl, driveViewUrl, validateUploads } from './driveUrl'
 
 export type Attachment = { fileId: string; name: string }
 
