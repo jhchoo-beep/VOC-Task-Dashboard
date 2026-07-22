@@ -16,6 +16,10 @@
  *                           불만·VOC는 '미확정' 버킷일 때만 다시 분석한다(사람·LLM 비용).
  * 붙이지 않으면 수기 입력까지 덮어쓴다 — 몇 건이 걸리는지 경고로 알린다.
  *
+ * 출처는 표마다 따로 읽고 따로 판정한다. UI가 불만(ota_complaints)과 VOC(ota_voc)를
+ * 서로 다른 모달·라우트로 저장해 한쪽만 사람이 고쳐 놓을 수 있기 때문이다. 불만 행의 출처로
+ * VOC 삭제까지 결정하면, 손으로 넣은 VOC가 '불만 행이 없다'는 남의 사정으로 통째로 지워진다.
+ *
  * '행이 있으면 건너뛴다'로 하지 않는 이유: 대상 주에는 항상 아직 끝나지 않은 이번 주가 들어
  * 있어, 첫 실행이 쓴 부분값(7일 중 3일)이 영구히 굳는다. 뒤늦게 들어오는 리뷰도 같은 이유로
  * 영영 반영되지 않는다(에어비앤비 실측: 한 달치의 14~52%가 그 달이 끝난 뒤 적재됐다).
@@ -37,7 +41,8 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import {
   parseRawDate, weekStartOf, monthStartOf, distFromRatings, distColumnsFor,
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
-  OTA_SITE_BY_NAME, type Granularity,
+  mergeSource, planDetailWrite, isWriteAction, WRITE_ACTION_LABEL,
+  OTA_SITE_BY_NAME, type Granularity, type DetailSource, type WriteAction,
 } from '../lib/otaDetail'
 
 function die(msg: string): never {
@@ -248,17 +253,18 @@ async function buildBuckets(): Promise<Bucket[]> {
   return buckets
 }
 
-type Source = 'manual' | 'derived'
-
-// ota_score_dist·ota_complaints는 주·채널이 쌓일수록 커진다 — 여기도 끝까지 페이징한다.
+// ota_score_dist·ota_complaints·ota_voc는 주·채널이 쌓일수록 커진다 — 여기도 끝까지 페이징한다.
 // 조용히 1000행에서 잘리면 기존 수기 행을 '없다'고 보고 덮어쓴다.
 // (fetchRawReviews와 같은 이유로 종료 조건은 '빈 페이지'다.)
 //
 // 키만이 아니라 출처(source)까지 읽는다 — 보호 여부는 '행이 있는가'가 아니라
 // '누가 썼는가'로 정한다. source가 없거나 값이 이상하면 보수적으로 manual로 본다
 // (사람이 넣은 값을 덮어쓰는 쪽이 훨씬 비싼 실수다).
-async function existingSources(table: string): Promise<Map<string, Source>> {
-  const out = new Map<string, Source>()
+//
+// ota_voc는 키 하나에 키워드 행이 여러 개다 — 마지막 행이 이기게 두면 수기·파생이 섞인 키가
+// 정렬 순서에 따라 derived로 보인다. mergeSource로 '한 행이라도 수기면 manual'로 합친다.
+async function existingSources(table: string): Promise<Map<string, DetailSource>> {
+  const out = new Map<string, DetailSource>()
   for (let from = 0; ;) {
     const { data, error } = await db.from(table)
       .select('property_id,week_start,granularity,source')
@@ -269,10 +275,10 @@ async function existingSources(table: string): Promise<Map<string, Source>> {
     if (error) throw error
     const page = data ?? []
     if (page.length === 0) break
-    page.forEach((r: any) => out.set(
-      `${r.property_id}|${r.week_start}|${r.granularity ?? 'week'}`,
-      r.source === 'derived' ? 'derived' : 'manual',
-    ))
+    page.forEach((r: any) => {
+      const k = `${r.property_id}|${r.week_start}|${r.granularity ?? 'week'}`
+      out.set(k, mergeSource(out.get(k), r.source === 'derived' ? 'derived' : 'manual'))
+    })
     from += page.length
   }
   return out
@@ -295,6 +301,13 @@ function warnOverwrite(table: string, manualCollide: number) {
   console.warn('')
 }
 
+// 판정별 건수. 판정이 서로 배타적이므로 이 다섯 칸의 합은 항상 '대상 버킷 수'와 같다.
+type Tally = Record<WriteAction, number>
+const newTally = (): Tally =>
+  ({ 'new': 0, 'refresh': 0, 'overwrite': 0, 'skip-manual': 0, 'skip-settled': 0 })
+const writtenOf = (t: Tally) => t['new'] + t.refresh + t.overwrite
+const totalOf   = (t: Tally) => writtenOf(t) + t['skip-manual'] + t['skip-settled']
+
 async function runDist(buckets: Bucket[]) {
   // --fill-empty 여부와 무관하게 기존 행의 출처를 읽는다 — 무엇을 덮어쓰는지 세어 알리기 위해서다.
   const have = await existingSources('ota_score_dist')
@@ -303,16 +316,18 @@ async function runDist(buckets: Bucket[]) {
     writable.filter(b => have.get(`${b.propertyId}|${b.weekStart}|${b.granularity}`) === 'manual').length)
 
   // 점수 분포는 LLM을 타지 않아 재계산이 사실상 공짜다. 그래서 '확정/미확정'을 따지지 않고
-  // 자기가 쓴(derived) 행은 매 실행 다시 계산한다 — 끝나지 않은 구간의 부분값도, 뒤늦게
-  // 들어온 리뷰도 다음 실행에서 저절로 교정된다. 보호 대상은 오직 수기 입력(manual)이다.
-  let wrote = 0, skippedManual = 0, refreshedDerived = 0, overwroteManual = 0
+  // (unsettled: true 고정) 자기가 쓴(derived) 행은 매 실행 다시 계산한다 — 끝나지 않은 구간의
+  // 부분값도, 뒤늦게 들어온 리뷰도 다음 실행에서 저절로 교정된다.
+  // 보호 대상은 오직 수기 입력(manual)이다.
+  const tally = newTally()
 
   for (const b of writable) {
-    const src = have.get(`${b.propertyId}|${b.weekStart}|${b.granularity}`)
-
-    if (src === 'manual' && fillEmpty) { skippedManual++; continue }
-    if (src === 'manual') overwroteManual++
-    else if (src === 'derived') refreshedDerived++
+    const act = planDetailWrite(
+      have.get(`${b.propertyId}|${b.weekStart}|${b.granularity}`),
+      { fillEmpty, unsettled: true },
+    )
+    tally[act]++
+    if (!isWriteAction(act)) continue
 
     // 부동소수점 덧셈은 결합법칙이 성립하지 않는다 — 반올림 경계에 걸린 버킷은
     // 더하는 순서만 바뀌어도 평균이 뒤집힌다. raw_reviews.id는 랜덤 UUID라
@@ -330,27 +345,36 @@ async function runDist(buckets: Bucket[]) {
       const { error } = await db.from('ota_score_dist').upsert(row, { onConflict: 'property_id,week_start,granularity' })
       if (error) throw error
     }
-    wrote++
   }
   // 기록은 '신규 + 파생 재계산 + 수기 덮어씀'의 합이다 — 내역을 함께 적어 합이 맞는지 보이게 한다.
-  const fresh = wrote - refreshedDerived - overwroteManual
-  console.log(`\n점수 분포 — ${dryRun ? '기록 예정' : '기록'} ${wrote}건` +
-    `(신규 ${fresh} · 파생 재계산 ${refreshedDerived} · 수기 덮어씀 ${overwroteManual})` +
-    ` · 수기 보존 ${skippedManual}건${dryRun ? ' (dry-run)' : ''}`)
+  // (분포는 확정 버킷을 건너뛰지 않으므로 skip-settled는 구조적으로 0이다.)
+  console.log(`\n점수 분포 — ${dryRun ? '기록 예정' : '기록'} ${writtenOf(tally)}건` +
+    `(신규 ${tally['new']} · 파생 재계산 ${tally.refresh} · 수기 덮어씀 ${tally.overwrite})` +
+    ` · 수기 보존 ${tally['skip-manual']}건${dryRun ? ' (dry-run)' : ''}`)
 }
 
 async function runEmitText(buckets: Bucket[], path: string) {
-  const have = fillEmpty ? await existingSources('ota_complaints') : new Map<string, Source>()
+  const empty = new Map<string, DetailSource>()
+  const haveComplaints = fillEmpty ? await existingSources('ota_complaints') : empty
+  const haveVoc        = fillEmpty ? await existingSources('ota_voc')        : empty
   const payload = buckets
     .filter(b => b.texts.length > 0)
     // 아래 --apply-text와 같은 규칙으로 걸러야 한다 — 여기서만 빼면 쓰기 경로의 조건이
     // 실제로는 한 번도 열리지 않고, 여기서만 넣으면 분석 비용만 치르고 버려진다.
+    // 쓰기 경로가 불만·VOC를 따로 판정하므로, 한쪽이라도 쓸 수 있으면 분석 대상이다.
     .filter(b => {
-      const src = have.get(`${b.propertyId}|${b.weekStart}|${b.granularity}`)
-      if (src === undefined) return true
-      if (src === 'manual') return false          // 수기 입력은 건드리지 않는다
-      if (!isUnsettledBucket(b.weekStart, b.granularity, TODAY)) return false  // 확정된 파생 버킷
-      console.log(`[미확정 재분석] ${b.branch} ${b.ota} ${b.weekStart}(${b.granularity}) — 구간이 끝난 지 ${SETTLE_GRACE_DAYS}일이 지나지 않아 다시 분석 대상에 넣습니다`)
+      const key = `${b.propertyId}|${b.weekStart}|${b.granularity}`
+      const unsettled = isUnsettledBucket(b.weekStart, b.granularity, TODAY)
+      const cAct = planDetailWrite(haveComplaints.get(key), { fillEmpty, unsettled })
+      const vAct = planDetailWrite(haveVoc.get(key), { fillEmpty, unsettled })
+      const at = `${b.branch} ${b.ota} ${b.weekStart}(${b.granularity})`
+      if (!isWriteAction(cAct) && !isWriteAction(vAct)) return false
+      if (fillEmpty && (cAct === 'refresh' || vAct === 'refresh')) {
+        console.log(`[미확정 재분석] ${at} — 구간이 끝난 지 ${SETTLE_GRACE_DAYS}일이 지나지 않아 다시 분석 대상에 넣습니다`)
+      }
+      if (isWriteAction(cAct) !== isWriteAction(vAct)) {
+        console.log(`[분리 판정] ${at} — 불만 ${WRITE_ACTION_LABEL[cAct]} · VOC ${WRITE_ACTION_LABEL[vAct]} — 쓸 수 있는 쪽이 있어 분석 대상에 넣습니다`)
+      }
       return true
     })
     .map(b => ({
@@ -396,7 +420,10 @@ async function runApplyText(path: string) {
   const results = parsed as TextResult[]
 
   const meta = await propertyMeta()
-  const have = await existingSources('ota_complaints')
+  // 불만과 VOC는 UI에서 서로 다른 모달·라우트로 저장된다 — 두 표의 출처는 실제로 갈릴 수 있다.
+  // 각자의 출처를 읽어 각자 판정한다(불만 행의 출처로 VOC 삭제를 결정하지 않는다).
+  const haveComplaints = await existingSources('ota_complaints')
+  const haveVoc        = await existingSources('ota_voc')
 
   // 1) 검증을 먼저 전부 끝낸다 — 한 건이라도 어긋나면 아무것도 쓰지 않고 종료한다.
   const rows = results.map((r, i) => {
@@ -424,58 +451,94 @@ async function runApplyText(path: string) {
     }
   })
 
-  // 2) --fill-empty면 수기 입력을 건드리지 않는다. 아니면 덮어쓸 건수를 경고한다.
-  warnOverwrite('ota_complaints',
-    rows.filter(r => have.get(`${r.propertyId}|${r.weekStart}|${r.granularity}`) === 'manual').length)
+  // 2) --fill-empty면 수기 입력을 건드리지 않는다. 아니면 덮어쓸 건수를 표별로 경고한다.
+  //    VOC도 따로 경고한다 — 지워지는 것은 불만 행이 아니라 VOC 행이다.
+  const keyOf = (r: { propertyId: number; weekStart: string; granularity: Granularity }) =>
+    `${r.propertyId}|${r.weekStart}|${r.granularity}`
+  warnOverwrite('ota_complaints', rows.filter(r => haveComplaints.get(keyOf(r)) === 'manual').length)
+  warnOverwrite('ota_voc',        rows.filter(r => haveVoc.get(keyOf(r)) === 'manual').length)
 
   // 불만·VOC는 본문을 사람·LLM이 읽어야 나오는 값이라 재분석이 비싸다. 그래서 분포와 달리
   // 자기가 쓴(derived) 행도 '미확정'일 때만 다시 쓴다 — 구간이 아직 안 끝났거나 끝난 지
   // SETTLE_GRACE_DAYS일 이내라 뒤늦은 리뷰가 더 들어올 여지가 있는 버킷이다.
   // 확정된 버킷까지 매주 다시 분석하면 주간 루틴이 몇 달치 본문 값을 반복해서 치른다.
-  let wrote = 0, skippedManual = 0, refreshedDerived = 0, skippedSettled = 0
+  //
+  // 카운터는 표별로 따로 센다. 두 표의 판정이 갈릴 수 있으므로 합쳐 세면 어느 쪽이 몇 건
+  // 걸렸는지 알 수 없고, 판정이 상호 배타적이라 각 표의 다섯 칸 합은 항상 대상 버킷 수와 같다.
+  const cTally = newTally(), vTally = newTally()
+  let diverged = 0
+
   for (const r of rows) {
-    const src = have.get(`${r.propertyId}|${r.weekStart}|${r.granularity}`)
-    if (fillEmpty && src === 'manual') { skippedManual++; continue }
-    if (fillEmpty && src === 'derived') {
-      if (!isUnsettledBucket(r.weekStart, r.granularity, TODAY)) { skippedSettled++; continue }
-      refreshedDerived++
-      console.log(`[미확정 재분석] ${r.label} ${r.weekStart}(${r.granularity}) — 구간이 끝난 지 ${SETTLE_GRACE_DAYS}일이 지나지 않아 기존 파생 행을 다시 씁니다`)
+    const key = keyOf(r)
+    const unsettled = isUnsettledBucket(r.weekStart, r.granularity, TODAY)
+    const cAct = planDetailWrite(haveComplaints.get(key), { fillEmpty, unsettled })
+    const vAct = planDetailWrite(haveVoc.get(key), { fillEmpty, unsettled })
+    cTally[cAct]++
+    vTally[vAct]++
+
+    const at = `${r.label} ${r.weekStart}(${r.granularity})`
+    // '미확정이라 다시 쓴다'는 --fill-empty에서만 성립하는 사유다. 플래그가 없으면 확정 버킷도
+    // 어차피 다시 쓰므로, 여기서 이 문구를 찍으면 확정된 구간에 거짓 사유가 붙는다.
+    if (fillEmpty && (cAct === 'refresh' || vAct === 'refresh')) {
+      console.log(`[미확정 재분석] ${at} — 구간이 끝난 지 ${SETTLE_GRACE_DAYS}일이 지나지 않아 기존 파생 행을 다시 씁니다`)
+    }
+    // 한쪽만 처리하고 조용히 넘어가지 않는다 — 반쪽만 쓴 실행은 로그에서 바로 보여야 한다.
+    if (cAct !== vAct) {
+      diverged++
+      const half = isWriteAction(cAct) === isWriteAction(vAct) ? '' : ' — 한쪽만 처리합니다'
+      console.log(`[분리 판정] ${at} — 불만 ${WRITE_ACTION_LABEL[cAct]} · VOC ${WRITE_ACTION_LABEL[vAct]} (두 표의 출처가 다릅니다)${half}`)
     }
 
-    if (dryRun) {
-      console.log(`(dry-run) ${r.label} ${r.weekStart}(${r.granularity}) 객실 ${r.roomComplaints} 욕실 ${r.bathroomComplaints} VOC ${r.voc.length}`)
-      continue
+    const desc = (act: WriteAction, body: string) =>
+      isWriteAction(act) ? `${WRITE_ACTION_LABEL[act]}(${body})` : WRITE_ACTION_LABEL[act]
+    console.log(`${dryRun ? '(dry-run) ' : ''}${at} ` +
+      `불만 ${desc(cAct, `객실 ${r.roomComplaints} 욕실 ${r.bathroomComplaints}`)} · ` +
+      `VOC ${desc(vAct, `${r.voc.length}건`)}`)
+
+    if (dryRun) continue
+
+    if (isWriteAction(cAct)) {
+      const { error: cErr } = await db.from('ota_complaints').upsert({
+        property_id: r.propertyId, week_start: r.weekStart, granularity: r.granularity,
+        room_complaints: r.roomComplaints, bathroom_complaints: r.bathroomComplaints, memo: r.memo,
+        source: 'derived',
+      }, { onConflict: 'property_id,week_start,granularity' })
+      if (cErr) throw cErr
     }
 
-    const { error: cErr } = await db.from('ota_complaints').upsert({
-      property_id: r.propertyId, week_start: r.weekStart, granularity: r.granularity,
-      room_complaints: r.roomComplaints, bathroom_complaints: r.bathroomComplaints, memo: r.memo,
-      source: 'derived',
-    }, { onConflict: 'property_id,week_start,granularity' })
-    if (cErr) throw cErr
+    // VOC 판정이 보류면 delete도 insert도 하지 않는다 — 사람이 넣은 키워드가 남아 있어야 한다.
+    if (isWriteAction(vAct)) {
+      // VOC는 누적이 아니라 대체 — 같은 키의 기존 행을 지우고 다시 넣는다.
+      // ota_voc는 unique 제약이 없어(키 하나에 여러 키워드 행이 정상) delete 실패를 놓치면
+      // 기존 행이 남은 채 insert가 더해져 중복 데이터가 쌓인다. delete 에러는 반드시 확인한다.
+      const { error: dErr } = await db.from('ota_voc').delete()
+        .eq('property_id', r.propertyId).eq('week_start', r.weekStart).eq('granularity', r.granularity)
+      if (dErr) throw new Error(`ota_voc 기존 행 삭제 실패 (property ${r.propertyId} ${r.weekStart}): ${dErr.message}`)
 
-    // VOC는 누적이 아니라 대체 — 같은 키의 기존 행을 지우고 다시 넣는다.
-    // ota_voc는 unique 제약이 없어(키 하나에 여러 키워드 행이 정상) delete 실패를 놓치면
-    // 기존 행이 남은 채 insert가 더해져 중복 데이터가 쌓인다. delete 에러는 반드시 확인한다.
-    const { error: dErr } = await db.from('ota_voc').delete()
-      .eq('property_id', r.propertyId).eq('week_start', r.weekStart).eq('granularity', r.granularity)
-    if (dErr) throw new Error(`ota_voc 기존 행 삭제 실패 (property ${r.propertyId} ${r.weekStart}): ${dErr.message}`)
-
-    // delete 성공 후 insert가 실패하면 기존 행은 이미 삭제된 상태로 복구되지 않는다(비원자적).
-    // Supabase JS 클라이언트에 트랜잭션 수단이 없고, 데이터는 이 배치로 재생성 가능하므로 의도적으로 감수한다.
-    if (r.voc.length > 0) {
-      const { error: vErr } = await db.from('ota_voc').insert(
-        r.voc.map(v => ({
-          property_id: r.propertyId, week_start: r.weekStart, granularity: r.granularity,
-          band: v.band, sentiment: v.sentiment, keyword: v.keyword, source: 'derived',
-        }))
-      )
-      if (vErr) throw vErr
+      // delete 성공 후 insert가 실패하면 기존 행은 이미 삭제된 상태로 복구되지 않는다(비원자적).
+      // Supabase JS 클라이언트에 트랜잭션 수단이 없고, 데이터는 이 배치로 재생성 가능하므로 의도적으로 감수한다.
+      if (r.voc.length > 0) {
+        const { error: vErr } = await db.from('ota_voc').insert(
+          r.voc.map(v => ({
+            property_id: r.propertyId, week_start: r.weekStart, granularity: r.granularity,
+            band: v.band, sentiment: v.sentiment, keyword: v.keyword, source: 'derived',
+          }))
+        )
+        if (vErr) throw vErr
+      }
     }
-    wrote++
   }
-  console.log(`\n불만·VOC — 기록 ${wrote}건 · 수기 보존 ${skippedManual}건 · ` +
-    `파생 재분석 ${refreshedDerived}건 · 확정 버킷 건너뜀 ${skippedSettled}건${dryRun ? ' (dry-run)' : ''}`)
+
+  // 표마다 '기록 = 신규 + 파생 재분석 + 수기 덮어씀', '보류 = 수기 보존 + 확정 버킷 건너뜀'.
+  // 다섯 칸은 겹치지 않고 빠지지도 않으므로 합계가 대상 버킷 수와 같아야 한다 — 그 검산을 같이 찍는다.
+  const line = (label: string, t: Tally) =>
+    `${label} — ${dryRun ? '기록 예정' : '기록'} ${writtenOf(t)}건` +
+    `(신규 ${t['new']} · 파생 재분석 ${t.refresh} · 수기 덮어씀 ${t.overwrite})` +
+    ` · 수기 보존 ${t['skip-manual']}건 · 확정 버킷 건너뜀 ${t['skip-settled']}건` +
+    ` · 합계 ${totalOf(t)}/${rows.length}`
+  console.log(`\n대상 버킷 ${rows.length}개 · 불만/VOC 판정이 갈린 버킷 ${diverged}개${dryRun ? ' (dry-run)' : ''}`)
+  console.log(line('불만', cTally))
+  console.log(line('VOC ', vTally))
 }
 
 async function main() {

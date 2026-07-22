@@ -189,6 +189,112 @@ describe('isUnsettledBucket', () => {
   })
 })
 
+import {
+  mergeSource, planDetailWrite, isWriteAction, WRITE_ACTION_LABEL,
+  type DetailSource, type WriteAction,
+} from './otaDetail'
+
+describe('mergeSource', () => {
+  it('한 키의 첫 행은 그 행의 출처를 그대로 쓴다', () => {
+    expect(mergeSource(undefined, 'manual')).toBe('manual')
+    expect(mergeSource(undefined, 'derived')).toBe('derived')
+  })
+
+  it('파생 행만 모인 키는 derived다', () => {
+    expect(mergeSource('derived', 'derived')).toBe('derived')
+  })
+
+  it('한 행이라도 수기면 그 키 전체를 manual로 본다', () => {
+    // ota_voc는 키 하나에 키워드 행이 여럿이다. 마지막 행이 이기게 두면
+    // 정렬 순서에 따라 수기 행이 섞인 키가 derived로 보여 통째로 지워진다.
+    expect(mergeSource('derived', 'manual')).toBe('manual')
+    expect(mergeSource('manual', 'derived')).toBe('manual')
+    expect(mergeSource('manual', 'manual')).toBe('manual')
+  })
+})
+
+describe('planDetailWrite', () => {
+  const fill     = { fillEmpty: true,  unsettled: true  }
+  const fillDone = { fillEmpty: true,  unsettled: false }
+  const force    = { fillEmpty: false, unsettled: true  }
+
+  it('기존 행이 없으면 신규 기록이다', () => {
+    expect(planDetailWrite(undefined, fill)).toBe('new')
+    expect(planDetailWrite(undefined, fillDone)).toBe('new')
+    expect(planDetailWrite(undefined, force)).toBe('new')
+  })
+
+  it('--fill-empty면 수기 행은 확정 여부와 무관하게 보존한다', () => {
+    expect(planDetailWrite('manual', fill)).toBe('skip-manual')
+    expect(planDetailWrite('manual', fillDone)).toBe('skip-manual')
+  })
+
+  it('--fill-empty 없이는 수기 행도 덮어쓴다', () => {
+    expect(planDetailWrite('manual', force)).toBe('overwrite')
+  })
+
+  it('--fill-empty에서 파생 행은 미확정일 때만 다시 쓴다', () => {
+    expect(planDetailWrite('derived', fill)).toBe('refresh')
+    expect(planDetailWrite('derived', fillDone)).toBe('skip-settled')
+  })
+
+  it('--fill-empty 없이는 파생 행을 확정 여부와 무관하게 다시 쓴다', () => {
+    expect(planDetailWrite('derived', force)).toBe('refresh')
+    expect(planDetailWrite('derived', { fillEmpty: false, unsettled: false })).toBe('refresh')
+  })
+
+  it('모든 입력 조합이 다섯 판정 중 하나로만 떨어진다', () => {
+    // 카운터가 '상호 배타 + 전수'이려면 판정 자체가 전역 함수여야 한다.
+    const all: WriteAction[] = ['new', 'refresh', 'overwrite', 'skip-manual', 'skip-settled']
+    const sources: (DetailSource | undefined)[] = [undefined, 'manual', 'derived']
+    for (const s of sources) {
+      for (const fillEmpty of [true, false]) {
+        for (const unsettled of [true, false]) {
+          expect(all).toContain(planDetailWrite(s, { fillEmpty, unsettled }))
+        }
+      }
+    }
+  })
+
+  it('기록/보류가 정확히 셋·둘로 갈린다', () => {
+    expect((['new', 'refresh', 'overwrite'] as WriteAction[]).every(isWriteAction)).toBe(true)
+    expect((['skip-manual', 'skip-settled'] as WriteAction[]).some(isWriteAction)).toBe(false)
+  })
+
+  it('다섯 판정 모두 한국어 로그 라벨을 가진다', () => {
+    const all: WriteAction[] = ['new', 'refresh', 'overwrite', 'skip-manual', 'skip-settled']
+    all.forEach(a => expect(WRITE_ACTION_LABEL[a]).toBeTruthy())
+  })
+
+  // ── 불만과 VOC를 따로 판정해야 하는 실제 시나리오 ──
+  // UI가 불만과 VOC를 서로 다른 모달·라우트로 저장하므로 두 출처는 실제로 갈릴 수 있다.
+
+  it('불만 행이 아예 없는 버킷의 수기 VOC를 지우지 않는다', () => {
+    // 사람이 VOC 키워드만 넣은 버킷. 불만만 보고 판정하면 '기존 행 없음'이라
+    // --fill-empty에서도 통과해 수기 VOC가 삭제된다.
+    const complaints = planDetailWrite(undefined, fill)
+    const voc        = planDetailWrite('manual', fill)
+    expect(complaints).toBe('new')
+    expect(voc).toBe('skip-manual')
+    expect(isWriteAction(complaints)).toBe(true)
+    expect(isWriteAction(voc)).toBe(false)
+  })
+
+  it('파생 버킷의 VOC만 사람이 고쳤으면 그 VOC는 보존한다', () => {
+    // 배치가 쓴 뒤 사람이 VOC만 교정한 경우(VOC=manual · 불만=derived).
+    // 유예 7일 안이라 불만은 재분석 대상이지만 VOC는 건드리면 안 된다.
+    const complaints = planDetailWrite('derived', fill)
+    const voc        = planDetailWrite('manual', fill)
+    expect(complaints).toBe('refresh')
+    expect(voc).toBe('skip-manual')
+  })
+
+  it('반대로 불만만 수기면 VOC는 정상 기록된다', () => {
+    expect(planDetailWrite('manual', fill)).toBe('skip-manual')
+    expect(planDetailWrite(undefined, fill)).toBe('new')
+  })
+})
+
 import { bandsFor, distColumnsFor, distFromRatings, OTA_SITE_BY_NAME } from './otaDetail'
 
 describe('bandsFor', () => {

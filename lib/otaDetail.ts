@@ -144,6 +144,50 @@ export function isUnsettledBucket(
   return todayIso <= addDaysIso(bucketPeriodEnd(weekStart, granularity), SETTLE_GRACE_DAYS)
 }
 
+// ── 행 출처(source) 판정 ───────────────────────────────────────────
+// '무엇을 덮어써도 되는가'의 규칙. 스크립트가 아니라 여기 두는 이유는 DB 없이 전수 검증하기
+// 위해서다 — 지금 DB에는 파생 행이 하나도 없어 실행만으로는 아래 분기의 절반이 열리지 않는다.
+
+export type DetailSource = 'manual' | 'derived'
+
+// 키 하나에 행이 여러 개 달리는 표(ota_voc는 한 버킷에 키워드 행이 여럿)에서 키의 출처를 정한다.
+// 한 행이라도 사람이 넣었으면 그 키는 manual이다 — 사람 손이 닿은 행을 지우는 쪽이 훨씬 비싼 실수다.
+export function mergeSource(prev: DetailSource | undefined, next: DetailSource): DetailSource {
+  return prev === 'manual' || next === 'manual' ? 'manual' : 'derived'
+}
+
+// 버킷 하나에 대한 판정. 다섯 값은 서로 배타적이고, 대상 버킷은 반드시 이 중 하나로 떨어진다
+// (기록 = new + refresh + overwrite, 보류 = skip-manual + skip-settled).
+export type WriteAction = 'new' | 'refresh' | 'overwrite' | 'skip-manual' | 'skip-settled'
+
+export const WRITE_ACTION_LABEL: Record<WriteAction, string> = {
+  'new':          '신규',
+  'refresh':      '파생 재분석',
+  'overwrite':    '수기 덮어씀',
+  'skip-manual':  '수기 보존',
+  'skip-settled': '확정 버킷 건너뜀',
+}
+
+export function isWriteAction(a: WriteAction): boolean {
+  return a === 'new' || a === 'refresh' || a === 'overwrite'
+}
+
+// 대상 표(불만·VOC·점수 분포)마다 자기 표의 출처로 따로 부른다.
+// 불만 행의 출처로 VOC 삭제까지 결정하면, 손으로 넣은 VOC가 '불만 행이 없다'거나
+// '불만 행이 파생이다'라는 남의 사정으로 통째로 지워진다.
+//
+// unsettled=false는 '이 버킷은 확정됐다'는 뜻으로, 재분석이 비싼 값(불만·VOC)에만 쓴다.
+// 재계산이 사실상 공짜인 점수 분포는 항상 unsettled=true로 불러 자기 행을 매번 다시 쓴다.
+export function planDetailWrite(
+  existing: DetailSource | undefined,
+  opts: { fillEmpty: boolean; unsettled: boolean },
+): WriteAction {
+  if (existing === undefined) return 'new'
+  if (existing === 'manual') return opts.fillEmpty ? 'skip-manual' : 'overwrite'
+  if (opts.fillEmpty && !opts.unsettled) return 'skip-settled'
+  return 'refresh'
+}
+
 // ota_properties.ota_name → raw_reviews.ota_site (같은 채널의 두 표기)
 export const OTA_SITE_BY_NAME: Record<string, string> = {
   'Agoda':    '아고다',
