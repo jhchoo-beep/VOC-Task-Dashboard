@@ -52,3 +52,80 @@ describe('monthStartOf', () => {
     expect(monthStartOf('2026-06')).toBe('2026-06-01')
   })
 })
+
+import { bandsFor, distColumnsFor, distFromRatings, OTA_SITE_BY_NAME } from './otaDetail'
+
+describe('bandsFor', () => {
+  it('10점 채널은 1점대~10점 10밴드다', () => {
+    // 부킹·트립·여기어때에 1.0점 리뷰가 실재하므로 1점대를 포함한다
+    expect(bandsFor(10)).toEqual(['1점대','2점대','3점대','4점대','5점대','6점대','7점대','8점대','9점대','10점'])
+  })
+
+  it('5점 채널은 원척도 1~5점 5밴드다', () => {
+    expect(bandsFor(5)).toEqual(['1점','2점','3점','4점','5점'])
+  })
+})
+
+describe('distColumnsFor', () => {
+  it('밴드 수만큼의 컬럼명을 준다', () => {
+    expect(distColumnsFor(10)).toHaveLength(10)
+    expect(distColumnsFor(10)[0]).toBe('score_1')
+    expect(distColumnsFor(10)[9]).toBe('score_10')
+    expect(distColumnsFor(5)).toEqual(['score_1','score_2','score_3','score_4','score_5'])
+  })
+})
+
+describe('distFromRatings', () => {
+  it('10점 채널의 점수를 내림해 밴드에 담는다', () => {
+    const r = distFromRatings([10, 10, 8.4, 8.0, 9.9], 10)
+    expect(r.counts.score_10).toBe(2)
+    expect(r.counts.score_8).toBe(2)
+    expect(r.counts.score_9).toBe(1)
+    expect(r.total).toBe(5)
+  })
+
+  it('평균은 밴드가 아니라 실제 rating으로 낸다', () => {
+    // 밴드 중앙값이었다면 (10+10+8+8+9)/5 = 9.0으로 잘못 나온다
+    const r = distFromRatings([10, 10, 8.4, 8.0, 9.9], 10)
+    expect(r.avg).toBe(9.3)
+  })
+
+  it('10점 채널의 1점대를 버리지 않는다', () => {
+    const r = distFromRatings([1.0, 1.5, 2.0], 10)
+    expect(r.counts.score_1).toBe(2)
+    expect(r.counts.score_2).toBe(1)
+  })
+
+  it('5점 채널은 원척도 그대로 담는다', () => {
+    const r = distFromRatings([5, 5, 4, 1], 5)
+    expect(r.counts.score_5).toBe(2)
+    expect(r.counts.score_4).toBe(1)
+    expect(r.counts.score_1).toBe(1)
+    expect(r.avg).toBe(3.8)
+  })
+
+  it('척도 밖 값은 양 끝 밴드로 클램프한다', () => {
+    const r = distFromRatings([0, 11], 10)
+    expect(r.counts.score_1).toBe(1)
+    expect(r.counts.score_10).toBe(1)
+  })
+
+  it('빈 입력은 avg 0, total 0이다', () => {
+    const r = distFromRatings([], 10)
+    expect(r.avg).toBe(0)
+    expect(r.total).toBe(0)
+    expect(r.counts.score_5).toBe(0)
+  })
+})
+
+describe('OTA_SITE_BY_NAME', () => {
+  it('ota_properties의 영문명을 raw_reviews의 한글명으로 옮긴다', () => {
+    expect(OTA_SITE_BY_NAME['Agoda']).toBe('아고다')
+    expect(OTA_SITE_BY_NAME['Booking']).toBe('부킹닷컴')
+    expect(OTA_SITE_BY_NAME['Trip.com']).toBe('트립닷컴')
+    expect(OTA_SITE_BY_NAME['Expedia']).toBe('익스피디아')
+    expect(OTA_SITE_BY_NAME['Airbnb']).toBe('에어비앤비')
+    expect(OTA_SITE_BY_NAME['NOL']).toBe('야놀자')
+    expect(OTA_SITE_BY_NAME['여기어때']).toBe('여기어때')
+  })
+})

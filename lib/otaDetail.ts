@@ -57,3 +57,51 @@ export function weekStartOf(isoDate: string): string {
 export function monthStartOf(month: string): string {
   return `${month}-01`
 }
+
+// ota_properties.ota_name → raw_reviews.ota_site (같은 채널의 두 표기)
+export const OTA_SITE_BY_NAME: Record<string, string> = {
+  'Agoda':    '아고다',
+  'Booking':  '부킹닷컴',
+  'Trip.com': '트립닷컴',
+  'Expedia':  '익스피디아',
+  'Airbnb':   '에어비앤비',
+  'NOL':      '야놀자',
+  '여기어때':  '여기어때',
+}
+
+export function bandsFor(scoreMax: number): string[] {
+  if (scoreMax === 5) return ['1점', '2점', '3점', '4점', '5점']
+  return ['1점대','2점대','3점대','4점대','5점대','6점대','7점대','8점대','9점대','10점']
+}
+
+export function distColumnsFor(scoreMax: number): string[] {
+  const n = scoreMax === 5 ? 5 : 10
+  return Array.from({ length: n }, (_, i) => `score_${i + 1}`)
+}
+
+export interface ScoreDist {
+  counts: Record<string, number>
+  avg:    number
+  total:  number
+}
+
+export function distFromRatings(ratings: number[], scoreMax: number): ScoreDist {
+  const cols   = distColumnsFor(scoreMax)
+  const counts: Record<string, number> = {}
+  cols.forEach(c => { counts[c] = 0 })
+
+  let sum = 0
+  ratings.forEach(r => {
+    const clamped = Math.min(Math.max(r, 1), scoreMax)
+    const idx     = Math.min(Math.floor(clamped) - 1, cols.length - 1)
+    counts[cols[idx]] += 1
+    sum += r
+  })
+
+  const total = ratings.length
+  return {
+    counts,
+    total,
+    avg: total > 0 ? Math.round((sum / total) * 10) / 10 : 0,
+  }
+}
