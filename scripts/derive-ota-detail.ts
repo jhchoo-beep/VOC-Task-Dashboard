@@ -10,6 +10,8 @@
  *
  * --fill-empty 는 '빈 자리만 채운다'는 뜻이다. 붙이지 않으면 기존 행을 덮어쓴다
  * (손으로 넣은 값도 포함). 덮어쓰기 전에 몇 건이 걸리는지 경고로 알린다.
+ * 단, 아직 끝나지 않은 달의 월 버킷(에어비앤비·여기어때)은 예외로 매번 다시 쓴다 —
+ * 달 중간에 쓴 부분값이 영구히 굳는 것을 막기 위해서다. 갱신 시 로그로 알린다.
  *
  * ── 실행 환경 주의 ──────────────────────────────────────────────
  * 이 리포의 `.env.local`에는 쓸 수 있는 Supabase 접속 정보가 없다.
@@ -27,7 +29,7 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import {
   parseRawDate, weekStartOf, monthStartOf, distFromRatings, distColumnsFor,
-  recentWeekStarts, monthsCovering,
+  recentWeekStarts, monthsCovering, isInProgressMonthBucket,
   OTA_SITE_BY_NAME, type Granularity,
 } from '../lib/otaDetail'
 
@@ -99,6 +101,10 @@ function todayIsoLocal(): string {
   return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`
 }
 
+// '오늘'은 실행당 한 번만 정한다. 대상 주 계산과 '진행 중인 달' 판정이 각자
+// new Date()를 부르면, 자정을 걸친 실행에서 한 실행이 서로 다른 날짜를 믿게 된다.
+const TODAY = todayIsoLocal()
+
 // PostgREST 기본 상한. 이보다 많은 행은 range 없이는 조용히 잘려 나간다.
 const PAGE_SIZE = 1000
 
@@ -146,7 +152,7 @@ function dedupe<T extends { reviewer?: string; raw_date?: string; rating?: numbe
 }
 
 async function buildBuckets(): Promise<Bucket[]> {
-  const targetWeeks = recentWeekStarts(todayIsoLocal(), weeks)
+  const targetWeeks = recentWeekStarts(TODAY, weeks)
   // 주 시작일의 달만 모으면 최신 주가 월 경계를 걸칠 때 이번 달이 통째로 빠진다
   // (예: 8/1 실행 → 마지막 주 시작 7/27 → 2026-08이 review_month 필터에서 누락).
   // 주 구간 전체(월~일)가 닿는 달을 모두 대상으로 삼는다.
@@ -278,12 +284,22 @@ async function runDist(buckets: Bucket[]) {
   const writable = buckets.filter(b => b.ratings.length > 0)
   warnOverwrite('ota_score_dist', writable.filter(b => have.has(`${b.propertyId}|${b.weekStart}|${b.granularity}`)).length)
 
-  let wrote = 0, skipped = 0, overwrote = 0
+  let wrote = 0, skipped = 0, overwrote = 0, refreshed = 0
 
   for (const b of writable) {
     const k = `${b.propertyId}|${b.weekStart}|${b.granularity}`
-    if (fillEmpty && have.has(k)) { skipped++; continue }
-    if (have.has(k)) overwrote++
+    const exists = have.has(k)
+    // 진행 중인 달의 월 버킷은 --fill-empty로도 보호하지 않는다 — 달 중간에 쓴
+    // 부분값이 영구히 굳는 것을 막는다(사유는 isInProgressMonthBucket 주석 참조).
+    const inProgress = isInProgressMonthBucket(b.weekStart, b.granularity, TODAY)
+
+    if (exists && fillEmpty && !inProgress) { skipped++; continue }
+    if (exists && fillEmpty && inProgress) {
+      refreshed++
+      console.log(`[진행 중인 달 갱신] ${b.branch} ${b.ota} ${b.weekStart}(월) — 아직 끝나지 않은 달이라 기존 행을 보존하지 않고 다시 씁니다`)
+    } else if (exists) {
+      overwrote++
+    }
 
     // 부동소수점 덧셈은 결합법칙이 성립하지 않는다 — 반올림 경계에 걸린 버킷은
     // 더하는 순서만 바뀌어도 평균이 뒤집힌다. raw_reviews.id는 랜덤 UUID라
@@ -303,14 +319,22 @@ async function runDist(buckets: Bucket[]) {
       wrote++
     }
   }
-  console.log(`\n점수 분포 — 기록 ${wrote}건 · 기존 보존 ${skipped}건 · 덮어씀 ${overwrote}건${dryRun ? ' (dry-run)' : ''}`)
+  console.log(`\n점수 분포 — 기록 ${wrote}건 · 기존 보존 ${skipped}건 · 덮어씀 ${overwrote}건 · 진행 중인 달 갱신 ${refreshed}건${dryRun ? ' (dry-run)' : ''}`)
 }
 
 async function runEmitText(buckets: Bucket[], path: string) {
   const have = fillEmpty ? await existingKeys('ota_complaints') : new Set<string>()
   const payload = buckets
     .filter(b => b.texts.length > 0)
-    .filter(b => !have.has(`${b.propertyId}|${b.weekStart}|${b.granularity}`))
+    // 아래 --apply-text가 진행 중인 달을 다시 쓰려면 분석 대상 파일에도 남아 있어야 한다.
+    // 여기서만 걸러내면 쓰기 경로의 예외가 실제로는 한 번도 열리지 않는다.
+    .filter(b => {
+      const k = `${b.propertyId}|${b.weekStart}|${b.granularity}`
+      if (!have.has(k)) return true
+      if (!isInProgressMonthBucket(b.weekStart, b.granularity, TODAY)) return false
+      console.log(`[진행 중인 달 갱신] ${b.branch} ${b.ota} ${b.weekStart}(월) — 아직 끝나지 않은 달이라 기존 행이 있어도 분석 대상에 넣습니다`)
+      return true
+    })
     .map(b => ({
       propertyId: b.propertyId, branch: b.branch, ota: b.ota,
       weekStart: b.weekStart, granularity: b.granularity,
@@ -385,10 +409,15 @@ async function runApplyText(path: string) {
   // 2) --fill-empty면 기존 행을 건드리지 않는다(수기 입력 보호). 아니면 덮어쓸 건수를 경고한다.
   warnOverwrite('ota_complaints', rows.filter(r => have.has(`${r.propertyId}|${r.weekStart}|${r.granularity}`)).length)
 
-  let wrote = 0, skipped = 0
+  let wrote = 0, skipped = 0, refreshed = 0
   for (const r of rows) {
     const k = `${r.propertyId}|${r.weekStart}|${r.granularity}`
-    if (fillEmpty && have.has(k)) { skipped++; continue }
+    // 분포 경로와 같은 규칙 — 진행 중인 달의 월 버킷은 --fill-empty로 보호하지 않는다.
+    if (fillEmpty && have.has(k)) {
+      if (!isInProgressMonthBucket(r.weekStart, r.granularity, TODAY)) { skipped++; continue }
+      refreshed++
+      console.log(`[진행 중인 달 갱신] ${r.label} ${r.weekStart}(월) — 아직 끝나지 않은 달이라 기존 행을 보존하지 않고 다시 씁니다`)
+    }
 
     if (dryRun) {
       console.log(`(dry-run) ${r.label} ${r.weekStart}(${r.granularity}) 객실 ${r.roomComplaints} 욕실 ${r.bathroomComplaints} VOC ${r.voc.length}`)
@@ -421,7 +450,7 @@ async function runApplyText(path: string) {
     }
     wrote++
   }
-  console.log(`\n불만·VOC — 기록 ${wrote}건 · 기존 보존 ${skipped}건${dryRun ? ' (dry-run)' : ''}`)
+  console.log(`\n불만·VOC — 기록 ${wrote}건 · 기존 보존 ${skipped}건 · 진행 중인 달 갱신 ${refreshed}건${dryRun ? ' (dry-run)' : ''}`)
 }
 
 async function main() {

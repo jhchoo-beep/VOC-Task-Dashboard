@@ -124,6 +124,36 @@ describe('monthsCovering', () => {
   })
 })
 
+import { isInProgressMonthBucket } from './otaDetail'
+
+describe('isInProgressMonthBucket', () => {
+  it('기준일이 속한 달의 월 버킷은 아직 진행 중이다', () => {
+    // 7/22에 쓰는 2026-07 월 버킷은 그 달의 일부만 담고 있다 — 다음 주에 다시 써야 한다
+    expect(isInProgressMonthBucket('2026-07-01', 'month', '2026-07-22')).toBe(true)
+    expect(isInProgressMonthBucket('2026-07-01', 'month', '2026-07-01')).toBe(true)
+    expect(isInProgressMonthBucket('2026-07-01', 'month', '2026-07-31')).toBe(true)
+  })
+
+  it('이미 끝난 달의 월 버킷은 확정값이다', () => {
+    expect(isInProgressMonthBucket('2026-06-01', 'month', '2026-07-22')).toBe(false)
+    expect(isInProgressMonthBucket('2025-12-01', 'month', '2026-01-05')).toBe(false)
+  })
+
+  it('미래 달은 진행 중으로 보지 않는다', () => {
+    expect(isInProgressMonthBucket('2026-08-01', 'month', '2026-07-22')).toBe(false)
+  })
+
+  it('주 입도는 같은 달이라도 대상이 아니다', () => {
+    // 주간 루틴은 완료된 주를 상대로 고정 주기로 돈다 — 구조가 다르다
+    expect(isInProgressMonthBucket('2026-07-20', 'week', '2026-07-22')).toBe(false)
+    expect(isInProgressMonthBucket('2026-07-01', 'week', '2026-07-22')).toBe(false)
+  })
+
+  it('연도가 다르면 월 숫자가 같아도 진행 중이 아니다', () => {
+    expect(isInProgressMonthBucket('2025-07-01', 'month', '2026-07-22')).toBe(false)
+  })
+})
+
 import { bandsFor, distColumnsFor, distFromRatings, OTA_SITE_BY_NAME } from './otaDetail'
 
 describe('bandsFor', () => {

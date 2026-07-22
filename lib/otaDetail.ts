@@ -114,6 +114,27 @@ export function monthsCovering(weekStarts: string[]): string[] {
   return out
 }
 
+// 이 버킷이 '아직 끝나지 않은 달'인가 — --fill-empty의 보호 대상에서 뺄지 결정한다.
+//
+// 월 입도 채널(에어비앤비·여기어때)은 한 달을 한 행으로 접는다. 배치는 한 달 안에서
+// 여러 번 돌기 때문에, 달 중간에 쓴 행은 그 달의 일부만 담은 미완성 값이다.
+// --fill-empty가 '행이 있으면 건너뛴다'로만 동작하면 그 미완성 값이 영구히 굳어
+// 다음 주 실행도 건너뛰고, 그 달은 끝내 완성되지 않는다(매달 반복된다).
+// 그래서 '기준일이 속한 달'의 월 버킷만 보호에서 제외하고 매 실행 다시 쓴다.
+// 이미 끝난 달은 확정값이므로 그대로 보호한다.
+//
+// 주 입도는 대상이 아니다 — 주간 루틴은 완료된 주를 상대로 고정 주기로 돌기 때문에
+// 구조가 다르다. 미래 달(기준일보다 뒤)도 대상이 아니다 — 정상 데이터가 아니며
+// 여기서 임의로 되살릴 근거가 없다.
+export function isInProgressMonthBucket(
+  weekStart: string,
+  granularity: Granularity,
+  todayIso: string,
+): boolean {
+  if (granularity !== 'month') return false
+  return weekStart.substring(0, 7) === todayIso.substring(0, 7)
+}
+
 // ota_properties.ota_name → raw_reviews.ota_site (같은 채널의 두 표기)
 export const OTA_SITE_BY_NAME: Record<string, string> = {
   'Agoda':    '아고다',
