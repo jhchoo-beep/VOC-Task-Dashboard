@@ -15,7 +15,7 @@
 - 쓰기 경로를 건드리면 `revalidateTag('ota', 'max')`를 반드시 호출한다(Next 16은 2-인자). 누락 시 최대 300초간 화면에 반영되지 않는다.
 - `raw_reviews`·`reviews`·`tasks` 등 사용자 실데이터는 **삭제·비우기 금지**. 검증은 읽기 쿼리 또는 `--dry-run`으로 한다.
 - Supabase project_id: `slyfyrkqfdkoaaochspa`. 스키마 변경은 `apply_migration`으로 한다.
-- 백필은 `--fill-empty` 모드로만 실행한다. 기존 행이 있는 키는 건드리지 않는다(신설 Agoda 14주 보존).
+- 백필은 `--fill-empty` 모드로만 실행한다. **보호 기준은 행의 출처(`source`)다** — `manual` 행은 절대 건드리지 않고(신설 Agoda 14주 보존), 배치가 쓴 `derived` 행은 자유롭게 재계산한다. (구현 중 정정: 최초 설계였던 "행이 있으면 건너뛴다"는 진행 중인 주·달을 부분 집계 상태로 영구 동결시키고, 구간 종료 후 늦게 들어온 리뷰를 영영 반영하지 못했다. 에어비앤비 실측 기준 한 달치의 14~52%가 누락된다.)
 - 5점 만점 채널(Airbnb·NOL)은 원척도 1~5 밴드. ×2 환산하지 않는다.
 - 지점 표기는 `신설·동대문·제주시티·고성`, OTA 표기는 `ota_properties.ota_name`(`Agoda·Booking·Trip.com·Expedia·여기어때·Airbnb·NOL`). `raw_reviews.ota_site`는 한글명(`아고다·부킹닷컴·트립닷컴·익스피디아·여기어때·에어비앤비·야놀자`)이라 **매핑이 필요하다**.
 
