@@ -73,6 +73,57 @@ describe('monthStartOf', () => {
   })
 })
 
+import { addDaysIso, recentWeekStarts, monthsCovering } from './otaDetail'
+
+describe('addDaysIso', () => {
+  it('일수를 더하고 뺀다', () => {
+    expect(addDaysIso('2026-07-20', 6)).toBe('2026-07-26')
+    expect(addDaysIso('2026-07-20', -7)).toBe('2026-07-13')
+  })
+
+  it('월·연 경계를 넘는다', () => {
+    expect(addDaysIso('2026-07-27', 6)).toBe('2026-08-02')
+    expect(addDaysIso('2026-02-27', 2)).toBe('2026-03-01') // 2026은 평년
+    expect(addDaysIso('2025-12-29', 6)).toBe('2026-01-04')
+  })
+})
+
+describe('recentWeekStarts', () => {
+  it('기준일이 속한 주부터 n개 주의 월요일을 오름차순으로 준다', () => {
+    expect(recentWeekStarts('2026-07-22', 4)).toEqual([
+      '2026-06-29', '2026-07-06', '2026-07-13', '2026-07-20',
+    ])
+  })
+
+  it('기준일이 월요일이면 그 주가 포함된다', () => {
+    // 기준일을 인자로 받는 이유 — 로컬/UTC 혼용으로 이번 주가 빠지는 것을 막는다
+    expect(recentWeekStarts('2026-07-20', 2)).toEqual(['2026-07-13', '2026-07-20'])
+  })
+})
+
+describe('monthsCovering', () => {
+  it('주 시작일의 달만이 아니라 주 구간(월~일)이 걸치는 달을 모두 준다', () => {
+    // 8/1 실행 시 마지막 주는 7/27~8/2 — 8월이 빠지면 그 주가 통째로 잘린다
+    const weeks = recentWeekStarts('2026-08-01', 4)
+    expect(weeks[weeks.length - 1]).toBe('2026-07-27')
+    expect(monthsCovering(weeks)).toEqual(['2026-07', '2026-08'])
+  })
+
+  it('9월·11월 첫날 실행에서도 이번 달이 들어간다', () => {
+    expect(monthsCovering(recentWeekStarts('2026-09-01', 4))).toContain('2026-09')
+    expect(monthsCovering(recentWeekStarts('2026-11-01', 4))).toContain('2026-11')
+  })
+
+  it('연 경계를 넘어도 사이의 달을 빠뜨리지 않는다', () => {
+    expect(monthsCovering(['2025-12-29'])).toEqual(['2025-12', '2026-01'])
+    expect(monthsCovering(['2026-01-05', '2026-03-30'])).toEqual(['2026-01', '2026-02', '2026-03', '2026-04'])
+  })
+
+  it('빈 입력은 빈 배열이다', () => {
+    expect(monthsCovering([])).toEqual([])
+  })
+})
+
 import { bandsFor, distColumnsFor, distFromRatings, OTA_SITE_BY_NAME } from './otaDetail'
 
 describe('bandsFor', () => {
@@ -128,6 +179,17 @@ describe('distFromRatings', () => {
     const r = distFromRatings([0, 11], 10)
     expect(r.counts.score_1).toBe(1)
     expect(r.counts.score_10).toBe(1)
+  })
+
+  it('정렬해서 넣으면 입력 순서가 달라도 같은 평균이 나온다', () => {
+    // 실제 버킷(신설 Agoda 2026-06-29) — 참값 8.65로 반올림 경계에 정확히 걸려 있어
+    // 부동소수점 합의 순서에 따라 8.6/8.7이 갈린다. 호출부에서 오름차순 정렬해 넘긴다.
+    const asc = (a: number[]) => [...a].sort((x, y) => x - y)
+    const a = [10, 8.4, 8.4, 8.0, 6.8, 7.6, 10, 10]
+    const b = [6.8, 10, 8.0, 10, 8.4, 7.6, 10, 8.4]
+    const c = [10, 10, 10, 8.4, 8.4, 8.0, 7.6, 6.8]
+    expect(distFromRatings(asc(a), 10).avg).toBe(distFromRatings(asc(b), 10).avg)
+    expect(distFromRatings(asc(a), 10).avg).toBe(distFromRatings(asc(c), 10).avg)
   })
 
   it('빈 입력은 avg 0, total 0이다', () => {

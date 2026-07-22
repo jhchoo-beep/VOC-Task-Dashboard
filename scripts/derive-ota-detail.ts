@@ -4,9 +4,12 @@
  *   npm run derive:ota -- --weeks 4 --fill-empty            점수 분포 적재
  *   npm run derive:ota -- --weeks 4 --dry-run               적재 없이 출력만
  *   npm run derive:ota -- --weeks 4 --emit-text buckets.json  불만·VOC용 본문 묶음 출력
- *   npm run derive:ota -- --apply-text results.json         분석 결과 적재
+ *   npm run derive:ota -- --apply-text results.json --fill-empty  분석 결과 적재
  *
  * 점수 분포는 LLM을 타지 않는다 — 재실행 시 값이 같아야 하고 검산이 가능해야 한다.
+ *
+ * --fill-empty 는 '빈 자리만 채운다'는 뜻이다. 붙이지 않으면 기존 행을 덮어쓴다
+ * (손으로 넣은 값도 포함). 덮어쓰기 전에 몇 건이 걸리는지 경고로 알린다.
  *
  * ── 실행 환경 주의 ──────────────────────────────────────────────
  * 이 리포의 `.env.local`에는 쓸 수 있는 Supabase 접속 정보가 없다.
@@ -24,28 +27,57 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import {
   parseRawDate, weekStartOf, monthStartOf, distFromRatings, distColumnsFor,
+  recentWeekStarts, monthsCovering,
   OTA_SITE_BY_NAME, type Granularity,
 } from '../lib/otaDetail'
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-if (!url || !key) { console.error('NEXT_PUBLIC_SUPABASE_URL / KEY 환경변수가 필요합니다'); process.exit(1) }
-const db = createClient(url, key)
+function die(msg: string): never {
+  console.error(msg)
+  process.exit(1)
+}
 
 // 일 단위 날짜를 제공하지 않는 채널 — 월 버킷으로만 적재한다
 const MONTHLY_ONLY = new Set(['에어비앤비', '여기어때'])
 
+// 인자 검증을 접속 정보 확인보다 먼저 한다 — 오타 난 명령이 접속 오류로만 보이지 않게.
 const argv = process.argv.slice(2)
 const flag = (n: string) => argv.includes(`--${n}`)
-const opt  = (n: string) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : undefined }
 
-const weeks     = parseInt(opt('weeks') ?? '4')
+// 값을 받는 옵션. 값이 없거나 다음 토큰이 또 다른 플래그면 즉시 종료한다.
+// 조용히 undefined로 흘리면 `--weeks --dry-run`이 '--dry-run'을 주 수로 먹고,
+// `--branch`만 쓴 실행은 필터 없이 전 지점을 도는 사고가 난다.
+const opt = (n: string): string | undefined => {
+  const i = argv.indexOf(`--${n}`)
+  if (i < 0) return undefined
+  const v = argv[i + 1]
+  if (v === undefined || v.startsWith('--')) {
+    die(`--${n} 에는 값이 필요합니다 (받은 값: ${v ?? '없음'})`)
+  }
+  return v
+}
+
+// NaN이 흘러 들어가면 대상 주가 0개 → .in() 필터가 비어 0행 → "버킷 0개"가
+// 성공처럼 보인다. 파싱 실패는 조용히 넘기지 않고 비정상 종료한다.
+const weeksRaw = opt('weeks')
+if (weeksRaw !== undefined && !/^\d+$/.test(weeksRaw)) {
+  die(`--weeks 는 1 이상의 정수여야 합니다 (받은 값: ${weeksRaw})`)
+}
+const weeks = weeksRaw === undefined ? 4 : parseInt(weeksRaw, 10)
+if (!Number.isFinite(weeks) || weeks < 1) {
+  die(`--weeks 는 1 이상의 정수여야 합니다 (받은 값: ${weeksRaw})`)
+}
+
 const dryRun    = flag('dry-run')
 const fillEmpty = flag('fill-empty')
 const onlyBranch = opt('branch')
 const onlyOta    = opt('ota')
 const emitText   = opt('emit-text')
 const applyText  = opt('apply-text')
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+if (!url || !key) die('NEXT_PUBLIC_SUPABASE_URL / KEY 환경변수가 필요합니다')
+const db = createClient(url, key)
 
 interface Bucket {
   propertyId: number
@@ -58,15 +90,13 @@ interface Bucket {
   texts: string[]
 }
 
-function recentWeekStarts(n: number): string[] {
-  const out: string[] = []
-  const base = new Date()
-  for (let i = 0; i < n; i++) {
-    const d = new Date(base)
-    d.setUTCDate(d.getUTCDate() - i * 7)
-    out.push(weekStartOf(d.toISOString().substring(0, 10)))
-  }
-  return [...new Set(out)].sort()
+// 오늘 날짜는 실행자의 로컬 달력(KST)으로 정하고, 이후 주·월 계산은 전부 UTC로만 한다.
+// new Date()(로컬)와 toISOString()(UTC)을 섞으면 KST 09시 이전 실행에서 '오늘'이
+// 전날로 밀려, 월요일 오전 실행 시 이번 주가 대상에서 통째로 빠진다.
+function todayIsoLocal(): string {
+  const n = new Date()
+  const p = (x: number) => String(x).padStart(2, '0')
+  return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`
 }
 
 // PostgREST 기본 상한. 이보다 많은 행은 range 없이는 조용히 잘려 나간다.
@@ -81,11 +111,14 @@ interface RawRow {
 }
 
 // raw_reviews는 --weeks를 키우면 얼마든지 커진다. 상한에 걸려 조용히 잘리지 않도록
-// 페이지가 PAGE_SIZE보다 적게 돌아올 때까지 range로 끝까지 읽는다.
+// 빈 페이지가 올 때까지 range로 끝까지 읽는다.
+// 종료 조건을 'PAGE_SIZE보다 적게 왔다'로 두면 서버 db-max-rows가 클라이언트
+// 페이지 크기보다 작게 내려간 순간 첫 페이지에서 멈춰 또 조용히 잘린다.
+// 실제로 받은 행 수만큼만 offset을 밀고, 빈 페이지에서만 끝낸다.
 // 페이지 경계가 흔들리지 않도록 정렬을 고정한다(정렬 없는 페이징은 행 누락·중복을 만든다).
 async function fetchRawReviews(branch: string, site: string, months: string[]): Promise<RawRow[]> {
   const out: RawRow[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
+  for (let from = 0; ;) {
     const { data, error } = await db
       .from('raw_reviews')
       .select('reviewer,raw_date,review_month,rating,content')
@@ -95,8 +128,9 @@ async function fetchRawReviews(branch: string, site: string, months: string[]): 
       .range(from, from + PAGE_SIZE - 1)
     if (error) throw error
     const page = (data ?? []) as RawRow[]
+    if (page.length === 0) break
     out.push(...page)
-    if (page.length < PAGE_SIZE) break
+    from += page.length
   }
   return out
 }
@@ -112,8 +146,13 @@ function dedupe<T extends { reviewer?: string; raw_date?: string; rating?: numbe
 }
 
 async function buildBuckets(): Promise<Bucket[]> {
-  const targetWeeks  = recentWeekStarts(weeks)
-  const targetMonths = [...new Set(targetWeeks.map(w => w.substring(0, 7)))]
+  const targetWeeks = recentWeekStarts(todayIsoLocal(), weeks)
+  // 주 시작일의 달만 모으면 최신 주가 월 경계를 걸칠 때 이번 달이 통째로 빠진다
+  // (예: 8/1 실행 → 마지막 주 시작 7/27 → 2026-08이 review_month 필터에서 누락).
+  // 주 구간 전체(월~일)가 닿는 달을 모두 대상으로 삼는다.
+  const targetMonths = monthsCovering(targetWeeks)
+  console.log(`대상 주 ${targetWeeks.join(', ')}`)
+  console.log(`대상 월 ${targetMonths.join(', ')} (주 구간 전체 기준)`)
 
   // ota_properties는 지점×채널 수준이라 구조적으로 수십 행 — 페이징 불필요
   const { data: props, error: pErr } = await db
@@ -124,7 +163,7 @@ async function buildBuckets(): Promise<Bucket[]> {
   let unparsed = 0
   let scanned = 0
   // 주간 채널에서 일자를 못 구해 제외한 행 수 — 채널별로 따로 센다
-  const droppedNoDay = new Map<string, number>
+  const droppedNoDay = new Map<string, number>()
 
   for (const p of props ?? []) {
     if (onlyBranch && p.branch !== onlyBranch) continue
@@ -198,9 +237,10 @@ async function buildBuckets(): Promise<Bucket[]> {
 
 // ota_score_dist·ota_complaints는 주·채널이 쌓일수록 커진다 — 여기도 끝까지 페이징한다.
 // 조용히 1000행에서 잘리면 --fill-empty가 기존 행을 '없다'고 보고 덮어쓴다.
+// (fetchRawReviews와 같은 이유로 종료 조건은 '빈 페이지'다.)
 async function existingKeys(table: string): Promise<Set<string>> {
   const keys = new Set<string>()
-  for (let from = 0; ; from += PAGE_SIZE) {
+  for (let from = 0; ;) {
     const { data, error } = await db.from(table)
       .select('property_id,week_start,granularity')
       .order('property_id', { ascending: true })
@@ -209,22 +249,47 @@ async function existingKeys(table: string): Promise<Set<string>> {
       .range(from, from + PAGE_SIZE - 1)
     if (error) throw error
     const page = data ?? []
+    if (page.length === 0) break
     page.forEach((r: any) => keys.add(`${r.property_id}|${r.week_start}|${r.granularity ?? 'week'}`))
-    if (page.length < PAGE_SIZE) break
+    from += page.length
   }
   return keys
 }
 
+// --fill-empty 없이 기존 행을 덮어쓰려 할 때 몇 건이 걸리는지 알린다.
+// 파생 주 라벨은 손으로 넣은 아고다 라벨과 한 주 어긋나 있고 평균 산식도 다르다 —
+// 플래그 하나 빠뜨린 실행이 수기 데이터를 다른 축의 값으로 덮어쓸 수 있다.
+function warnOverwrite(table: string, collide: number) {
+  if (fillEmpty || collide === 0) return
+  const bar = '='.repeat(72)
+  console.warn('')
+  console.warn(bar)
+  console.warn(`[경고] --fill-empty 없이 실행 중 — ${table} 기존 ${collide}건을 덮어씁니다`)
+  console.warn('       손으로 넣은 값(주 라벨·평균 산식이 다를 수 있음)이 파생값으로 대체됩니다.')
+  console.warn('       기존 값을 보존하려면 --fill-empty 를 붙여 다시 실행하세요.')
+  if (dryRun) console.warn('       (dry-run이라 이번 실행은 쓰지 않습니다)')
+  console.warn(bar)
+  console.warn('')
+}
+
 async function runDist(buckets: Bucket[]) {
-  const have = fillEmpty ? await existingKeys('ota_score_dist') : new Set<string>()
-  let wrote = 0, skipped = 0
+  // --fill-empty 여부와 무관하게 기존 키를 읽는다 — 무엇을 덮어쓰는지 세어 알리기 위해서다.
+  const have = await existingKeys('ota_score_dist')
+  const writable = buckets.filter(b => b.ratings.length > 0)
+  warnOverwrite('ota_score_dist', writable.filter(b => have.has(`${b.propertyId}|${b.weekStart}|${b.granularity}`)).length)
 
-  for (const b of buckets) {
-    if (b.ratings.length === 0) continue
+  let wrote = 0, skipped = 0, overwrote = 0
+
+  for (const b of writable) {
     const k = `${b.propertyId}|${b.weekStart}|${b.granularity}`
-    if (have.has(k)) { skipped++; continue }
+    if (fillEmpty && have.has(k)) { skipped++; continue }
+    if (have.has(k)) overwrote++
 
-    const { counts, avg, total } = distFromRatings(b.ratings, b.scoreMax)
+    // 부동소수점 덧셈은 결합법칙이 성립하지 않는다 — 반올림 경계에 걸린 버킷은
+    // 더하는 순서만 바뀌어도 평균이 뒤집힌다. raw_reviews.id는 랜덤 UUID라
+    // 재적재만으로 순서가 바뀌므로, 정렬로 '값의 집합'에만 의존하게 만든다.
+    const ratings = [...b.ratings].sort((x, y) => x - y)
+    const { counts, avg, total } = distFromRatings(ratings, b.scoreMax)
     const row = {
       property_id: b.propertyId, week_start: b.weekStart, granularity: b.granularity,
       ...counts, weekly_avg_score: avg,
@@ -238,7 +303,7 @@ async function runDist(buckets: Bucket[]) {
       wrote++
     }
   }
-  console.log(`\n점수 분포 — 기록 ${wrote}건 · 기존 보존 ${skipped}건${dryRun ? ' (dry-run)' : ''}`)
+  console.log(`\n점수 분포 — 기록 ${wrote}건 · 기존 보존 ${skipped}건 · 덮어씀 ${overwrote}건${dryRun ? ' (dry-run)' : ''}`)
 }
 
 async function runEmitText(buckets: Bucket[], path: string) {
@@ -255,15 +320,80 @@ async function runEmitText(buckets: Bucket[], path: string) {
   console.log(`분석 대상 ${payload.length}개 버킷 · 리뷰 ${payload.reduce((s, p) => s + p.reviews.length, 0)}건 → ${path}`)
 }
 
-async function runApplyText(path: string) {
-  const results = JSON.parse(readFileSync(path, 'utf8')) as {
-    propertyId: number; weekStart: string; granularity: Granularity
-    roomComplaints: number; bathroomComplaints: number; memo: string
-    voc: { band: string; sentiment: 'good' | 'bad'; keyword: string }[]
-  }[]
+interface TextResult {
+  propertyId: number
+  weekStart: string
+  granularity?: Granularity
+  roomComplaints?: number
+  bathroomComplaints?: number
+  memo?: string
+  voc?: { band: string; sentiment: 'good' | 'bad'; keyword: string }[]
+}
 
-  for (const r of results) {
-    if (dryRun) { console.log(`(dry-run) ${r.propertyId} ${r.weekStart} 객실 ${r.roomComplaints} 욕실 ${r.bathroomComplaints} VOC ${r.voc.length}`); continue }
+// 입도는 채널이 정한다 — 분포 경로와 같은 규칙(MONTHLY_ONLY만 월)을 여기서도 쓴다.
+// JSON에 적힌 granularity를 그대로 믿으면, 손으로 고쳤거나 LLM이 만든 파일 하나가
+// 주간 채널에 월 버킷을 되돌려 놓는다.
+async function propertyMeta(): Promise<Map<number, { granularity: Granularity; label: string }>> {
+  const { data, error } = await db.from('ota_properties').select('property_id,branch,ota_name')
+  if (error) throw error
+  const m = new Map<number, { granularity: Granularity; label: string }>()
+  for (const p of data ?? []) {
+    const site = OTA_SITE_BY_NAME[p.ota_name]
+    if (!site) continue
+    m.set(p.property_id, {
+      granularity: MONTHLY_ONLY.has(site) ? 'month' : 'week',
+      label: `${p.branch} ${p.ota_name}`,
+    })
+  }
+  return m
+}
+
+async function runApplyText(path: string) {
+  const parsed = JSON.parse(readFileSync(path, 'utf8'))
+  if (!Array.isArray(parsed)) die(`${path} 의 최상위가 배열이 아닙니다`)
+  const results = parsed as TextResult[]
+
+  const meta = await propertyMeta()
+  const have = await existingKeys('ota_complaints')
+
+  // 1) 검증을 먼저 전부 끝낸다 — 한 건이라도 어긋나면 아무것도 쓰지 않고 종료한다.
+  const rows = results.map((r, i) => {
+    const at = `${i + 1}번째 항목`
+    if (typeof r?.propertyId !== 'number') die(`[${at}] propertyId 가 없거나 숫자가 아닙니다`)
+    if (typeof r?.weekStart !== 'string' || !r.weekStart) die(`[${at}] weekStart 가 없습니다 (property ${r.propertyId})`)
+    const info = meta.get(r.propertyId)
+    if (!info) die(`[${at}] property_id ${r.propertyId} 를 ota_properties에서 찾을 수 없습니다`)
+    if (r.granularity !== undefined && r.granularity !== info.granularity) {
+      die(`[${info.label} ${r.weekStart}] JSON 입도 '${r.granularity}' 가 채널 입도 '${info.granularity}' 와 다릅니다 — ` +
+          '입도는 채널이 정합니다. 파일을 고쳐 다시 실행하세요')
+    }
+    // voc 키가 아예 없는 JSON이 들어와도 중간에 TypeError로 터지지 않게 한다
+    const voc = Array.isArray(r.voc) ? r.voc : []
+    if (r.voc !== undefined && !Array.isArray(r.voc)) die(`[${info.label} ${r.weekStart}] voc 가 배열이 아닙니다`)
+    return {
+      propertyId: r.propertyId,
+      weekStart: r.weekStart,
+      granularity: info.granularity,
+      label: info.label,
+      roomComplaints: r.roomComplaints ?? 0,
+      bathroomComplaints: r.bathroomComplaints ?? 0,
+      memo: r.memo ?? '',
+      voc,
+    }
+  })
+
+  // 2) --fill-empty면 기존 행을 건드리지 않는다(수기 입력 보호). 아니면 덮어쓸 건수를 경고한다.
+  warnOverwrite('ota_complaints', rows.filter(r => have.has(`${r.propertyId}|${r.weekStart}|${r.granularity}`)).length)
+
+  let wrote = 0, skipped = 0
+  for (const r of rows) {
+    const k = `${r.propertyId}|${r.weekStart}|${r.granularity}`
+    if (fillEmpty && have.has(k)) { skipped++; continue }
+
+    if (dryRun) {
+      console.log(`(dry-run) ${r.label} ${r.weekStart}(${r.granularity}) 객실 ${r.roomComplaints} 욕실 ${r.bathroomComplaints} VOC ${r.voc.length}`)
+      continue
+    }
 
     const { error: cErr } = await db.from('ota_complaints').upsert({
       property_id: r.propertyId, week_start: r.weekStart, granularity: r.granularity,
@@ -289,8 +419,9 @@ async function runApplyText(path: string) {
       )
       if (vErr) throw vErr
     }
+    wrote++
   }
-  console.log(`불만·VOC ${results.length}개 버킷 적재 완료${dryRun ? ' (dry-run)' : ''}`)
+  console.log(`\n불만·VOC — 기록 ${wrote}건 · 기존 보존 ${skipped}건${dryRun ? ' (dry-run)' : ''}`)
 }
 
 async function main() {

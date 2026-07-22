@@ -11,8 +11,9 @@ export interface ParsedDate {
 const pad = (n: number) => String(n).padStart(2, '0')
 
 // 영문 월 이름 → 월 번호. 아고다 raw에 'March 2026' 형태가 실재한다(127건).
-// 폴백으로 흘려보내면 date가 null이 되어 주간 채널이 월 버킷으로 강등되므로
-// 우연한 폴백이 아니라 명시적 규칙으로 해석한다.
+// 폴백(review_month)으로 흘려보내도 date는 어차피 null이라 입도는 같다 —
+// 명시적으로 해석하는 이득은 '월'이 맞게 나온다는 것이다.
+// review_month가 비어 있거나 raw_date와 어긋난 행에서도 원문 표기의 월을 그대로 살린다.
 const EN_MONTHS: Record<string, number> = {
   january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
   july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
@@ -72,6 +73,45 @@ export function weekStartOf(isoDate: string): string {
 
 export function monthStartOf(month: string): string {
   return `${month}-01`
+}
+
+// 'YYYY-MM-DD'에 일수를 더한다. 전부 UTC 기준 — 로컬 시간대가 끼어들 여지를 두지 않는다.
+export function addDaysIso(isoDate: string, days: number): string {
+  const d = new Date(`${isoDate}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
+}
+
+// 기준일(오늘)이 속한 주부터 거슬러 n개 주의 월요일 목록(오름차순).
+// 기준일을 인자로 받는 이유: new Date()(로컬)와 toISOString()(UTC)을 섞으면
+// KST 09시 이전 실행에서 '오늘'이 전날로 밀려 월요일 오전 실행 시 이번 주가 통째로 빠진다.
+// 호출자가 로컬 달력으로 'YYYY-MM-DD'를 정해 넘기고, 이후 계산은 전부 UTC로만 한다.
+export function recentWeekStarts(todayIso: string, n: number): string[] {
+  const out: string[] = []
+  for (let i = 0; i < n; i++) {
+    out.push(weekStartOf(addDaysIso(todayIso, -i * 7)))
+  }
+  return [...new Set(out)].sort()
+}
+
+function nextMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`
+}
+
+// 주 목록이 실제로 걸치는 모든 달('YYYY-MM', 오름차순).
+// 주 시작일의 달만 모으면, 최신 주의 월요일이 전월이면 그 주의 이번 달 날짜가
+// review_month 필터에서 통째로 빠진다 — 경고도 에러도 없이 조용히 잘린다.
+// 각 주는 월~일 7일이므로 마지막 주는 시작일 +6일까지 포함해 범위를 잡는다.
+export function monthsCovering(weekStarts: string[]): string[] {
+  if (weekStarts.length === 0) return []
+  const sorted = [...weekStarts].sort()
+  const firstMonth = sorted[0].substring(0, 7)
+  const lastMonth  = addDaysIso(sorted[sorted.length - 1], 6).substring(0, 7)
+
+  const out: string[] = []
+  for (let m = firstMonth; m <= lastMonth; m = nextMonth(m)) out.push(m)
+  return out
 }
 
 // ota_properties.ota_name → raw_reviews.ota_site (같은 채널의 두 표기)
