@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
 
     // delete 성공 후 insert가 실패하면 기존 행은 이미 삭제된 상태로 복구되지 않는다(비원자적).
     // Supabase JS 클라이언트에 트랜잭션 수단이 없고, 데이터는 배치 작업으로 재생성 가능하므로 의도적으로 감수한다.
+    // 사람이 UI에서 입력한 행은 항상 'manual'로 표시한다.
+    // 컬럼 기본값이 'manual'이라도 명시하지 않으면, 배치가 이전에 'derived'로 써둔 행을
+    // 사람이 수정할 때 source가 그대로 'derived'로 남아 다음 배치 실행 시 조용히 덮어써진다.
     const rows = items.map((item: { band: string; sentiment: string; keyword: string }) => ({
       property_id: propertyId,
       week_start: weekStart,
@@ -24,6 +27,7 @@ export async function POST(req: NextRequest) {
       band: item.band,
       sentiment: item.sentiment,
       keyword: item.keyword,
+      source: 'manual',
     }))
     const { error } = await supabase.from('ota_voc').insert(rows)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
