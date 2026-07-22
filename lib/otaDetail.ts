@@ -10,6 +10,14 @@ export interface ParsedDate {
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
+// 영문 월 이름 → 월 번호. 아고다 raw에 'March 2026' 형태가 실재한다(127건).
+// 폴백으로 흘려보내면 date가 null이 되어 주간 채널이 월 버킷으로 강등되므로
+// 우연한 폴백이 아니라 명시적 규칙으로 해석한다.
+const EN_MONTHS: Record<string, number> = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+}
+
 export function parseRawDate(
   rawDate: string | null | undefined,
   reviewMonth?: string | null,
@@ -40,6 +48,14 @@ export function parseRawDate(
   if (kMonth) {
     const [, y, m] = kMonth
     return { date: null, month: `${y}-${pad(+m)}` }
+  }
+
+  // March 2026 / june 2026 (아고다 영문 표기) — 일 단위 없음.
+  // 대소문자 무시, 앞뒤 공백 허용(위에서 trim 완료). 월 이름이 아니면 폴백으로 넘긴다.
+  const enMonth = s.match(/^([A-Za-z]+)\s+(\d{4})$/)
+  if (enMonth) {
+    const m = EN_MONTHS[enMonth[1].toLowerCase()]
+    if (m) return { date: null, month: `${enMonth[2]}-${pad(m)}` }
   }
 
   // '2개월 전' 등 상대 표현(여기어때) — 절대값 복원 불가, review_month로 대체

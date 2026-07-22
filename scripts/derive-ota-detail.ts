@@ -7,6 +7,18 @@
  *   npm run derive:ota -- --apply-text results.json         분석 결과 적재
  *
  * 점수 분포는 LLM을 타지 않는다 — 재실행 시 값이 같아야 하고 검산이 가능해야 한다.
+ *
+ * ── 실행 환경 주의 ──────────────────────────────────────────────
+ * 이 리포의 `.env.local`에는 쓸 수 있는 Supabase 접속 정보가 없다.
+ *   · NEXT_PUBLIC_SUPABASE_URL      — 줄 전체가 주석 처리되어 있다
+ *   · NEXT_PUBLIC_SUPABASE_ANON_KEY — 줄이 주석 처리된 데다 값도 비어 있다
+ * 따라서 이 스크립트는 `.env.local`만으로는 절대 뜨지 않는다.
+ * 실행하는 사람이 호출 시점에 환경변수로 직접 넣어야 한다(파일에 적지 말 것):
+ *
+ *   NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co \
+ *   NEXT_PUBLIC_SUPABASE_ANON_KEY=<key> \
+ *   npm run derive:ota -- --weeks 4 --dry-run
+ * ────────────────────────────────────────────────────────────────
  */
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -57,6 +69,38 @@ function recentWeekStarts(n: number): string[] {
   return [...new Set(out)].sort()
 }
 
+// PostgREST 기본 상한. 이보다 많은 행은 range 없이는 조용히 잘려 나간다.
+const PAGE_SIZE = 1000
+
+interface RawRow {
+  reviewer?: string
+  raw_date?: string
+  review_month?: string
+  rating?: number
+  content?: string
+}
+
+// raw_reviews는 --weeks를 키우면 얼마든지 커진다. 상한에 걸려 조용히 잘리지 않도록
+// 페이지가 PAGE_SIZE보다 적게 돌아올 때까지 range로 끝까지 읽는다.
+// 페이지 경계가 흔들리지 않도록 정렬을 고정한다(정렬 없는 페이징은 행 누락·중복을 만든다).
+async function fetchRawReviews(branch: string, site: string, months: string[]): Promise<RawRow[]> {
+  const out: RawRow[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await db
+      .from('raw_reviews')
+      .select('reviewer,raw_date,review_month,rating,content')
+      .eq('branch', branch).eq('ota_site', site)
+      .in('review_month', months)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    const page = (data ?? []) as RawRow[]
+    out.push(...page)
+    if (page.length < PAGE_SIZE) break
+  }
+  return out
+}
+
 function dedupe<T extends { reviewer?: string; raw_date?: string; rating?: number; content?: string }>(rows: T[]): T[] {
   const seen = new Set<string>()
   return rows.filter(r => {
@@ -71,6 +115,7 @@ async function buildBuckets(): Promise<Bucket[]> {
   const targetWeeks  = recentWeekStarts(weeks)
   const targetMonths = [...new Set(targetWeeks.map(w => w.substring(0, 7)))]
 
+  // ota_properties는 지점×채널 수준이라 구조적으로 수십 행 — 페이징 불필요
   const { data: props, error: pErr } = await db
     .from('ota_properties').select('property_id,branch,ota_name,score_max').eq('active', true)
   if (pErr) throw pErr
@@ -78,6 +123,8 @@ async function buildBuckets(): Promise<Bucket[]> {
   const buckets: Bucket[] = []
   let unparsed = 0
   let scanned = 0
+  // 주간 채널에서 일자를 못 구해 제외한 행 수 — 채널별로 따로 센다
+  const droppedNoDay = new Map<string, number>
 
   for (const p of props ?? []) {
     if (onlyBranch && p.branch !== onlyBranch) continue
@@ -85,26 +132,32 @@ async function buildBuckets(): Promise<Bucket[]> {
     const site = OTA_SITE_BY_NAME[p.ota_name]
     if (!site) { console.warn(`매핑 없는 채널: ${p.ota_name} — 건너뜀`); continue }
 
-    const { data: raw, error: rErr } = await db
-      .from('raw_reviews')
-      .select('reviewer,raw_date,review_month,rating,content')
-      .eq('branch', p.branch).eq('ota_site', site)
-      .in('review_month', targetMonths)
-    if (rErr) throw rErr
+    const raw = await fetchRawReviews(p.branch, site, targetMonths)
 
+    // 입도는 채널이 정한다 — 행 단위로 정하면 일자 못 구한 리뷰 하나가 주간 채널에
+    // 월 버킷을 끼워 넣어, 한 채널에 '7월'과 '07/14' 라벨이 섞이고 월간 뷰에서
+    // React 키가 중복된다. MONTHLY_ONLY만 월, 나머지는 무조건 주.
     const monthly  = MONTHLY_ONLY.has(site)
+    const granularity: Granularity = monthly ? 'month' : 'week'
+    const chanKey  = `${p.branch} ${p.ota_name}`
     const scoreMax = p.score_max === 5 ? 5 : 10
     const byKey    = new Map<string, Bucket>()
 
     // 부킹닷컴 raw에 중복 행이 실재한다(~14%) — 집계 전에 반드시 제거한다
-    const rows = dedupe(raw ?? [])
+    const rows = dedupe(raw)
     scanned += rows.length
 
     for (const r of rows) {
       const { date, month } = parseRawDate(r.raw_date, r.review_month)
       if (!date && !month) { unparsed++; continue }
 
-      const granularity: Granularity = (monthly || !date) ? 'month' : 'week'
+      // 주간 채널인데 일자를 복원 못 한 행: 월로 강등하지 않고 제외하고 센다.
+      // 조용한 강등이야말로 막으려는 실패 모드다 — 아래에서 채널별로 크게 알린다.
+      if (granularity === 'week' && !date) {
+        droppedNoDay.set(chanKey, (droppedNoDay.get(chanKey) ?? 0) + 1)
+        continue
+      }
+
       const weekStart = granularity === 'month' ? monthStartOf(month!) : weekStartOf(date!)
       if (granularity === 'week' && !targetWeeks.includes(weekStart)) continue
       if (granularity === 'month' && !targetMonths.includes(month!)) continue
@@ -129,13 +182,37 @@ async function buildBuckets(): Promise<Bucket[]> {
   } else {
     console.log(`날짜 해석 실패 0건 / 대상 ${scanned}건 (0.00%)`)
   }
+
+  // '날짜 해석 실패'(월조차 못 구함)와는 다른 사유다 — 반드시 따로 보고한다.
+  const droppedTotal = [...droppedNoDay.values()].reduce((a, b) => a + b, 0)
+  if (droppedTotal > 0) {
+    console.warn(`주간 채널 일자 미확인으로 제외한 리뷰: ${droppedTotal}건 (월 버킷으로 강등하지 않음)`)
+    for (const [k, n] of [...droppedNoDay.entries()].sort((a, b) => b[1] - a[1])) {
+      console.warn(`  · ${k} — ${n}건 제외`)
+    }
+  } else {
+    console.log('주간 채널 일자 미확인 제외: 0건')
+  }
   return buckets
 }
 
+// ota_score_dist·ota_complaints는 주·채널이 쌓일수록 커진다 — 여기도 끝까지 페이징한다.
+// 조용히 1000행에서 잘리면 --fill-empty가 기존 행을 '없다'고 보고 덮어쓴다.
 async function existingKeys(table: string): Promise<Set<string>> {
-  const { data, error } = await db.from(table).select('property_id,week_start,granularity')
-  if (error) throw error
-  return new Set((data ?? []).map((r: any) => `${r.property_id}|${r.week_start}|${r.granularity ?? 'week'}`))
+  const keys = new Set<string>()
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await db.from(table)
+      .select('property_id,week_start,granularity')
+      .order('property_id', { ascending: true })
+      .order('week_start', { ascending: true })
+      .order('granularity', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    const page = data ?? []
+    page.forEach((r: any) => keys.add(`${r.property_id}|${r.week_start}|${r.granularity ?? 'week'}`))
+    if (page.length < PAGE_SIZE) break
+  }
+  return keys
 }
 
 async function runDist(buckets: Bucket[]) {

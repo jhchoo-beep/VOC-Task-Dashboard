@@ -20,6 +20,26 @@ describe('parseRawDate', () => {
     expect(parseRawDate('2026년 6월')).toEqual({ date: null, month: '2026-06' })
   })
 
+  it('영문 연월(아고다)은 일이 없으므로 date가 null이다', () => {
+    expect(parseRawDate('March 2026')).toEqual({ date: null, month: '2026-03' })
+    expect(parseRawDate('June 2026')).toEqual({ date: null, month: '2026-06' })
+  })
+
+  it('영문 연월은 대소문자를 가리지 않는다', () => {
+    expect(parseRawDate('march 2026')).toEqual({ date: null, month: '2026-03' })
+    expect(parseRawDate('DECEMBER 2025')).toEqual({ date: null, month: '2025-12' })
+  })
+
+  it('영문 연월은 앞뒤 공백을 허용한다', () => {
+    expect(parseRawDate('  April 2026  ')).toEqual({ date: null, month: '2026-04' })
+  })
+
+  it('월 이름이 아닌 영문 문자열은 review_month 폴백으로 넘어간다', () => {
+    // 'Marchtember'는 월 이름이 아니므로 영문 규칙에 걸려서는 안 된다
+    expect(parseRawDate('Marchtember 2026', '2026-05')).toEqual({ date: null, month: '2026-05' })
+    expect(parseRawDate('Someday 2026')).toEqual({ date: null, month: null })
+  })
+
   it('상대 표현(여기어때)은 review_month로 대체한다', () => {
     expect(parseRawDate('2개월 전', '2026-04')).toEqual({ date: null, month: '2026-04' })
   })
