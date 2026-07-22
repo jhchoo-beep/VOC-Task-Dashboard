@@ -4,14 +4,13 @@ import { supabase } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
   try {
-    const { propertyId, weekStart, reviewCount, checkoutCount, ratePct } = await req.json()
+    const { propertyId, weekStart, granularity = 'week', roomComplaints, bathroomComplaints, memo } = await req.json()
     if (!propertyId || !weekStart) {
       return NextResponse.json({ error: 'propertyId, weekStart 필수' }, { status: 400 })
     }
-    const rate = checkoutCount > 0 ? Math.round(reviewCount / checkoutCount * 1000) / 10 : (ratePct ?? 0)
-    const { error } = await supabase.from('ota_agoda_review_rate').upsert(
-      { property_id: propertyId, week_start: weekStart, review_count: reviewCount ?? 0, checkout_count: checkoutCount ?? 0, rate_pct: rate },
-      { onConflict: 'property_id,week_start' }
+    const { error } = await supabase.from('ota_complaints').upsert(
+      { property_id: propertyId, week_start: weekStart, granularity, room_complaints: roomComplaints ?? 0, bathroom_complaints: bathroomComplaints ?? 0, memo: memo ?? '' },
+      { onConflict: 'property_id,week_start,granularity' }
     )
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     revalidateTag('ota', 'max')
