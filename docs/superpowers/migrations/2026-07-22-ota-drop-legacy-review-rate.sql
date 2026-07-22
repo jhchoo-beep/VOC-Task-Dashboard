@@ -4,8 +4,13 @@
 -- 배경: ota_agoda_review_rate는 (property_id, week_start)에 review_count·checkout_count·
 -- rate_pct를 함께 들고 있었다. 체크아웃 수는 채널이 아니라 지점의 속성이므로
 -- (같은 주 신설의 체크아웃 수는 아고다든 부킹이든 하나다) 지점 단위 테이블
--- ota_branch_checkouts로 분리해 이관했고, 분자인 리뷰 수는 ota_score_dist에서
--- 파생하도록 바꿨다. 남은 이 테이블은 더 이상 읽는 코드가 없다.
+-- ota_branch_checkouts로 분리해 이관했고, 분자인 리뷰 수는 ota_scores 스냅샷의 주간
+-- 델타(이번 주 review_count - 지난주 review_count, 음수는 0으로 클램프)에서 파생하도록
+-- 바꿨다. lib/pageData.ts가 그렇게 조립한다.
+--   ※ ota_score_dist가 아니다. 분포는 raw_reviews 표본을 집계한 값이라 OTA 사이트의
+--     실제 리뷰 증가분과 다르다(실측: 동대문 Agoda 2026-06-29 — 스냅샷 델타 26건 vs
+--     raw 표본 2건). 둘이 같은 소스라고 읽으면 이 차이가 버그로 보인다.
+-- 남은 이 테이블은 더 이상 읽는 코드가 없다.
 --
 -- 드롭 전 대조(2026-07-22): checkout_count > 0인 20행 전부가 ota_branch_checkouts에
 -- 같은 branch·week_start·checkout_count로 존재함을 확인했다(불일치 0건).
