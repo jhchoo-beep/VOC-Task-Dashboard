@@ -12,15 +12,16 @@ import {
   buildTrendRows, rollupMonthly, drilldownMonths, INTEGRATED,
   type TrendRow,
 } from '@/lib/otaTrend'
+import { bandsFor } from '@/lib/otaDetail'
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 type ScoreHistory  = Record<string, Record<string, number[]>>
 type ReviewHistory = Record<string, Record<string, number[]>>
-type ModalMode = 'basic' | 'review-rate' | 'score-dist' | 'complaints' | 'voc'
+type ModalMode = 'basic' | 'checkouts' | 'score-dist' | 'complaints' | 'voc'
 
 interface OtaEntry { name: string; max: number; okr: number }
-interface AgodaDistWeek { week: string; scores: number[]; avgScore?: number }
-interface AgodaReviewRateWeek { week: string; reviewCount: number; checkoutCount: number; ratePct: number }
+interface DistWeek { week: string; scores: number[]; avgScore?: number; granularity?: 'week' | 'month' }
+interface ReviewRateWeek { week: string; reviewCount: number; checkoutCount: number; ratePct: number }
 type ViewState = { type: 'overview' } | { type: 'detail'; branch: string; ota: string }
 
 interface OtaData {
@@ -29,21 +30,23 @@ interface OtaData {
   dateLabels:      string[]
   scoreHistory:    ScoreHistory
   reviewHistory:   ReviewHistory
-  agodaDist:       Record<string, AgodaDistWeek[]>
-  agodaComplaints: Record<string, { week: string; room: number; bathroom: number }[]>
-  complaintMemos:  Record<string, string>
-  agodaVoc:        Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>
-  agodaReviewRate: Record<string, AgodaReviewRateWeek[]>
+  scoreDist:       Record<string, Record<string, DistWeek[]>>
+  complaints:      Record<string, Record<string, { week: string; room: number; bathroom: number }[]>>
+  complaintMemos:  Record<string, Record<string, string>>
+  voc:             Record<string, Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>>
+  reviewRate:      Record<string, Record<string, ReviewRateWeek[]>>
+  scoreMaxByBranchOta: Record<string, Record<string, number>>
 }
 
 // ─── 유틸 함수 ───────────────────────────────────────────────────────────────
 function weekMonth(week: string): string { return week.substring(0, 2) }
 
-function groupDistByMonth(rows: AgodaDistWeek[]): AgodaDistWeek[] {
+function groupDistByMonth(rows: DistWeek[]): DistWeek[] {
   const map = new Map<string, { scores: number[]; totalReviews: number; weightedSum: number }>()
   rows.forEach(({ week, scores, avgScore }) => {
     const m = weekMonth(week)
-    if (!map.has(m)) map.set(m, { scores: new Array(9).fill(0), totalReviews: 0, weightedSum: 0 })
+    // 밴드 수는 척도(10점/5점)에 따라 다르므로 행의 길이를 그대로 따른다
+    if (!map.has(m)) map.set(m, { scores: new Array(scores.length).fill(0), totalReviews: 0, weightedSum: 0 })
     const acc = map.get(m)!
     scores.forEach((v, i) => { acc.scores[i] += v })
     const cnt = scores.reduce((s, v) => s + v, 0)
@@ -65,7 +68,7 @@ function groupComplaintsByMonth(rows: { week: string; room: number; bathroom: nu
   return [...map.entries()].map(([m, v]) => ({ week: `${parseInt(m)}월`, ...v }))
 }
 
-function groupReviewRateByMonth(rows: AgodaReviewRateWeek[]): AgodaReviewRateWeek[] {
+function groupReviewRateByMonth(rows: ReviewRateWeek[]): ReviewRateWeek[] {
   const map = new Map<string, { reviewCount: number; checkoutCount: number }>()
   rows.forEach(({ week, reviewCount, checkoutCount }) => {
     const m = weekMonth(week)
@@ -84,14 +87,15 @@ function heatCellStyle(value: number, max: number): { background: string; color:
   return { background: `rgba(0, 212, 160, ${alpha.toFixed(2)})`, color: r > 0.52 ? '#04211a' : 'var(--text-1)' }
 }
 
+// scores[i]는 밴드 i(= score_{i+1})의 건수 — 대표값은 i+1점.
+// (쓰기 API `/api/ota/score-dist`의 가중 평균 계산과 같은 규약)
 function calcWeekAvg(scores: number[]): number {
   let total = 0, count = 0
-  scores.forEach((cnt, i) => { total += cnt * (i + 2); count += cnt })
+  scores.forEach((cnt, i) => { total += cnt * (i + 1); count += cnt })
   return count > 0 ? Math.round(total / count * 10) / 10 : 0
 }
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
-const HEATMAP_BANDS = ['2점대','3점대','4점대','5점대','6점대','7점대','8점대','9점대','10점']
 const BRANCH_ORDER = ['신설','동대문','제주시티','고성']
 const OTA_ORDER    = ['Agoda','Booking','Trip.com','Expedia','여기어때','Airbnb','NOL']
 const BRANCH_COLOR: Record<string, string> = {
@@ -690,14 +694,14 @@ function OtaDetailBasic({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Agoda 상세 서브탭
+// OTA 상세 서브탭 — 전 채널
 // ════════════════════════════════════════════════════════════════════════════
-type AgodaSubTab = '리뷰 작성률' | '점수 분포' | '불만 분석' | 'VOC'
+type DetailSubTab = '리뷰 작성률' | '점수 분포' | '불만 분석' | 'VOC'
 
-function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
-  branch: string; d: OtaData
-  sub: AgodaSubTab
-  onSubChange: (s: AgodaSubTab) => void
+function OtaDetailTabs({ branch, ota, d, sub, onSubChange }: {
+  branch: string; ota: string; d: OtaData
+  sub: DetailSubTab
+  onSubChange: (s: DetailSubTab) => void
 }) {
   const setSub = onSubChange
   const [distViewMode, setDistView] = useState<'count' | 'ratio'>('count')
@@ -705,15 +709,20 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
   const [vocTimeMode, setVocTimeMode] = useState<'weekly' | 'monthly'>('weekly')
   const [vocPeriod, setVocPeriod]     = useState<string>('')
 
-  const agodaOTA    = d.otaList.find(o => o.name === 'Agoda') ?? { okr: 9.0, max: 10 }
-  const scoreHist   = d.scoreHistory[branch]?.['Agoda'] ?? []
+  const otaEntry    = d.otaList.find(o => o.name === ota) ?? { okr: 9.0, max: 10 }
+  const scoreMax    = d.scoreMaxByBranchOta[branch]?.[ota] ?? 10
+  const bands       = bandsFor(scoreMax)
+  const scoreHist   = d.scoreHistory[branch]?.[ota] ?? []
   const curScore    = scoreHist[scoreHist.length - 1] ?? 0
   const prevScore   = scoreHist[scoreHist.length - 2] ?? 0
-  const reviewHist   = d.reviewHistory[branch]?.['Agoda'] ?? []
+  const reviewHist   = d.reviewHistory[branch]?.[ota] ?? []
   const totalReviews = reviewHist[reviewHist.length - 1] ?? 0
 
-  const distHistoryRaw = d.agodaDist[branch] ?? []
-  const distHistory    = timeMode === 'monthly' ? groupDistByMonth(distHistoryRaw) : distHistoryRaw
+  const distHistoryRaw = d.scoreDist[branch]?.[ota] ?? []
+  // 원본이 이미 월 단위인 채널(에어비앤비·여기어때)은 주별 집계가 불가능하다
+  const monthlyOnly    = distHistoryRaw.length > 0 && distHistoryRaw.every(r => r.granularity === 'month')
+  const effectiveTime  = monthlyOnly ? 'monthly' : timeMode
+  const distHistory    = (effectiveTime === 'monthly' && !monthlyOnly) ? groupDistByMonth(distHistoryRaw) : distHistoryRaw
   const heatmapMaxVal  = Math.max(
     ...distHistory.flatMap(({ scores }) => {
       const total = scores.reduce((s, v) => s + v, 0) || 1
@@ -721,17 +730,21 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
     }), 1
   )
 
-  const complaintsRaw   = d.agodaComplaints[branch] ?? []
-  const complaints      = timeMode === 'monthly' ? groupComplaintsByMonth(complaintsRaw) : complaintsRaw
+  const complaintsRaw   = d.complaints[branch]?.[ota] ?? []
+  const complaints      = (effectiveTime === 'monthly' && !monthlyOnly) ? groupComplaintsByMonth(complaintsRaw) : complaintsRaw
   const baseRoom        = complaintsRaw.slice(0, 4).reduce((s, c) => s + c.room, 0) / Math.max(complaintsRaw.slice(0, 4).length, 1)
   const baseBath        = complaintsRaw.slice(0, 4).reduce((s, c) => s + c.bathroom, 0) / Math.max(complaintsRaw.slice(0, 4).length, 1)
   const latestComplaint = complaintsRaw[complaintsRaw.length - 1]
 
-  const reviewRateRaw = d.agodaReviewRate?.[branch] ?? []
-  const reviewRate    = timeMode === 'monthly' ? groupReviewRateByMonth(reviewRateRaw) : reviewRateRaw
+  const reviewRateRaw = d.reviewRate[branch]?.[ota] ?? []
+  const reviewRate    = (effectiveTime === 'monthly' && !monthlyOnly) ? groupReviewRateByMonth(reviewRateRaw) : reviewRateRaw
   const latestRate    = reviewRateRaw[reviewRateRaw.length - 1]
 
-  const timeModeToggle = (
+  const timeModeToggle = monthlyOnly ? (
+    <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+      이 채널은 OTA가 월 단위 날짜만 제공합니다 — 월별로만 표시
+    </div>
+  ) : (
     <div style={{ display: 'flex', gap: 4 }}>
       {(['weekly', 'monthly'] as const).map(m => (
         <button key={m} onClick={() => setTimeMode(m)} style={TOGGLE_BTN(timeMode === m)}>
@@ -743,10 +756,10 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
 
   return (
     <div>
-      {/* Agoda 요약 스탯 */}
+      {/* 채널 요약 스탯 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
         {[
-          { label: '현재 점수',   value: curScore ? curScore.toFixed(1) : '—', sub: `목표 ${agodaOTA.okr}+`, color: curScore ? scoreColor(curScore, agodaOTA.okr) : 'var(--text-3)' },
+          { label: '현재 점수',   value: curScore ? curScore.toFixed(1) : '—', sub: `목표 ${otaEntry.okr}+`, color: curScore ? scoreColor(curScore, otaEntry.okr) : 'var(--text-3)' },
           { label: '전주 대비',   value: curScore && prevScore ? `${(curScore-prevScore)>=0?'+':''}${(curScore-prevScore).toFixed(1)}` : '—', sub: prevScore ? `이전 ${prevScore.toFixed(1)}` : '', color: curScore >= prevScore ? 'var(--done)' : 'var(--critical)' },
           { label: '리뷰 작성률', value: latestRate ? `${latestRate.ratePct}%` : '—', sub: latestRate ? `${latestRate.reviewCount}/${latestRate.checkoutCount}건` : '체크아웃 대비', color: 'var(--accent)' },
           { label: '누적 리뷰',   value: totalReviews.toLocaleString(), sub: '건', color: 'var(--text-2)' },
@@ -762,7 +775,7 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
       {/* 서브탭 바 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 4 }}>
-          {(['리뷰 작성률', '점수 분포', '불만 분석', 'VOC'] as AgodaSubTab[]).map(t => (
+          {(['리뷰 작성률', '점수 분포', '불만 분석', 'VOC'] as DetailSubTab[]).map(t => (
             <button key={t} onClick={() => setSub(t)} style={{
               padding: '6px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
               background: sub === t ? 'var(--accent)' : 'var(--bg-card)',
@@ -776,12 +789,13 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
       {/* 리뷰 작성률 */}
       {sub === '리뷰 작성률' && (
         <div className="card" style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>Agoda 리뷰 작성률 추이 — {branch}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>{ota} 리뷰 작성률 추이 — {branch}</div>
           <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>체크아웃 고객 중 리뷰 작성 비율 (막대: 리뷰 건수, 선: 작성률)</div>
           {reviewRate.length === 0
             ? <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-3)' }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
-                <div style={{ fontSize: 13 }}>리뷰 작성률 데이터가 없습니다</div>
+                <div style={{ fontSize: 13 }}>지점 주간 체크아웃 수가 입력되지 않았습니다</div>
+                <div style={{ fontSize: 11, marginTop: 6 }}>우측 상단 「데이터 입력」에서 {branch}의 주간 체크아웃 수를 넣으면 전 채널 작성률이 함께 산출됩니다</div>
               </div>
             : <ResponsiveContainer width="100%" height={280}>
                 <ComposedChart data={reviewRate} margin={{ top: 10, right: 50, left: 0, bottom: 5 }}>
@@ -824,7 +838,7 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
                       <th style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontWeight: 500, fontSize: 11, whiteSpace: 'nowrap', width: 64 }}>구간</th>
                       {distHistory.map(({ week }, wi) => (
                         <th key={week} style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 500, fontSize: 10, paddingBottom: 6, minWidth: 56 }}>
-                          {timeMode === 'weekly' ? (<><div style={{ fontWeight: 600, fontSize: 11 }}>W{wi + 1}</div><div style={{ fontSize: 10 }}>{week}</div></>) : week}
+                          {effectiveTime === 'weekly' ? (<><div style={{ fontWeight: 600, fontSize: 11 }}>W{wi + 1}</div><div style={{ fontSize: 10 }}>{week}</div></>) : week}
                         </th>
                       ))}
                     </tr>
@@ -836,9 +850,9 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
                           <td key={week} style={{ paddingBottom: 10 }}>
                             <div style={{
                               textAlign: 'center', borderRadius: 8, padding: '6px 4px',
-                              background: avg > 0 ? scoreBg(avg, agodaOTA.okr) : 'var(--bg-card)',
-                              border: avg > 0 ? `1px solid ${scoreColor(avg, agodaOTA.okr)}40` : '1px solid var(--border)',
-                              color: avg > 0 ? scoreColor(avg, agodaOTA.okr) : 'var(--text-3)',
+                              background: avg > 0 ? scoreBg(avg, otaEntry.okr) : 'var(--bg-card)',
+                              border: avg > 0 ? `1px solid ${scoreColor(avg, otaEntry.okr)}40` : '1px solid var(--border)',
+                              color: avg > 0 ? scoreColor(avg, otaEntry.okr) : 'var(--text-3)',
                               fontWeight: 700, fontSize: 13,
                             }}>
                               {avg > 0 ? avg.toFixed(1) : '—'}
@@ -849,7 +863,7 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
                     </tr>
                   </thead>
                   <tbody>
-                    {HEATMAP_BANDS.map((label, bandIdx) => (
+                    {bands.map((label, bandIdx) => (
                       <tr key={label}>
                         <td style={{ textAlign: 'right', paddingRight: 12, color: 'var(--text-3)', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap', paddingBottom: 3 }}>{label}</td>
                         {distHistory.map(({ week, scores }) => {
@@ -883,10 +897,10 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
               .filter(d => d.avg > 0)
             if (avgData.length === 0) return null
             const minAvg = Math.max(0, Math.min(...avgData.map(d => d.avg)) - 0.5)
-            const maxAvg = Math.min(10, Math.max(...avgData.map(d => d.avg)) + 0.3)
+            const maxAvg = Math.min(scoreMax, Math.max(...avgData.map(d => d.avg)) + 0.3)
             return (
               <div style={{ marginTop: 28 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', marginBottom: 10 }}>{timeMode === 'monthly' ? '월별' : '주별'} 평균 점수 추이</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', marginBottom: 10 }}>{effectiveTime === 'monthly' ? '월별' : '주별'} 평균 점수 추이</div>
                 <ResponsiveContainer width="100%" height={160}>
                   <AreaChart data={avgData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                     <defs>
@@ -928,11 +942,11 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
                     <YAxis stroke="var(--text-3)" tick={{ fontSize: 11 }} allowDecimals={false} />
                     <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any, name: any) => [`${v}건`, name]} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    {timeMode === 'weekly' && baseRoom > 0 && (
+                    {effectiveTime === 'weekly' && baseRoom > 0 && (
                       <ReferenceLine y={Math.round(baseRoom * 10) / 10} stroke="var(--high)" strokeDasharray="6 3" opacity={0.5}
                         label={{ value: '기준', fill: 'var(--high)', fontSize: 9, position: 'insideTopRight' }} />
                     )}
-                    {timeMode === 'weekly' && baseBath > 0 && (
+                    {effectiveTime === 'weekly' && baseBath > 0 && (
                       <ReferenceLine y={Math.round(baseBath * 10) / 10} stroke="var(--critical)" strokeDasharray="6 3" opacity={0.5} />
                     )}
                     <Line type="monotone" dataKey="room" name="객실 불만" stroke="var(--high)" strokeWidth={2.5} dot={{ fill: 'var(--high)', r: 4 }} activeDot={{ r: 6 }} />
@@ -974,8 +988,8 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
               </div>
               <div className="card" style={{ padding: 20 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 12 }}>운영 메모</div>
-                {d.complaintMemos[branch]
-                  ? <div style={{ fontSize: 11, color: 'var(--text-2)', background: 'var(--bg-hover)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.8 }}>{d.complaintMemos[branch]}</div>
+                {d.complaintMemos[branch]?.[ota]
+                  ? <div style={{ fontSize: 11, color: 'var(--text-2)', background: 'var(--bg-hover)', padding: '10px 12px', borderRadius: 8, lineHeight: 1.8 }}>{d.complaintMemos[branch]?.[ota]}</div>
                   : <div style={{ fontSize: 12, color: 'var(--text-3)' }}>메모 없음</div>
                 }
               </div>
@@ -986,7 +1000,7 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
 
       {/* VOC */}
       {sub === 'VOC' && (() => {
-        const allVoc    = d.agodaVoc[branch] ?? []
+        const allVoc    = d.voc[branch]?.[ota] ?? []
         const allWeeks  = [...new Set(allVoc.map(v => v.week_start))].sort().reverse()
         const allMonths = [...new Set(allVoc.map(v => v.week_start.substring(0, 7)))].sort().reverse()
 
@@ -1011,7 +1025,7 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
           <div className="card" style={{ padding: 24 }}>
             {/* 헤더 + 시간 모드 토글 */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>💬 VOC 키워드 — {branch} Agoda</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>💬 VOC 키워드 — {branch} {ota}</div>
               <div style={{ display: 'flex', gap: 4 }}>
                 {(['weekly', 'monthly'] as const).map(m => (
                   <button key={m} onClick={() => { setVocTimeMode(m); setVocPeriod('') }} style={TOGGLE_BTN(vocTimeMode === m)}>
@@ -1088,45 +1102,49 @@ function AgodaDetailTabs({ branch, d, sub, onSubChange }: {
 // 데이터 입력 모달
 // ════════════════════════════════════════════════════════════════════════════
 const MODAL_TITLE: Record<ModalMode, string> = {
-  'basic':       '기본 추이 입력 — 평점 & 리뷰 수',
-  'review-rate': 'Agoda 리뷰 작성률 입력',
-  'score-dist':  'Agoda 점수 분포 입력',
-  'complaints':  'Agoda 불만 분석 입력',
-  'voc':         'Agoda VOC 키워드 입력',
+  'basic':      '기본 추이 입력 — 평점 & 리뷰 수',
+  'checkouts':  '지점 주간 체크아웃 수 입력',
+  'score-dist': '점수 분포 입력',
+  'complaints': '불만 분석 입력',
+  'voc':        'VOC 키워드 입력',
 }
 
-const VOC_BANDS = ['10점', '9점대', '8점대', '7점대', '6점대 이하']
+// 10점 척도의 밴드 라벨은 기존 ota_voc 데이터와 맞추기 위해 그대로 둔다.
+// 5점 척도(에어비앤비·NOL)는 1~5점을 그대로 쓴다 — 10점으로 환산하지 않는다.
+const VOC_BANDS_10 = ['10점', '9점대', '8점대', '7점대', '6점대 이하']
+function vocBandsFor(scoreMax: number): string[] {
+  return scoreMax === 5 ? [...bandsFor(5)].reverse() : VOC_BANDS_10
+}
 
 function InputModal({
-  branch, ota, propertyId, otaEntry, mode, onClose, onSaved,
+  branch, ota, propertyId, otaEntry, scoreMax, mode, onClose, onSaved,
 }: {
   branch: string; ota: string; propertyId?: number; otaEntry?: OtaEntry
+  scoreMax: number
   mode: ModalMode
   onClose: () => void; onSaved: () => void
 }) {
   const today = new Date(); const pad = (n: number) => String(n).padStart(2, '0')
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
 
+  // 모달은 showModal일 때만 마운트되므로, 채널을 바꿔 다시 열면 아래 초기값이 새 scoreMax로 다시 잡힌다
+  const vocBands = vocBandsFor(scoreMax)
+
   const [date, setDate]           = useState(todayStr)
   const [score, setScore]         = useState('')
   const [reviews, setReviews]     = useState('')
   const [checkouts, setCheckouts] = useState('')
-  const [s2,setS2]   = useState('0'); const [s3,setS3]   = useState('0'); const [s4,setS4]   = useState('0')
-  const [s5,setS5]   = useState('0'); const [s6,setS6]   = useState('0'); const [s7,setS7]   = useState('0')
-  const [s8,setS8]   = useState('0'); const [s9,setS9]   = useState('0'); const [s10,setS10] = useState('0')
+  const [distVals, setDistVals]   = useState<number[]>(() => new Array(scoreMax === 5 ? 5 : 10).fill(0))
   const [roomComp, setRoom] = useState('0')
   const [bathComp, setBath] = useState('0')
   const [memo, setMemo]     = useState('')
   const [vocItems, setVocItems] = useState<{ band: string; sentiment: 'good' | 'bad'; keyword: string }[]>([
-    { band: '10점', sentiment: 'good', keyword: '' },
+    { band: vocBands[0], sentiment: 'good', keyword: '' },
   ])
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
 
-  const rateDisplay = reviews && checkouts
-    ? `${(parseInt(reviews) / parseInt(checkouts) * 100).toFixed(1)}%` : ''
-
-  const addVocItem = () => setVocItems(prev => [...prev, { band: '10점', sentiment: 'good', keyword: '' }])
+  const addVocItem = () => setVocItems(prev => [...prev, { band: vocBands[0], sentiment: 'good', keyword: '' }])
   const removeVocItem = (i: number) => setVocItems(prev => prev.filter((_, idx) => idx !== i))
   const updateVocItem = (i: number, field: string, value: string) =>
     setVocItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item))
@@ -1143,27 +1161,28 @@ function InputModal({
         })
         if (!res.ok) throw new Error(await res.text())
 
-      } else if (mode === 'review-rate') {
-        if (!date || !reviews || !checkouts) { setError('날짜, 리뷰 수, 체크아웃 수는 필수입니다.'); setSaving(false); return }
-        const res = await fetch('/api/ota/agoda-rate', {
+      } else if (mode === 'checkouts') {
+        if (!date || !checkouts) { setError('날짜와 체크아웃 수는 필수입니다.'); setSaving(false); return }
+        const res = await fetch('/api/ota/branch-checkouts', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propertyId, weekStart: date, reviewCount: parseInt(reviews), checkoutCount: parseInt(checkouts), ratePct: parseFloat(rateDisplay) }),
+          body: JSON.stringify({ branch, weekStart: date, checkoutCount: parseInt(checkouts) }),
         })
         if (!res.ok) throw new Error(await res.text())
 
       } else if (mode === 'score-dist') {
         if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
-        const distVals = [s2,s3,s4,s5,s6,s7,s8,s9,s10].map(Number)
+        const counts: Record<string, number> = {}
+        distVals.forEach((v, i) => { counts[`score_${i + 1}`] = v })
         if (!distVals.some(v => v > 0)) { setError('점수 분포 값을 1개 이상 입력하세요.'); setSaving(false); return }
-        const res = await fetch('/api/ota/agoda-dist', {
+        const res = await fetch('/api/ota/score-dist', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propertyId, weekStart: date, score2:distVals[0],score3:distVals[1],score4:distVals[2],score5:distVals[3],score6:distVals[4],score7:distVals[5],score8:distVals[6],score9:distVals[7],score10:distVals[8] }),
+          body: JSON.stringify({ propertyId, weekStart: date, scoreMax, counts }),
         })
         if (!res.ok) throw new Error(await res.text())
 
       } else if (mode === 'complaints') {
         if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
-        const res = await fetch('/api/ota/agoda-complaints', {
+        const res = await fetch('/api/ota/complaints', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ propertyId, weekStart: date, roomComplaints: parseInt(roomComp)||0, bathroomComplaints: parseInt(bathComp)||0, memo }),
         })
@@ -1173,7 +1192,7 @@ function InputModal({
         if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
         const validItems = vocItems.filter(v => v.keyword.trim())
         if (!validItems.length) { setError('키워드를 1개 이상 입력하세요.'); setSaving(false); return }
-        const res = await fetch('/api/ota/agoda-voc', {
+        const res = await fetch('/api/ota/voc', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ propertyId, weekStart: date, items: validItems }),
         })
@@ -1221,35 +1240,26 @@ function InputModal({
           </div>
         )}
 
-        {/* ── 리뷰 작성률: 체크아웃 + 리뷰 수 ── */}
-        {mode === 'review-rate' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={labelStyle}>체크아웃 수</label>
-              <input style={inputStyle} type="number" placeholder="예: 120" value={checkouts} onChange={e => setCheckouts(e.target.value)} />
+        {/* ── 지점 주간 체크아웃 수 (작성률의 분모 — 지점 공용) ── */}
+        {mode === 'checkouts' && (
+          <div>
+            <label style={labelStyle}>{branch} 주간 체크아웃 수</label>
+            <input style={inputStyle} type="number" placeholder="예: 120" value={checkouts} onChange={e => setCheckouts(e.target.value)} />
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.7 }}>
+              지점 공용값입니다. 한 번 입력하면 이 지점의 모든 채널 작성률이 함께 산출됩니다.
+              분자(채널별 신규 리뷰 수)는 주간 점수 스냅샷에서 자동으로 계산됩니다.
             </div>
-            <div>
-              <label style={labelStyle}>리뷰 수</label>
-              <input style={inputStyle} type="number" placeholder="예: 58" value={reviews} onChange={e => setReviews(e.target.value)} />
-            </div>
-            {rateDisplay && (
-              <div style={{ gridColumn: '1/-1' }}>
-                <label style={labelStyle}>리뷰 작성률 (자동 계산)</label>
-                <div style={{ ...inputStyle, background: 'var(--bg-hover)', color: 'var(--done)', fontWeight: 700, fontSize: 18, textAlign: 'center' }}>
-                  {rateDisplay}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
         {/* ── 점수 분포 ── */}
         {mode === 'score-dist' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-            {[['2점대',s2,setS2],['3점대',s3,setS3],['4점대',s4,setS4],['5점대',s5,setS5],['6점대',s6,setS6],['7점대',s7,setS7],['8점대',s8,setS8],['9점대',s9,setS9],['10점',s10,setS10]].map(([label, val, setter]) => (
-              <div key={label as string}>
-                <label style={labelStyle}>{label as string}</label>
-                <input style={inputStyle} type="number" min="0" value={val as string} onChange={e => (setter as (v: string) => void)(e.target.value)} />
+            {bandsFor(scoreMax).map((label, i) => (
+              <div key={label}>
+                <label style={labelStyle}>{label}</label>
+                <input style={inputStyle} type="number" min="0" value={distVals[i]}
+                  onChange={e => setDistVals(prev => prev.map((v, idx) => idx === i ? (parseInt(e.target.value) || 0) : v))} />
               </div>
             ))}
           </div>
@@ -1285,7 +1295,7 @@ function InputModal({
                   <div>
                     {i === 0 && <label style={labelStyle}>점수 밴드</label>}
                     <select style={selectStyle} value={item.band} onChange={e => updateVocItem(i, 'band', e.target.value)}>
-                      {VOC_BANDS.map(b => <option key={b} value={b}>{b}</option>)}
+                      {vocBands.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
                   <div>
@@ -1332,15 +1342,15 @@ function OtaDetailView({
   branchOtaToId: Record<string, Record<string, number>>
   onSaved: () => void
 }) {
-  const [mainTab, setMainTab]   = useState<'basic' | 'agoda'>('basic')
-  const [agodaSub, setAgodaSub] = useState<AgodaSubTab>('리뷰 작성률')
+  const [mainTab, setMainTab]   = useState<'basic' | 'detail'>('basic')
+  const [detailSub, setDetailSub] = useState<DetailSubTab>('리뷰 작성률')
   const [showModal, setShowModal] = useState(false)
 
   function getModalMode(): ModalMode {
-    if (ota !== 'Agoda' || mainTab === 'basic') return 'basic'
-    if (agodaSub === '리뷰 작성률') return 'review-rate'
-    if (agodaSub === '점수 분포')   return 'score-dist'
-    if (agodaSub === '불만 분석')   return 'complaints'
+    if (mainTab === 'basic')          return 'basic'
+    if (detailSub === '리뷰 작성률')  return 'checkouts'
+    if (detailSub === '점수 분포')    return 'score-dist'
+    if (detailSub === '불만 분석')    return 'complaints'
     return 'voc'
   }
 
@@ -1411,35 +1421,32 @@ function OtaDetailView({
         </div>
       </div>
 
-      {/* 탭바 (Agoda만) */}
-      {ota === 'Agoda' && (
-        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
-          {([['basic', '📊 기본 추이'], ['agoda', '🔍 Agoda 상세']] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setMainTab(key)} style={{
-              padding: '9px 18px', background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: mainTab === key ? 700 : 400,
-              color: mainTab === key ? 'var(--accent)' : 'var(--text-3)',
-              borderBottom: mainTab === key ? '2px solid var(--accent)' : '2px solid transparent',
-              marginBottom: -1,
-            }}>{label}</button>
-          ))}
-        </div>
-      )}
+      {/* 탭바 — 전 채널 */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
+        {([['basic', '📊 기본 추이'], ['detail', `🔍 ${ota} 상세`]] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setMainTab(key)} style={{
+            padding: '9px 18px', background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 13, fontWeight: mainTab === key ? 700 : 400,
+            color: mainTab === key ? 'var(--accent)' : 'var(--text-3)',
+            borderBottom: mainTab === key ? '2px solid var(--accent)' : '2px solid transparent',
+            marginBottom: -1,
+          }}>{label}</button>
+        ))}
+      </div>
 
-      {/* 기본 추이 */}
-      {(mainTab === 'basic' || ota !== 'Agoda') && (
+      {mainTab === 'basic' && (
         <OtaDetailBasic branch={branch} ota={ota} otaEntry={otaEntry}
           last8Labels={last8Labels} last8Scores={last8Scores} weeklyReviews={weeklyReviews} />
       )}
 
-      {/* Agoda 상세 */}
-      {mainTab === 'agoda' && ota === 'Agoda' && (
-        <AgodaDetailTabs branch={branch} d={d} sub={agodaSub} onSubChange={setAgodaSub} />
+      {mainTab === 'detail' && (
+        <OtaDetailTabs branch={branch} ota={ota} d={d} sub={detailSub} onSubChange={setDetailSub} />
       )}
 
       {/* 입력 모달 */}
       {showModal && (
         <InputModal branch={branch} ota={ota} propertyId={propertyId} otaEntry={otaEntry}
+          scoreMax={d.scoreMaxByBranchOta[branch]?.[ota] ?? 10}
           mode={getModalMode()}
           onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); onSaved() }} />
       )}
@@ -1457,11 +1464,12 @@ interface OtaScoresClientProps {
   dateLabels?:       string[]
   dates?:            string[]   // ISO 스냅샷 날짜 (추이 섹션용)
   otaList?:          OtaEntry[]
-  agodaDist?:        Record<string, AgodaDistWeek[]>
-  agodaComplaints?:  Record<string, { week: string; room: number; bathroom: number }[]>
-  complaintMemos?:   Record<string, string>
-  agodaVoc?:         Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>
-  agodaReviewRate?:  Record<string, AgodaReviewRateWeek[]>
+  scoreDist?:        Record<string, Record<string, DistWeek[]>>
+  complaints?:       Record<string, Record<string, { week: string; room: number; bathroom: number }[]>>
+  complaintMemos?:   Record<string, Record<string, string>>
+  voc?:              Record<string, Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>>
+  reviewRate?:       Record<string, Record<string, ReviewRateWeek[]>>
+  scoreMaxByBranchOta?: Record<string, Record<string, number>>
   branchOtaToId?:    Record<string, Record<string, number>>
 }
 
@@ -1472,11 +1480,12 @@ export default function OtaScoresClient({
   dateLabels      = [],
   dates           = [],
   otaList         = [],
-  agodaDist       = {},
-  agodaComplaints = {},
+  scoreDist       = {},
+  complaints      = {},
   complaintMemos  = {},
-  agodaVoc        = {},
-  agodaReviewRate = {},
+  voc             = {},
+  reviewRate      = {},
+  scoreMaxByBranchOta = {},
   branchOtaToId   = {},
 }: OtaScoresClientProps) {
   const router = useRouter()
@@ -1484,7 +1493,7 @@ export default function OtaScoresClient({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ 신설: true })
 
   const branches = BRANCH_ORDER.filter(b =>
-    Object.keys(scoreHistory).includes(b) || Object.keys(agodaDist).includes(b)
+    Object.keys(scoreHistory).includes(b) || Object.keys(scoreDist).includes(b)
   )
 
   const data: OtaData = {
@@ -1496,7 +1505,7 @@ export default function OtaScoresClient({
       { name: 'NOL', max: 5, okr: 4.5 },
     ],
     dateLabels, scoreHistory, reviewHistory,
-    agodaDist, agodaComplaints, complaintMemos, agodaVoc, agodaReviewRate,
+    scoreDist, complaints, complaintMemos, voc, reviewRate, scoreMaxByBranchOta,
   }
 
   const handleToggleBranch = (b: string) =>
