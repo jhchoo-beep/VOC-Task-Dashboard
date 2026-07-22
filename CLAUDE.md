@@ -135,6 +135,88 @@ raw_date     TEXT
 created_at   TIMESTAMPTZ
 ```
 
+### `ota_properties` — 지점 × OTA 채널 마스터
+```sql
+property_id  INTEGER PK
+branch       TEXT        -- 신설 / 동대문 / 제주시티 / 고성
+ota_name     TEXT        -- Agoda / Booking / Trip.com / Expedia / Airbnb / NOL / 여기어때
+score_max    INTEGER     -- 채널 만점 (10 또는 5) — 점수 밴드·분포 컬럼 수를 결정
+okr_target   NUMERIC
+ota_url      TEXT
+active       BOOLEAN
+```
+
+### `ota_scores` — 채널별 종합 점수 스냅샷
+```sql
+id            BIGINT PK
+property_id   INTEGER FK → ota_properties
+overall_score NUMERIC
+review_count  INTEGER
+recorded_at   DATE
+cleanliness / facilities / location / service / value_for_money  NUMERIC
+created_at    TIMESTAMPTZ
+```
+
+### OTA 상세 3종 — `ota_score_dist` · `ota_complaints` · `ota_voc`
+
+세 표 모두 **전 채널 공용**이다(아고다 전용이 아니다). 공통 축이 둘 있다.
+
+| 컬럼 | 값 | 의미 |
+|---|---|---|
+| `granularity` | `'week'` / `'month'` | 원본이 주 단위 날짜를 주는 채널은 `week`, 월 단위만 주는 채널(에어비앤비·여기어때)은 `month`. 월 버킷의 `week_start`는 그 달 1일 |
+| `source` | `'manual'` / `'derived'` | 사람이 UI로 넣은 행인지, 파생 배치가 쓴 행인지. `--fill-empty`가 **행의 존재가 아니라 이 값으로** 보존 여부를 판단한다 |
+
+```sql
+-- ota_score_dist — 점수 분포 (raw_reviews의 실제 rating 집계, LLM 미경유)
+id                BIGINT PK
+property_id       INTEGER FK → ota_properties
+week_start        DATE
+granularity       TEXT     -- 'week' | 'month'
+source            TEXT     -- 'manual' | 'derived'
+score_1 … score_10 INTEGER -- 만점 5인 채널은 score_1~score_5만 사용
+weekly_avg_score  NUMERIC
+created_at        TIMESTAMPTZ
+-- UNIQUE (property_id, week_start, granularity)
+
+-- ota_complaints — 객실·욕실 불만 건수 (LLM 배치 산출)
+id                  BIGINT PK
+property_id         INTEGER FK → ota_properties
+week_start          DATE
+granularity         TEXT
+source              TEXT
+room_complaints     INTEGER
+bathroom_complaints INTEGER
+memo                TEXT
+created_at          TIMESTAMPTZ
+-- UNIQUE (property_id, week_start, granularity)
+
+-- ota_voc — 버킷별 VOC 키워드 (LLM 배치 산출, 한 버킷에 여러 행)
+id          BIGINT PK
+property_id INTEGER FK → ota_properties
+week_start  DATE
+granularity TEXT
+source      TEXT
+band        TEXT     -- 점수 밴드
+category    TEXT
+sentiment   TEXT
+keyword     TEXT
+created_at  TIMESTAMPTZ
+```
+
+### `ota_branch_checkouts` — 지점 주간 체크아웃 수 (리뷰 작성률의 분모)
+```sql
+id             BIGINT PK
+branch         TEXT
+week_start     DATE
+checkout_count INTEGER
+created_at     TIMESTAMPTZ
+-- UNIQUE (branch, week_start)
+```
+
+> 체크아웃 수는 채널이 아니라 **지점**의 속성이다 — 같은 주 신설의 체크아웃 수는 아고다든 부킹이든 하나다. 그래서 채널 단위가 아닌 지점 단위로 저장하고, 한 번 입력하면 그 지점의 전 채널 작성률이 함께 산출된다. 분자인 리뷰 건수는 `ota_score_dist`에서 파생한다(별도 저장하지 않는다).
+>
+> 채널 단위로 작성률을 들고 있던 옛 표 `ota_agoda_review_rate`는 **2026-07-22 드롭됐다**(체크아웃 20행 전부 `ota_branch_checkouts`로 이관 확인 후). 마이그레이션 기록은 `docs/superpowers/migrations/`.
+
 ---
 
 ## 주요 비즈니스 로직
@@ -168,15 +250,24 @@ created_at   TIMESTAMPTZ
 ## 사이드바 탭 구성
 
 ```
-🔗 리뷰 종합 평점   → https://ota-review-dashboard.vercel.app/ (외부 링크, 새 탭)
-──────────────────
 대시보드
+OTA 점수 현황
 리뷰 데이터
-월간 리포트
 수행과제
+──────────────────
+월간 리포트
 분석 & 트렌드
+성과 & 개선 이력
+──────────────────
 Raw Data
 ```
+
+### OTA 점수 현황 — 상세 탭
+
+지점 + 채널을 고르면 `📊 기본 추이` 옆에 `🔍 <채널> 상세` 탭이 뜬다. **아고다 전용이 아니라 전 채널에 존재한다.** 서브탭은 4종 — `리뷰 작성률` · `점수 분포` · `불만 분석` · `VOC`.
+
+- 원본이 월 단위 날짜만 주는 채널(에어비앤비·여기어때)은 주별 토글 대신 "월 단위 날짜만 제공" 안내가 뜨고, 월별로만 표시된다
+- 리뷰 작성률은 해당 지점의 `ota_branch_checkouts`가 있어야 산출된다 — 없으면 「데이터 입력」으로 유도하는 안내가 나온다
 
 ---
 
@@ -198,6 +289,13 @@ Raw Data
 ### Raw Data (`raw_reviews`)
 1. **텍스트 통째 붙여넣기** — OTA 페이지 복사본 그대로 저장
 2. **CSV 파일 업로드** — 헤더 자동 인식 (한글/영문 모두 지원)
+
+### OTA 상세 데이터 (`ota_score_dist` · `ota_complaints` · `ota_voc` · `ota_branch_checkouts`)
+1. **수기 입력** — OTA 점수 현황 우측 상단 「데이터 입력」. 이렇게 들어간 행은 `source='manual'`
+2. **파생 배치** — `npm run derive:ota`가 `raw_reviews`를 읽어 산출. 이 행은 `source='derived'`
+   - `--fill-empty`는 `source='manual'` 행을 덮어쓰지 않는다(사람 손이 닿은 행 보존)
+   - 점수 분포는 실제 `rating` 집계로 LLM을 거치지 않고, 불만·VOC만 LLM 배치를 탄다
+   - 체크아웃 수는 파생 대상이 아니다 — 지점 단위 수기 입력값이다
 
 ---
 
