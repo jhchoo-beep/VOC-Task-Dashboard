@@ -64,7 +64,7 @@ ota_agoda_review_rate → (해체, 아래 참조)
 
 **스키마 변경 2건**
 
-1. `ota_score_dist`에 `score_1 integer` 추가 — 5점 채널을 원척도로 담기 위함. 5점 채널은 `score_1`~`score_5`를, 10점 채널은 기존대로 `score_2`~`score_10`을 쓴다. UI는 `ota_properties.score_max`로 밴드 라벨을 전환한다.
+1. `ota_score_dist`에 `score_1 integer` 추가. 5점 채널은 `score_1`~`score_5`(정수 1~5, 실측 확인)를 쓴다. **10점 채널도 `score_1`이 필요하다** — 부킹닷컴·트립닷컴·여기어때에 1.0점 리뷰가 실재한다(Agoda는 척도가 2점부터 시작해 기존 스키마에 없었을 뿐). 따라서 10점 채널 밴드는 기존 9밴드가 아니라 **1점대~10점 10밴드**가 된다. UI는 `ota_properties.score_max`로 밴드 라벨을 전환한다.
 2. `ota_score_dist` · `ota_complaints` · `ota_voc`에 `granularity text not null default 'week'` 추가 — `'week' | 'month'`. 에어비앤비·여기어때는 `'month'`로 적재하며 `week_start`에 해당 월 1일을 넣는다. 컬럼을 새로 두는 이유는, 월 1일이 우연히 주 시작일과 겹칠 때 주간 행과 월간 행이 구분되지 않기 때문이다. 세 테이블의 기존 unique 제약 `(property_id, week_start)`를 **`(property_id, week_start, granularity)`로 교체**한다 — 교체하지 않으면 같은 property의 월간 행이 주간 행과 충돌해 조용히 덮어쓴다.
 
 **`ota_agoda_review_rate` 해체**
