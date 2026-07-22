@@ -25,7 +25,7 @@ export const getOtaScoresProps = unstable_cache(async () => {
     supabase.from('ota_score_dist').select('*').order('week_start', { ascending: true }).range(0, 9999),
     supabase.from('ota_complaints').select('*').order('week_start', { ascending: true }).range(0, 9999),
     supabase.from('ota_voc').select('*').order('week_start', { ascending: false }).range(0, 9999),
-    supabase.from('ota_branch_checkouts').select('property_id,week_start,checkout_count').order('week_start', { ascending: true }).range(0, 9999),
+    supabase.from('ota_channel_checkouts').select('property_id,week_start,checkout_count').order('week_start', { ascending: true }).range(0, 9999),
   ])
 
   const scores     = scoresRaw     ?? []

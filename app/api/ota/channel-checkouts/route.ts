@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!propertyId || !weekStart || checkoutCount == null) {
       return NextResponse.json({ error: 'propertyId, weekStart, checkoutCount 필수' }, { status: 400 })
     }
-    const { error } = await supabase.from('ota_branch_checkouts').upsert(
+    const { error } = await supabase.from('ota_channel_checkouts').upsert(
       { property_id: Number(propertyId), week_start: weekStart, checkout_count: Number(checkoutCount) },
       { onConflict: 'property_id,week_start' }
     )

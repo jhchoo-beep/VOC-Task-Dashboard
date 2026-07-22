@@ -203,7 +203,7 @@ keyword     TEXT
 created_at  TIMESTAMPTZ
 ```
 
-### `ota_branch_checkouts` — 채널별 주간 체크아웃 수 (리뷰 작성률의 분모)
+### `ota_channel_checkouts` — 채널별 주간 체크아웃 수 (리뷰 작성률의 분모)
 ```sql
 id             BIGINT PK
 property_id    INTEGER FK → ota_properties
@@ -213,7 +213,9 @@ created_at     TIMESTAMPTZ
 -- UNIQUE (property_id, week_start)
 ```
 
-> ⚠️ **표 이름의 `branch`는 역사적 잔재다. 키는 `property_id`(지점 × 채널)다.**
+> ⚠️ **키는 `property_id`(지점 × 채널)다. 지점 단위 값이 아니다.**
+>
+> 이 표는 2026-07-22까지 `ota_branch_checkouts`라는 이름이었다. 키를 채널로 되돌린 뒤에도 이름만 `branch`로 남아 있었고, 바로 그 이름 때문에 값이 지점 공용값으로 오독됐다. 같은 날 `ota_channel_checkouts`로 개명했다 — `docs/superpowers/migrations/2026-07-22-ota-checkouts-rename-channel.sql`.
 >
 > 체크아웃 수는 지점 공용값이 **아니다**. `checkout_count`(신설 주당 119~147)는 지점 전체 체크아웃이 아니라 **그 채널로 예약한 고객의 체크아웃 수**다(신설 20행은 전부 아고다 예약 기준). 그래서 채널 단위로 저장하고, 한 채널에 넣은 값은 같은 지점의 다른 채널에 반영되지 않는다.
 >
@@ -225,7 +227,7 @@ created_at     TIMESTAMPTZ
 >
 > ⚠️ **`ota_score_dist`가 아니다.** 점수 분포는 `raw_reviews` **표본**을 집계한 값이고, 작성률 분자는 OTA 사이트가 표시하는 **총 리뷰 수의 증가분(전수)** 이다. 두 서브탭의 숫자는 실제로 어긋난다 — 동대문 Agoda 2026-06-29은 스냅샷 델타 26건, raw 표본 2건이다(Agoda raw 커버리지 31~34%). 같은 소스라고 읽으면 이 차이가 버그로 보인다.
 >
-> 작성률(분자·분모·비율)을 통째로 들고 있던 옛 표 `ota_agoda_review_rate`는 **2026-07-22 드롭됐다**(체크아웃 20행 전부 `ota_branch_checkouts`로 이관 확인 후). 마이그레이션 기록은 `docs/superpowers/migrations/`.
+> 작성률(분자·분모·비율)을 통째로 들고 있던 옛 표 `ota_agoda_review_rate`는 **2026-07-22 드롭됐다**(체크아웃 20행 전부 `ota_channel_checkouts`(당시 이름 `ota_branch_checkouts`)로 이관 확인 후). 마이그레이션 기록은 `docs/superpowers/migrations/`.
 
 ---
 
@@ -277,7 +279,7 @@ Raw Data
 지점 + 채널을 고르면 `📊 기본 추이` 옆에 `🔍 <채널> 상세` 탭이 뜬다. **아고다 전용이 아니라 전 채널에 존재한다.** 서브탭은 4종 — `리뷰 작성률` · `점수 분포` · `불만 분석` · `VOC`.
 
 - 원본이 월 단위 날짜만 주는 채널(에어비앤비·여기어때)은 주별 토글 대신 "월 단위 날짜만 제공" 안내가 뜨고, 월별로만 표시된다
-- 리뷰 작성률은 **해당 채널의** `ota_branch_checkouts`가 있어야 산출된다 — 없으면 「데이터 입력」으로 유도하는 안내가 나온다. 현재 데이터가 있는 채널은 신설 Agoda 하나뿐이라, 작성률 그래프가 뜨는 곳도 신설 Agoda 하나다
+- 리뷰 작성률은 **해당 채널의** `ota_channel_checkouts`가 있어야 산출된다 — 없으면 「데이터 입력」으로 유도하는 안내가 나온다. 현재 데이터가 있는 채널은 신설 Agoda 하나뿐이라, 작성률 그래프가 뜨는 곳도 신설 Agoda 하나다
 
 ---
 
@@ -300,7 +302,7 @@ Raw Data
 1. **텍스트 통째 붙여넣기** — OTA 페이지 복사본 그대로 저장
 2. **CSV 파일 업로드** — 헤더 자동 인식 (한글/영문 모두 지원)
 
-### OTA 상세 데이터 (`ota_score_dist` · `ota_complaints` · `ota_voc` · `ota_branch_checkouts`)
+### OTA 상세 데이터 (`ota_score_dist` · `ota_complaints` · `ota_voc` · `ota_channel_checkouts`)
 1. **수기 입력** — OTA 점수 현황 우측 상단 「데이터 입력」. 이렇게 들어간 행은 `source='manual'`
 2. **파생 배치** — `npm run derive:ota`가 `raw_reviews`를 읽어 산출. 이 행은 `source='derived'`
    - `--fill-empty`는 `source='manual'` 행을 덮어쓰지 않는다(사람 손이 닿은 행 보존)

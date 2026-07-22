@@ -1,6 +1,12 @@
 -- 체크아웃 수를 지점 키에서 다시 채널(property) 키로 되돌린다.
 -- 이 파일은 전체가 멱등이다 — 몇 번을 다시 실행해도 결과가 같고 에러도 나지 않는다.
 --
+-- ※ 표기 정정(2026-07-22): 이 파일이 실행될 당시 표 이름은 ota_branch_checkouts였다.
+--   같은 날 ota_channel_checkouts로 개명했고(2026-07-22-ota-checkouts-rename-channel.sql),
+--   재실행 가능성을 유지하려고 이 파일의 표·인덱스·제약 이름을 현행 이름으로 맞춰 두었다.
+--   단 5)의 ota_branch_checkouts_branch_week_start_key만은 개명 전에 이미 사라진
+--   옛 제약이라 당시 이름 그대로 둔다.
+--
 -- 배경 (설계 오류 정정, 2026-07-22):
 -- 2026-07-22-ota-detail-generalize.sql이 ota_agoda_review_rate의 checkout_count를
 -- (property_id, week_start) → (branch, week_start)로 옮겼다. 근거는 "체크아웃 수는
@@ -18,7 +24,7 @@
 -- 다른 채널의 체크아웃 수를 추정해 채워 넣지 않는다.
 
 -- 1) property_id 컬럼 추가 (백필 전이라 우선 nullable)
-alter table ota_branch_checkouts add column if not exists property_id integer;
+alter table ota_channel_checkouts add column if not exists property_id integer;
 
 -- 2) 백필. 기존 20행은 전부 옛 ota_agoda_review_rate(전 행 property_id=1, 신설 Agoda)에서
 --    이관된 아고다 행이므로, 지점의 Agoda property로 되돌리면 원래 키가 복원된다.
@@ -27,10 +33,10 @@ do $$
 begin
   if exists (
     select 1 from information_schema.columns
-    where table_name = 'ota_branch_checkouts' and column_name = 'branch'
+    where table_name = 'ota_channel_checkouts' and column_name = 'branch'
   ) then
     execute $sql$
-      update ota_branch_checkouts c
+      update ota_channel_checkouts c
          set property_id = p.property_id
         from ota_properties p
        where c.property_id is null
@@ -44,34 +50,35 @@ end $$;
 do $$
 declare orphan int;
 begin
-  select count(*) into orphan from ota_branch_checkouts where property_id is null;
+  select count(*) into orphan from ota_channel_checkouts where property_id is null;
   if orphan > 0 then
     raise exception 'property_id 백필 실패 행 %건 — 마이그레이션 중단', orphan;
   end if;
 end $$;
 
-alter table ota_branch_checkouts alter column property_id set not null;
+alter table ota_channel_checkouts alter column property_id set not null;
 
 -- 4) FK
 do $$
 begin
   if not exists (
-    select 1 from pg_constraint where conname = 'ota_branch_checkouts_property_id_fkey'
+    select 1 from pg_constraint where conname = 'ota_channel_checkouts_property_id_fkey'
   ) then
-    alter table ota_branch_checkouts
-      add constraint ota_branch_checkouts_property_id_fkey
+    alter table ota_channel_checkouts
+      add constraint ota_channel_checkouts_property_id_fkey
       foreign key (property_id) references ota_properties(property_id);
   end if;
 end $$;
 
 -- 5) 옛 지점 키 제거
-alter table ota_branch_checkouts drop constraint if exists ota_branch_checkouts_branch_week_start_key;
-alter table ota_branch_checkouts drop column if exists branch;
+alter table ota_channel_checkouts drop constraint if exists ota_branch_checkouts_branch_week_start_key;
+alter table ota_channel_checkouts drop column if exists branch;
 
 -- 6) 새 유일키 (property_id, week_start) — 쓰기 API upsert의 onConflict 대상
-create unique index if not exists ota_branch_checkouts_key
-  on ota_branch_checkouts (property_id, week_start);
+create unique index if not exists ota_channel_checkouts_key
+  on ota_channel_checkouts (property_id, week_start);
 
 -- 검증 (2026-07-22 실행): 20행 전부 id·week_start·checkout_count 그대로 살아남았고
 -- 전부 property_id = 1(신설 Agoda)로 이동했다. 합계 3,068 → 3,068. 손실 0건.
--- 테이블명의 'branch'는 역사적 잔재다 — 키는 property_id다.
+-- 이때 남았던 테이블명의 'branch' 잔재는 같은 날 개명으로 정리됐다
+-- (2026-07-22-ota-checkouts-rename-channel.sql). 키는 property_id다.

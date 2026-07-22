@@ -2,7 +2,7 @@
 -- 이 파일은 전체가 멱등이다 — 몇 번을 다시 실행해도 결과가 같고 에러도 나지 않는다.
 --
 -- 배경: ota_agoda_review_rate는 (property_id, week_start)에 review_count·checkout_count·
--- rate_pct를 함께 들고 있었다. 체크아웃 수는 ota_branch_checkouts로 분리해 이관했고,
+-- rate_pct를 함께 들고 있었다. 체크아웃 수는 ota_channel_checkouts로 분리해 이관했고,
 -- 채널 단위 키 (property_id, week_start)는 그대로 유지한다. 분자인 리뷰 수는 ota_scores 스냅샷의 주간
 -- 델타(이번 주 review_count - 지난주 review_count, 음수는 0으로 클램프)에서 파생하도록
 -- 바꿨다. lib/pageData.ts가 그렇게 조립한다.
@@ -11,7 +11,7 @@
 --     raw 표본 2건). 둘이 같은 소스라고 읽으면 이 차이가 버그로 보인다.
 -- 남은 이 테이블은 더 이상 읽는 코드가 없다.
 --
--- 드롭 전 대조(2026-07-22): checkout_count > 0인 20행 전부가 ota_branch_checkouts에
+-- 드롭 전 대조(2026-07-22): checkout_count > 0인 20행 전부가 ota_channel_checkouts에
 -- 같은 지점·week_start·checkout_count로 존재함을 확인했다(불일치 0건).
 --   신설 2026-03-10 ~ 2026-07-20, 20주. 원본은 전 행 property_id = 1(신설 Agoda)이었다.
 --
@@ -22,4 +22,6 @@
 --   비아고다 채널이 아고다 분모를 빌려 쓴 가짜 작성률이 노출됐고(신설 Booking "3.4%" =
 --   부킹 리뷰 4건 / 아고다 체크아웃 119건), 채널 키로 되돌렸다.
 --   되돌린 기록: 2026-07-22-ota-checkouts-rekey-property.sql
+--   ※ 위 주석의 ota_channel_checkouts는 이 파일이 실행될 당시엔 ota_branch_checkouts라는
+--     이름이었다. 같은 날 개명했다 — 2026-07-22-ota-checkouts-rename-channel.sql
 drop table if exists ota_agoda_review_rate;

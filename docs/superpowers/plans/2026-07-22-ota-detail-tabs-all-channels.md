@@ -10,11 +10,13 @@
 
 > ⚠️ **실행 후 정정 (2026-07-22) — 체크아웃 수는 지점 값이 아니다**
 >
-> 이 플랜은 `ota_branch_checkouts`를 `(branch, week_start)` 키로 만들라고 지시한다(Task 3 Step 2, Task 4 Step 3, Task 6의 모달 문구). **근거였던 「`checkout_count`는 지점 전체 주간 체크아웃」이라는 전제가 틀렸다.** 실제 값은 **아고다로 예약한 고객의 체크아웃 수**다(데이터 소유자 확인).
+> 이 플랜은 `ota_channel_checkouts`를 `(branch, week_start)` 키로 만들라고 지시한다(Task 3 Step 2, Task 4 Step 3, Task 6의 모달 문구). **근거였던 「`checkout_count`는 지점 전체 주간 체크아웃」이라는 전제가 틀렸다.** 실제 값은 **아고다로 예약한 고객의 체크아웃 수**다(데이터 소유자 확인).
 >
 > 그대로 배포된 결과, 신설의 비아고다 채널이 아고다 분모를 빌려 쓴 가짜 작성률이 노출됐다(신설 Booking "3.4%" = 부킹 리뷰 4건 / 아고다 체크아웃 119건). 같은 날 채널 키 `(property_id, week_start)`로 되돌렸다.
 >
 > **아래 본문에서 체크아웃을 `branch`로 다루는 모든 코드 블록·문구는 폐기됐다.** 현행 정본은 `docs/superpowers/specs/2026-07-22-ota-detail-tabs-all-channels-design.md`(정정 반영본)와 `docs/superpowers/migrations/2026-07-22-ota-checkouts-rekey-property.sql`이다. 쓰기 라우트도 `app/api/ota/branch-checkouts` → `app/api/ota/channel-checkouts`(`{propertyId, weekStart, checkoutCount}`)로 바뀌었다.
+>
+> **표 이름도 바뀌었다 — `ota_branch_checkouts` → `ota_channel_checkouts`**(`docs/superpowers/migrations/2026-07-22-ota-checkouts-rename-channel.sql`). 이름에 남은 `branch`가 값을 지점 공용값으로 오독하게 만든 원인이었기 때문이다. 아래 본문의 표 이름은 현행 이름으로 맞춰 뒀지만, **그 블록들이 지시하는 `branch` 컬럼과 `(branch, week_start)` 키는 실재한 적 없는 현행 스키마가 아니다** — 이미 폐기된 지시다.
 
 ## Global Constraints
 
@@ -383,7 +385,7 @@ git commit -m "feat(ota): 점수 분포 집계·밴드·채널명 매핑 순수 
 
 **Interfaces:**
 - Consumes: 없음
-- Produces: 테이블 `ota_score_dist` · `ota_complaints` · `ota_voc` · `ota_branch_checkouts`
+- Produces: 테이블 `ota_score_dist` · `ota_complaints` · `ota_voc` · `ota_channel_checkouts`
 
 - [ ] **Step 1: 마이그레이션 전 현황을 기록한다**
 
@@ -429,7 +431,7 @@ create unique index if not exists ota_complaints_key on ota_complaints (property
 
 -- 5) 체크아웃(리뷰 작성률의 분모)을 지점 단위 테이블로 분리
 --    ⚠️ 폐기됨 — 위 상단 정정 배너 참조. 키는 (property_id, week_start)여야 한다.
-create table if not exists ota_branch_checkouts (
+create table if not exists ota_channel_checkouts (
   id             bigserial primary key,
   branch         text    not null,
   week_start     date    not null,
@@ -438,7 +440,7 @@ create table if not exists ota_branch_checkouts (
   unique (branch, week_start)
 );
 
-insert into ota_branch_checkouts (branch, week_start, checkout_count)
+insert into ota_channel_checkouts (branch, week_start, checkout_count)
 select p.branch, r.week_start, r.checkout_count
 from ota_agoda_review_rate r
 join ota_properties p using (property_id)
@@ -467,7 +469,7 @@ Expected: `(property_id, week_start)`만으로 된 unique 제약이 **하나도 
 select 'dist' t, count(*) n from ota_score_dist
 union all select 'comp', count(*) from ota_complaints
 union all select 'voc',  count(*) from ota_voc
-union all select 'checkouts', count(*) from ota_branch_checkouts;
+union all select 'checkouts', count(*) from ota_channel_checkouts;
 ```
 
 Expected: dist·comp·voc는 Step 1과 **같은 수**. `checkouts`는 20(신설 20주).
@@ -604,7 +606,7 @@ export async function POST(req: NextRequest) {
     if (!branch || !weekStart || checkoutCount == null) {
       return NextResponse.json({ error: 'branch, weekStart, checkoutCount 필수' }, { status: 400 })
     }
-    const { error } = await supabase.from('ota_branch_checkouts').upsert(
+    const { error } = await supabase.from('ota_channel_checkouts').upsert(
       { branch, week_start: weekStart, checkout_count: Number(checkoutCount) },
       { onConflict: 'branch,week_start' }
     )
@@ -659,7 +661,7 @@ git commit -m "refactor(api): OTA 상세 쓰기 라우트를 채널 무관하게
     supabase.from('ota_score_dist').select('*').order('week_start', { ascending: true }),
     supabase.from('ota_complaints').select('*').order('week_start', { ascending: true }),
     supabase.from('ota_voc').select('*').order('week_start', { ascending: false }),
-    supabase.from('ota_branch_checkouts').select('branch,week_start,checkout_count').order('week_start', { ascending: true }),
+    supabase.from('ota_channel_checkouts').select('branch,week_start,checkout_count').order('week_start', { ascending: true }),
 ```
 
 마지막 구조 분해도 `{ data: checkoutsRaw }`로 바꾼다.
@@ -1541,7 +1543,7 @@ git -c credential.helper="!gh auth git-credential" push origin main
 | 테이블 4종 일반화 | Task 3 |
 | `score_1` 추가 (1점대 실재) | Task 3 Step 2 · Task 2 `bandsFor` |
 | `granularity` + unique 제약 교체 | Task 3 Step 2·3 |
-| `ota_branch_checkouts` 분리·이관 | Task 3 Step 2 · Task 4 Step 3 |
+| `ota_channel_checkouts` 분리·이관 | Task 3 Step 2 · Task 4 Step 3 |
 | 리뷰 작성률 분자 파생(음수 클램프) | Task 5 Step 2 |
 | 날짜 정규화 5종 파서 | Task 1 |
 | dedup(부킹 257건) | Task 7 Step 2 `dedupe` |

@@ -23,7 +23,12 @@ create unique index if not exists ota_score_dist_key on ota_score_dist (property
 create unique index if not exists ota_complaints_key on ota_complaints (property_id, week_start, granularity);
 
 -- 5) 체크아웃(리뷰 작성률의 분모)을 지점 단위 테이블로 분리
-create table if not exists ota_branch_checkouts (
+--    ⚠️ 이 블록은 역사적 기록이다. 다시 실행되지 않는다 — 원본 ota_agoda_review_rate는
+--    이미 드롭됐고, 아래 branch 컬럼·(branch, week_start) 유일키도 같은 날 폐기됐다
+--    (2026-07-22-ota-checkouts-rekey-property.sql). 표 이름만 현행 이름으로 맞춰 뒀다
+--    — 실행 당시 이름은 ota_branch_checkouts였다
+--    (개명: 2026-07-22-ota-checkouts-rename-channel.sql).
+create table if not exists ota_channel_checkouts (
   id             bigserial primary key,
   branch         text    not null,
   week_start     date    not null,
@@ -32,7 +37,7 @@ create table if not exists ota_branch_checkouts (
   unique (branch, week_start)
 );
 
-insert into ota_branch_checkouts (branch, week_start, checkout_count)
+insert into ota_channel_checkouts (branch, week_start, checkout_count)
 select p.branch, r.week_start, r.checkout_count
 from ota_agoda_review_rate r
 join ota_properties p using (property_id)

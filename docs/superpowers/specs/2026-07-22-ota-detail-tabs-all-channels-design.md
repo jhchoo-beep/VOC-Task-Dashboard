@@ -113,7 +113,7 @@ ota_agoda_review_rate → (해체, 아래 참조)
 분모만 신규 테이블로 남긴다. **키는 `(property_id, week_start)`** — 원래의 채널 단위 키를 그대로 유지한다.
 
 ```sql
-create table ota_branch_checkouts (
+create table ota_channel_checkouts (
   id          bigserial primary key,
   property_id integer not null references ota_properties(property_id),
   week_start  date not null,
@@ -127,7 +127,7 @@ create table ota_branch_checkouts (
 
 > ⚠️ **정정 (2026-07-22).** 원안은 이 표를 `branch text not null` · `unique (branch, week_start)`로 정의하고 "지점 공용값이므로 `property_id`에 매달 이유가 없다"고 적었다. **근거였던 「체크아웃 수 = 지점 총계」 전제가 틀렸다**(위 「리뷰 작성률의 정체」 정정 참조). 실제 값은 그 채널로 예약한 고객의 체크아웃 수다.
 >
-> 지점 키로 구현해 배포한 뒤, 신설의 비아고다 채널이 아고다 분모를 빌려 쓴 가짜 비율이 그대로 노출됐다. 같은 날 위 스키마(채널 키)로 되돌렸다 — `docs/superpowers/migrations/2026-07-22-ota-checkouts-rekey-property.sql`. 표 이름의 `branch`만 잔재로 남았다. **키는 `property_id`다. 다시 지점 단위로 묶지 말 것.**
+> 지점 키로 구현해 배포한 뒤, 신설의 비아고다 채널이 아고다 분모를 빌려 쓴 가짜 비율이 그대로 노출됐다. 같은 날 위 스키마(채널 키)로 되돌렸다 — `docs/superpowers/migrations/2026-07-22-ota-checkouts-rekey-property.sql`. 표 이름에 남아 있던 `branch`도 같은 날 `ota_channel_checkouts`로 개명해 정리했다 — `docs/superpowers/migrations/2026-07-22-ota-checkouts-rename-channel.sql`. **키는 `property_id`다. 다시 지점 단위로 묶지 말 것.**
 
 ### 2. 파생 배치 — `scripts/derive-ota-detail.ts`
 
@@ -157,7 +157,7 @@ create table ota_branch_checkouts (
 - `agodaProps` 필터 제거. 전 `active` property를 대상으로 한다.
 - 반환 구조를 한 겹 확장: `Record<지점, 데이터[]>` → `Record<지점, Record<OTA, 데이터[]>>`.
 - 키 이름에서 `agoda` 제거: `agodaDist`→`scoreDist`, `agodaComplaints`→`complaints`, `agodaVoc`→`voc`, `agodaReviewRate`→`reviewRate`. `complaintMemos`는 이름은 그대로 두되 `Record<지점, Record<OTA, string>>`으로 함께 한 겹 확장한다.
-- `reviewRate`는 DB에서 읽지 않고 `ota_scores` 델타 + `ota_branch_checkouts`로 조립한다. 조인 키는 `(property_id, week_start)`다 — 채널이 자기 체크아웃만 쓴다. 체크아웃이 없는 채널은 행을 한 줄도 만들지 않고, UI가 기존 안내 문구를 띄운다.
+- `reviewRate`는 DB에서 읽지 않고 `ota_scores` 델타 + `ota_channel_checkouts`로 조립한다. 조인 키는 `(property_id, week_start)`다 — 채널이 자기 체크아웃만 쓴다. 체크아웃이 없는 채널은 행을 한 줄도 만들지 않고, UI가 기존 안내 문구를 띄운다.
 
 **`components/OtaScoresClient.tsx`**
 - `ota === 'Agoda'` 게이트(1415·1430·1436행) 제거. 탭 라벨은 `🔍 {ota} 상세`.
@@ -166,7 +166,7 @@ create table ota_branch_checkouts (
 - `granularity === 'month'`인 채널은 주별 토글을 비활성화하고 사유를 표기한다: "이 채널은 OTA가 월 단위 날짜만 제공합니다".
 - 데이터가 없는 채널은 기존 `데이터 없음` 표시를 그대로 쓴다(빈 화면이 아니라 상태가 보여야 한다).
 
-**입력 모달** — 체크아웃 수 입력을 `ota_branch_checkouts` 대상으로 바꾼다. **채널마다 따로 입력한다**(원안의 "지점 단위 1회 입력"은 위 정정으로 폐기). 대상 주 `<select>`의 후보도 그 채널 자신의 스냅샷 날짜에서 가장 이른 날을 뺀 목록이어야 한다 — 지점 합집합을 쓰면 조인되지 않는 날짜를 골라 저장에 성공하고도 화면이 그대로인 막다른 길이 생긴다. 나머지 3종 수동 입력은 파생 배치로 대체되므로 읽기 경로만 남기고 손대지 않는다.
+**입력 모달** — 체크아웃 수 입력을 `ota_channel_checkouts` 대상으로 바꾼다. **채널마다 따로 입력한다**(원안의 "지점 단위 1회 입력"은 위 정정으로 폐기). 대상 주 `<select>`의 후보도 그 채널 자신의 스냅샷 날짜에서 가장 이른 날을 뺀 목록이어야 한다 — 지점 합집합을 쓰면 조인되지 않는 날짜를 골라 저장에 성공하고도 화면이 그대로인 막다른 길이 생긴다. 나머지 3종 수동 입력은 파생 배치로 대체되므로 읽기 경로만 남기고 손대지 않는다.
 
 **쓰기 API** — `app/api/ota/agoda-dist`·`agoda-voc` 라우트의 테이블명을 갱신한다. 체크아웃 쓰기 라우트는 `app/api/ota/channel-checkouts`이며 `{propertyId, weekStart, checkoutCount}`를 받는다(옛 `branch-checkouts` · `{branch, ...}`에서 개명·변경). 신규 쓰기 경로를 추가하면 `revalidateTag('ota', 'max')`를 반드시 호출한다(누락 시 최대 300초간 반영 안 됨 — 기존에 겪은 함정).
 
