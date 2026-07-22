@@ -12,7 +12,7 @@ import {
   buildTrendRows, rollupMonthly, drilldownMonths, INTEGRATED,
   type TrendRow,
 } from '@/lib/otaTrend'
-import { bandsFor } from '@/lib/otaDetail'
+import { bandsFor, granularityForOtaName } from '@/lib/otaDetail'
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 type ScoreHistory  = Record<string, Record<string, number[]>>
@@ -37,6 +37,7 @@ interface OtaData {
   voc:             Record<string, Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>>
   reviewRate:      Record<string, Record<string, ReviewRateWeek[]>>
   scoreMaxByBranchOta: Record<string, Record<string, number>>
+  snapshotDatesByBranch: Record<string, string[]>  // 지점별 작성률 조인 가능한 스냅샷 기준일
 }
 
 // ─── 유틸 함수 ───────────────────────────────────────────────────────────────
@@ -720,8 +721,9 @@ function OtaDetailTabs({ branch, ota, d, sub, onSubChange }: {
   const totalReviews = reviewHist[reviewHist.length - 1] ?? 0
 
   const distHistoryRaw = d.scoreDist[branch]?.[ota] ?? []
-  // 원본이 이미 월 단위인 채널(에어비앤비·여기어때)은 주별 집계가 불가능하다
-  const monthlyOnly    = distHistoryRaw.length > 0 && distHistoryRaw.every(r => r.granularity === 'month')
+  // 원본이 이미 월 단위인 채널(에어비앤비·여기어때)은 주별 집계가 불가능하다.
+  // 쌓인 행을 보고 추론하지 않는다 — 행이 0개인 채널(여기어때)이 주 단위로 오판된다.
+  const monthlyOnly    = granularityForOtaName(ota) === 'month'
   const effectiveTime  = monthlyOnly ? 'monthly' : timeMode
   const distHistory    = (effectiveTime === 'monthly' && !monthlyOnly) ? groupDistByMonth(distHistoryRaw) : distHistoryRaw
   const heatmapMaxVal  = Math.max(
@@ -927,12 +929,10 @@ function OtaDetailTabs({ branch, ota, d, sub, onSubChange }: {
       {sub === '불만 분석' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card" style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>주간 불만 추이 — {branch}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>점선: 초기 4주 평균 기준선</div>
-              </div>
-              {timeModeToggle}
+            {/* 주별/월별 컨트롤(월 단위 채널에서는 안내 문구)은 서브탭 바에 한 번만 둔다 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>주간 불만 추이 — {branch}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>점선: 초기 4주 평균 기준선</div>
             </div>
             {complaints.length === 0
               ? <div style={{ color: 'var(--text-3)', textAlign: 'center', padding: 40, fontSize: 13 }}>데이터 없음</div>
@@ -1123,12 +1123,15 @@ function fmtSnapshotDate(iso: string): string {
 }
 
 function InputModal({
-  branch, ota, propertyId, otaEntry, scoreMax, mode, dates, granularity, onClose, onSaved,
+  branch, ota, propertyId, otaEntry, scoreMax, mode, checkoutDates, granularity, onClose, onSaved,
 }: {
   branch: string; ota: string; propertyId?: number; otaEntry?: OtaEntry
   scoreMax: number
   mode: ModalMode
-  dates: string[]                      // 점수 스냅샷 기준일(ISO, 오름차순)
+  // 이 지점에서 작성률 조인이 실제로 성립하는 스냅샷 기준일(ISO, 오름차순).
+  // 전 지점 합집합이 아니다 — 조인 안 되는 날짜를 고를 수 있으면 '저장은 됐는데
+  // 화면은 그대로'인 막다른 길이 된다. 지점의 가장 이른 스냅샷은 직전 값이 없어 제외돼 있다.
+  checkoutDates: string[]
   granularity: 'week' | 'month'        // 채널이 저장하는 단위 — 월 단위 채널은 월로 저장해야 한다
   onClose: () => void; onSaved: () => void
 }) {
@@ -1143,11 +1146,13 @@ function InputModal({
   // 월 단위 채널(에어비앤비·여기어때)은 배치와 같은 키(YYYY-MM-01)로 써야 주/월 행이 섞이지 않는다
   const monthlyInput    = usesGranularity && granularity === 'month'
   // 체크아웃은 점수 스냅샷 기준일과 정확히 일치해야 작성률 조인이 성립한다 (최신 먼저)
-  const snapshotDates   = useMemo(() => [...dates].sort().reverse(), [dates])
+  const snapshotDates   = useMemo(() => [...checkoutDates].sort().reverse(), [checkoutDates])
   const useSnapshotPick = mode === 'checkouts' && snapshotDates.length > 0
+  // 고를 수 있는 날짜가 하나도 없는 지점 — 빈 select를 띄우지 않고 사유를 밝힌다
+  const noCheckoutDate  = mode === 'checkouts' && snapshotDates.length === 0
 
   const [date, setDate]           = useState(() => {
-    if (mode === 'checkouts' && dates.length > 0) return dates[dates.length - 1]
+    if (mode === 'checkouts') return checkoutDates[checkoutDates.length - 1] ?? ''
     if (usesGranularity && granularity === 'month') return `${todayStr.substring(0, 7)}-01`
     return todayStr
   })
@@ -1251,6 +1256,15 @@ function InputModal({
             </select>
             <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.7 }}>
               작성률은 점수 스냅샷과 같은 날짜에만 산출됩니다 — 스냅샷이 있는 주만 선택할 수 있습니다.
+              직전 스냅샷이 없는 첫 주는 신규 리뷰 수를 낼 수 없어 목록에서 빠집니다.
+            </div>
+          </div>
+        ) : noCheckoutDate ? (
+          <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text-2)', lineHeight: 1.8 }}>
+            {branch}에는 지금 체크아웃 수를 넣을 수 있는 주가 없습니다.
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>
+              작성률의 분자는 점수 스냅샷 두 개의 차이로 냅니다. 이 지점은 아직 스냅샷이 한 번뿐이라
+              어떤 주를 넣어도 값이 나오지 않습니다 — 다음 주 점수 수집 이후에 입력해 주세요.
             </div>
           </div>
         ) : monthlyInput ? (
@@ -1284,7 +1298,7 @@ function InputModal({
         )}
 
         {/* ── 지점 주간 체크아웃 수 (작성률의 분모 — 지점 공용) ── */}
-        {mode === 'checkouts' && (
+        {mode === 'checkouts' && !noCheckoutDate && (
           <div>
             <label style={labelStyle}>{branch} 주간 체크아웃 수</label>
             <input style={inputStyle} type="number" placeholder="예: 120" value={checkouts} onChange={e => setCheckouts(e.target.value)} />
@@ -1366,7 +1380,7 @@ function InputModal({
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text-2)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>취소</button>
-          <button onClick={save} disabled={saving} style={{ padding: '9px 18px', borderRadius: 7, border: 'none', background: saving ? 'var(--bg-hover)' : 'var(--accent)', color: saving ? 'var(--text-3)' : '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+          <button onClick={save} disabled={saving || noCheckoutDate} style={{ padding: '9px 18px', borderRadius: 7, border: 'none', background: (saving || noCheckoutDate) ? 'var(--bg-hover)' : 'var(--accent)', color: (saving || noCheckoutDate) ? 'var(--text-3)' : '#fff', cursor: (saving || noCheckoutDate) ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}>
             {saving ? '저장 중...' : '저장'}
           </button>
         </div>
@@ -1409,11 +1423,10 @@ function OtaDetailView({
   const weeklyNew     = curReviews > 0 && prevReviews > 0 ? curReviews - prevReviews : 0
   const propertyId    = branchOtaToId?.[branch]?.[ota]
 
-  // 채널의 저장 단위 — OtaDetailTabs의 monthlyOnly와 같은 판정.
+  // 채널의 저장 단위 — 파생 배치(scripts/derive-ota-detail.ts)와 같은 함수로 판정한다.
   // 월 단위 채널(에어비앤비·여기어때)에 주 단위 행을 섞어 넣으면 월별 집계 키가 충돌한다.
-  const distRows      = d.scoreDist[branch]?.[ota] ?? []
-  const granularity: 'week' | 'month' =
-    distRows.length > 0 && distRows.every(r => r.granularity === 'month') ? 'month' : 'week'
+  // 쌓인 행으로 추론하면 행이 0개인 채널을 주 단위로 오판한다(여기어때 3개 지점 전부 0행).
+  const granularity = granularityForOtaName(ota)
 
   // 주간 신규 리뷰 = 누적값 차이 (delta). 한 주 앞 값이 필요하므로 9개 슬라이스
   const last9Reviews  = allReviews.slice(-9)
@@ -1497,7 +1510,7 @@ function OtaDetailView({
         <InputModal branch={branch} ota={ota} propertyId={propertyId} otaEntry={otaEntry}
           scoreMax={d.scoreMaxByBranchOta[branch]?.[ota] ?? 10}
           mode={getModalMode()}
-          dates={d.dates}
+          checkoutDates={d.snapshotDatesByBranch[branch] ?? []}
           granularity={granularity}
           onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); onSaved() }} />
       )}
@@ -1521,6 +1534,7 @@ interface OtaScoresClientProps {
   voc?:              Record<string, Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>>
   reviewRate?:       Record<string, Record<string, ReviewRateWeek[]>>
   scoreMaxByBranchOta?: Record<string, Record<string, number>>
+  snapshotDatesByBranch?: Record<string, string[]>  // 지점별 작성률 조인 가능한 스냅샷 기준일
   branchOtaToId?:    Record<string, Record<string, number>>
 }
 
@@ -1537,6 +1551,7 @@ export default function OtaScoresClient({
   voc             = {},
   reviewRate      = {},
   scoreMaxByBranchOta = {},
+  snapshotDatesByBranch = {},
   branchOtaToId   = {},
 }: OtaScoresClientProps) {
   const router = useRouter()
@@ -1557,6 +1572,7 @@ export default function OtaScoresClient({
     ],
     dateLabels, dates, scoreHistory, reviewHistory,
     scoreDist, complaints, complaintMemos, voc, reviewRate, scoreMaxByBranchOta,
+    snapshotDatesByBranch,
   }
 
   const handleToggleBranch = (b: string) =>
