@@ -8,6 +8,14 @@
 
 **Tech Stack:** Next.js 16 (App Router) · TypeScript · Supabase JS · vitest · tsx(신규 devDependency)
 
+> ⚠️ **실행 후 정정 (2026-07-22) — 체크아웃 수는 지점 값이 아니다**
+>
+> 이 플랜은 `ota_branch_checkouts`를 `(branch, week_start)` 키로 만들라고 지시한다(Task 3 Step 2, Task 4 Step 3, Task 6의 모달 문구). **근거였던 「`checkout_count`는 지점 전체 주간 체크아웃」이라는 전제가 틀렸다.** 실제 값은 **아고다로 예약한 고객의 체크아웃 수**다(데이터 소유자 확인).
+>
+> 그대로 배포된 결과, 신설의 비아고다 채널이 아고다 분모를 빌려 쓴 가짜 작성률이 노출됐다(신설 Booking "3.4%" = 부킹 리뷰 4건 / 아고다 체크아웃 119건). 같은 날 채널 키 `(property_id, week_start)`로 되돌렸다.
+>
+> **아래 본문에서 체크아웃을 `branch`로 다루는 모든 코드 블록·문구는 폐기됐다.** 현행 정본은 `docs/superpowers/specs/2026-07-22-ota-detail-tabs-all-channels-design.md`(정정 반영본)와 `docs/superpowers/migrations/2026-07-22-ota-checkouts-rekey-property.sql`이다. 쓰기 라우트도 `app/api/ota/branch-checkouts` → `app/api/ota/channel-checkouts`(`{propertyId, weekStart, checkoutCount}`)로 바뀌었다.
+
 ## Global Constraints
 
 - 언어: 화면 문구·커밋 메시지 전부 한국어.
@@ -420,6 +428,7 @@ create unique index if not exists ota_score_dist_key on ota_score_dist (property
 create unique index if not exists ota_complaints_key on ota_complaints (property_id, week_start, granularity);
 
 -- 5) 체크아웃(리뷰 작성률의 분모)을 지점 단위 테이블로 분리
+--    ⚠️ 폐기됨 — 위 상단 정정 배너 참조. 키는 (property_id, week_start)여야 한다.
 create table if not exists ota_branch_checkouts (
   id             bigserial primary key,
   branch         text    not null,

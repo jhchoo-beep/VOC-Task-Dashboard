@@ -25,7 +25,7 @@ export const getOtaScoresProps = unstable_cache(async () => {
     supabase.from('ota_score_dist').select('*').order('week_start', { ascending: true }).range(0, 9999),
     supabase.from('ota_complaints').select('*').order('week_start', { ascending: true }).range(0, 9999),
     supabase.from('ota_voc').select('*').order('week_start', { ascending: false }).range(0, 9999),
-    supabase.from('ota_branch_checkouts').select('branch,week_start,checkout_count').order('week_start', { ascending: true }).range(0, 9999),
+    supabase.from('ota_branch_checkouts').select('property_id,week_start,checkout_count').order('week_start', { ascending: true }).range(0, 9999),
   ])
 
   const scores     = scoresRaw     ?? []
@@ -116,10 +116,16 @@ export const getOtaScoresProps = unstable_cache(async () => {
     })))
   })
 
-  // 리뷰 작성률 = 채널별 주간 신규 리뷰(ota_scores 델타) / 지점 주간 체크아웃.
+  // 리뷰 작성률 = 채널별 주간 신규 리뷰(ota_scores 델타) / 그 채널의 주간 체크아웃.
   // 분자를 저장하지 않는 이유: collect-ota-scores가 이미 매주 누적 리뷰 수를 찍고 있다.
-  const checkoutByBranchWeek = new Map<string, number>()
-  ;(checkoutsRaw ?? []).forEach((c: any) => checkoutByBranchWeek.set(`${c.branch}|${c.week_start}`, c.checkout_count))
+  //
+  // 분모는 채널(property) 단위다. 지점 전체 체크아웃이 아니다 —
+  // 신설의 119~147건은 '아고다로 예약한 고객의 체크아웃 수'다. 지점 단위로 묶어
+  // 전 채널이 나눠 쓰면 분자(부킹 리뷰)와 분모(아고다 체크아웃)의 모집단이 어긋나
+  // 아무 의미 없는 비율이 나온다(실측: 신설 Booking 4/119 = 3.4%).
+  // 체크아웃이 없는 채널은 행을 한 줄도 만들지 않는다 — UI가 안내 문구를 띄운다.
+  const checkoutByPropWeek = new Map<string, number>()
+  ;(checkoutsRaw ?? []).forEach((c: any) => checkoutByPropWeek.set(`${c.property_id}|${c.week_start}`, c.checkout_count))
 
   const reviewRate = dist2<{ week: string; reviewCount: number; checkoutCount: number; ratePct: number }[]>()
   properties.forEach((p: any) => {
@@ -130,7 +136,7 @@ export const getOtaScoresProps = unstable_cache(async () => {
     const rows: { week: string; reviewCount: number; checkoutCount: number; ratePct: number }[] = []
     for (let i = 1; i < snaps.length; i++) {
       const ws = snaps[i].recorded_at
-      const co = checkoutByBranchWeek.get(`${p.branch}|${ws}`)
+      const co = checkoutByPropWeek.get(`${p.property_id}|${ws}`)
       if (!co) continue // 체크아웃 미입력 주는 작성률을 낼 수 없다
       const delta = Math.max(0, (snaps[i].review_count ?? 0) - (snaps[i - 1].review_count ?? 0))
       rows.push({
@@ -143,22 +149,20 @@ export const getOtaScoresProps = unstable_cache(async () => {
     put(reviewRate, p.branch, p.ota_name, rows)
   })
 
-  // 지점별로 '체크아웃 수를 넣으면 실제로 작성률이 나오는' 스냅샷 기준일.
+  // 채널별로 '체크아웃 수를 넣으면 실제로 작성률이 나오는' 스냅샷 기준일.
   // 위 루프가 i=1부터 도는 이유는 델타를 내려면 직전 스냅샷이 있어야 하기 때문이다 —
-  // 그래서 그 지점의 가장 이른 스냅샷 날짜는 무엇을 입력해도 한 줄도 만들지 못한다.
-  // 전 지점 합집합(dates)을 그대로 입력 모달에 내려보내면, 조인될 수 없는 날짜를 골라
-  // 저장에 성공하고도 화면이 그대로인 막다른 길이 생긴다(실측: 신설 체크아웃 20행 중
-  // 3행이 어떤 스냅샷과도 짝이 없다). 고를 수 있는 날짜만 내려보낸다.
-  const datesByBranch = new Map<string, Set<string>>()
-  scores.forEach((s: any) => {
-    const p = propMap.get(s.property_id)
-    if (!p) return
-    if (!datesByBranch.has(p.branch)) datesByBranch.set(p.branch, new Set())
-    datesByBranch.get(p.branch)!.add(s.recorded_at)
-  })
-  const snapshotDatesByBranch: Record<string, string[]> = {}
-  datesByBranch.forEach((set, branch) => {
-    snapshotDatesByBranch[branch] = [...set].sort().slice(1)
+  // 그래서 그 채널의 가장 이른 스냅샷 날짜는 무엇을 입력해도 한 줄도 만들지 못한다.
+  // 조인될 수 없는 날짜를 고를 수 있게 두면 저장에 성공하고도 화면이 그대로인
+  // 막다른 길이 생긴다. 고를 수 있는 날짜만 내려보낸다.
+  // 분모가 채널 단위로 돌아왔으므로 이 목록도 지점 합집합이 아니라 채널 자신의
+  // 스냅샷 날짜여야 한다 — 지점 합집합을 쓰면 같은 지점의 다른 채널에만 있는 날짜가
+  // 섞여 들어와 똑같은 막다른 길이 다시 생긴다.
+  const snapshotDatesByChannel = dist2<string[]>()
+  properties.forEach((p: any) => {
+    const dates = [...new Set(
+      scores.filter((s: any) => s.property_id === p.property_id).map((s: any) => s.recorded_at)
+    )].sort() as string[]
+    put(snapshotDatesByChannel, p.branch, p.ota_name, dates.slice(1))
   })
 
   const latestDate = allDates[allDates.length - 1] ?? '2026-05-18'
@@ -176,7 +180,7 @@ export const getOtaScoresProps = unstable_cache(async () => {
     reviewHistory,
     dateLabels,
     dates: allDates,
-    snapshotDatesByBranch,
+    snapshotDatesByChannel,
     otaList,
     scoreDist,
     complaints: complaints2,

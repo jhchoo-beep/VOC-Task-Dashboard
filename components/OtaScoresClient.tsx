@@ -37,7 +37,7 @@ interface OtaData {
   voc:             Record<string, Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>>
   reviewRate:      Record<string, Record<string, ReviewRateWeek[]>>
   scoreMaxByBranchOta: Record<string, Record<string, number>>
-  snapshotDatesByBranch: Record<string, string[]>  // 지점별 작성률 조인 가능한 스냅샷 기준일
+  snapshotDatesByChannel: Record<string, Record<string, string[]>>  // 지점×채널별 작성률 조인 가능한 스냅샷 기준일
 }
 
 // ─── 유틸 함수 ───────────────────────────────────────────────────────────────
@@ -793,12 +793,12 @@ function OtaDetailTabs({ branch, ota, d, sub, onSubChange }: {
       {sub === '리뷰 작성률' && (
         <div className="card" style={{ padding: 24 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 4 }}>{ota} 리뷰 작성률 추이 — {branch}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>체크아웃 고객 중 리뷰 작성 비율 (막대: 리뷰 건수, 선: 작성률)</div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>{ota} 체크아웃 고객 중 리뷰 작성 비율 (막대: 리뷰 건수, 선: 작성률)</div>
           {reviewRate.length === 0
             ? <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-3)' }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
-                <div style={{ fontSize: 13 }}>지점 주간 체크아웃 수가 입력되지 않았습니다</div>
-                <div style={{ fontSize: 11, marginTop: 6 }}>우측 상단 「데이터 입력」에서 {branch}의 주간 체크아웃 수를 넣으면 전 채널 작성률이 함께 산출됩니다</div>
+                <div style={{ fontSize: 13 }}>체크아웃 수가 입력되지 않았습니다</div>
+                <div style={{ fontSize: 11, marginTop: 6 }}>우측 상단 「데이터 입력」에서 {branch} {ota}의 주간 체크아웃 수를 넣으면 이 채널의 작성률이 산출됩니다</div>
               </div>
             : <ResponsiveContainer width="100%" height={280}>
                 <ComposedChart data={reviewRate} margin={{ top: 10, right: 50, left: 0, bottom: 5 }}>
@@ -1104,7 +1104,7 @@ function OtaDetailTabs({ branch, ota, d, sub, onSubChange }: {
 // ════════════════════════════════════════════════════════════════════════════
 const MODAL_TITLE: Record<ModalMode, string> = {
   'basic':      '기본 추이 입력 — 평점 & 리뷰 수',
-  'checkouts':  '지점 주간 체크아웃 수 입력',
+  'checkouts':  '채널 주간 체크아웃 수 입력',
   'score-dist': '점수 분포 입력',
   'complaints': '불만 분석 입력',
   'voc':        'VOC 키워드 입력',
@@ -1128,9 +1128,11 @@ function InputModal({
   branch: string; ota: string; propertyId?: number; otaEntry?: OtaEntry
   scoreMax: number
   mode: ModalMode
-  // 이 지점에서 작성률 조인이 실제로 성립하는 스냅샷 기준일(ISO, 오름차순).
-  // 전 지점 합집합이 아니다 — 조인 안 되는 날짜를 고를 수 있으면 '저장은 됐는데
-  // 화면은 그대로'인 막다른 길이 된다. 지점의 가장 이른 스냅샷은 직전 값이 없어 제외돼 있다.
+  // 이 채널에서 작성률 조인이 실제로 성립하는 스냅샷 기준일(ISO, 오름차순).
+  // 지점 합집합도, 전 지점 합집합도 아니다 — 조인 안 되는 날짜를 고를 수 있으면
+  // '저장은 됐는데 화면은 그대로'인 막다른 길이 된다. 분모가 채널 단위이므로
+  // 같은 지점의 다른 채널에만 있는 날짜도 여기 들어오면 안 된다.
+  // 채널의 가장 이른 스냅샷은 직전 값이 없어 제외돼 있다.
   checkoutDates: string[]
   granularity: 'week' | 'month'        // 채널이 저장하는 단위 — 월 단위 채널은 월로 저장해야 한다
   onClose: () => void; onSaved: () => void
@@ -1141,14 +1143,14 @@ function InputModal({
   // 모달은 showModal일 때만 마운트되므로, 채널을 바꿔 다시 열면 아래 초기값이 새 scoreMax로 다시 잡힌다
   const vocBands = vocBandsFor(scoreMax)
 
-  // granularity를 함께 저장하는 모드들. checkouts는 지점 단위 값이라 granularity가 없다.
+  // granularity를 함께 저장하는 모드들. checkouts는 주 단위 고정이라 granularity가 없다.
   const usesGranularity = mode === 'score-dist' || mode === 'complaints' || mode === 'voc'
   // 월 단위 채널(에어비앤비·여기어때)은 배치와 같은 키(YYYY-MM-01)로 써야 주/월 행이 섞이지 않는다
   const monthlyInput    = usesGranularity && granularity === 'month'
   // 체크아웃은 점수 스냅샷 기준일과 정확히 일치해야 작성률 조인이 성립한다 (최신 먼저)
   const snapshotDates   = useMemo(() => [...checkoutDates].sort().reverse(), [checkoutDates])
   const useSnapshotPick = mode === 'checkouts' && snapshotDates.length > 0
-  // 고를 수 있는 날짜가 하나도 없는 지점 — 빈 select를 띄우지 않고 사유를 밝힌다
+  // 고를 수 있는 날짜가 하나도 없는 채널 — 빈 select를 띄우지 않고 사유를 밝힌다
   const noCheckoutDate  = mode === 'checkouts' && snapshotDates.length === 0
 
   const [date, setDate]           = useState(() => {
@@ -1189,9 +1191,9 @@ function InputModal({
 
       } else if (mode === 'checkouts') {
         if (!date || !checkouts) { setError('날짜와 체크아웃 수는 필수입니다.'); setSaving(false); return }
-        const res = await fetch('/api/ota/branch-checkouts', {
+        const res = await fetch('/api/ota/channel-checkouts', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ branch, weekStart: date, checkoutCount: parseInt(checkouts) }),
+          body: JSON.stringify({ propertyId, weekStart: date, checkoutCount: parseInt(checkouts) }),
         })
         if (!res.ok) throw new Error(await res.text())
 
@@ -1255,16 +1257,16 @@ function InputModal({
               {snapshotDates.map(dt => <option key={dt} value={dt}>{fmtSnapshotDate(dt)}</option>)}
             </select>
             <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.7 }}>
-              작성률은 점수 스냅샷과 같은 날짜에만 산출됩니다 — 스냅샷이 있는 주만 선택할 수 있습니다.
+              작성률은 이 채널의 점수 스냅샷과 같은 날짜에만 산출됩니다 — 스냅샷이 있는 주만 선택할 수 있습니다.
               직전 스냅샷이 없는 첫 주는 신규 리뷰 수를 낼 수 없어 목록에서 빠집니다.
             </div>
           </div>
         ) : noCheckoutDate ? (
           <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text-2)', lineHeight: 1.8 }}>
-            {branch}에는 지금 체크아웃 수를 넣을 수 있는 주가 없습니다.
+            {branch} {ota}에는 지금 체크아웃 수를 넣을 수 있는 주가 없습니다.
             <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>
-              작성률의 분자는 점수 스냅샷 두 개의 차이로 냅니다. 이 지점은 아직 스냅샷이 한 번뿐이라
-              어떤 주를 넣어도 값이 나오지 않습니다 — 다음 주 점수 수집 이후에 입력해 주세요.
+              작성률의 분자는 이 채널의 점수 스냅샷 두 개의 차이로 냅니다. 아직 스냅샷이 한 번뿐이거나
+              없어서 어떤 주를 넣어도 값이 나오지 않습니다 — 다음 주 점수 수집 이후에 입력해 주세요.
             </div>
           </div>
         ) : monthlyInput ? (
@@ -1297,14 +1299,15 @@ function InputModal({
           </div>
         )}
 
-        {/* ── 지점 주간 체크아웃 수 (작성률의 분모 — 지점 공용) ── */}
+        {/* ── 채널 주간 체크아웃 수 (작성률의 분모 — 이 채널 전용) ── */}
         {mode === 'checkouts' && !noCheckoutDate && (
           <div>
-            <label style={labelStyle}>{branch} 주간 체크아웃 수</label>
+            <label style={labelStyle}>{branch} {ota} 주간 체크아웃 수</label>
             <input style={inputStyle} type="number" placeholder="예: 120" value={checkouts} onChange={e => setCheckouts(e.target.value)} />
             <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.7 }}>
-              지점 공용값입니다. 한 번 입력하면 이 지점의 모든 채널 작성률이 함께 산출됩니다.
-              분자(채널별 신규 리뷰 수)는 주간 점수 스냅샷에서 자동으로 계산됩니다.
+              이 채널 전용값입니다 — {ota}로 예약한 고객의 체크아웃 수만 넣습니다.
+              지점 전체 체크아웃 수가 아니며, 같은 지점의 다른 채널에는 반영되지 않습니다.
+              분자(이 채널의 신규 리뷰 수)는 주간 점수 스냅샷에서 자동으로 계산됩니다.
             </div>
           </div>
         )}
@@ -1510,7 +1513,7 @@ function OtaDetailView({
         <InputModal branch={branch} ota={ota} propertyId={propertyId} otaEntry={otaEntry}
           scoreMax={d.scoreMaxByBranchOta[branch]?.[ota] ?? 10}
           mode={getModalMode()}
-          checkoutDates={d.snapshotDatesByBranch[branch] ?? []}
+          checkoutDates={d.snapshotDatesByChannel[branch]?.[ota] ?? []}
           granularity={granularity}
           onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); onSaved() }} />
       )}
@@ -1534,7 +1537,7 @@ interface OtaScoresClientProps {
   voc?:              Record<string, Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]>>
   reviewRate?:       Record<string, Record<string, ReviewRateWeek[]>>
   scoreMaxByBranchOta?: Record<string, Record<string, number>>
-  snapshotDatesByBranch?: Record<string, string[]>  // 지점별 작성률 조인 가능한 스냅샷 기준일
+  snapshotDatesByChannel?: Record<string, Record<string, string[]>>  // 지점×채널별 작성률 조인 가능한 스냅샷 기준일
   branchOtaToId?:    Record<string, Record<string, number>>
 }
 
@@ -1551,7 +1554,7 @@ export default function OtaScoresClient({
   voc             = {},
   reviewRate      = {},
   scoreMaxByBranchOta = {},
-  snapshotDatesByBranch = {},
+  snapshotDatesByChannel = {},
   branchOtaToId   = {},
 }: OtaScoresClientProps) {
   const router = useRouter()
@@ -1572,7 +1575,7 @@ export default function OtaScoresClient({
     ],
     dateLabels, dates, scoreHistory, reviewHistory,
     scoreDist, complaints, complaintMemos, voc, reviewRate, scoreMaxByBranchOta,
-    snapshotDatesByBranch,
+    snapshotDatesByChannel,
   }
 
   const handleToggleBranch = (b: string) =>

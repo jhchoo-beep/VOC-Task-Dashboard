@@ -203,23 +203,29 @@ keyword     TEXT
 created_at  TIMESTAMPTZ
 ```
 
-### `ota_branch_checkouts` — 지점 주간 체크아웃 수 (리뷰 작성률의 분모)
+### `ota_branch_checkouts` — 채널별 주간 체크아웃 수 (리뷰 작성률의 분모)
 ```sql
 id             BIGINT PK
-branch         TEXT
+property_id    INTEGER FK → ota_properties
 week_start     DATE
 checkout_count INTEGER
 created_at     TIMESTAMPTZ
--- UNIQUE (branch, week_start)
+-- UNIQUE (property_id, week_start)
 ```
 
-> 체크아웃 수는 채널이 아니라 **지점**의 속성이다 — 같은 주 신설의 체크아웃 수는 아고다든 부킹이든 하나다. 그래서 채널 단위가 아닌 지점 단위로 저장하고, 한 번 입력하면 그 지점의 전 채널 작성률이 함께 산출된다.
+> ⚠️ **표 이름의 `branch`는 역사적 잔재다. 키는 `property_id`(지점 × 채널)다.**
+>
+> 체크아웃 수는 지점 공용값이 **아니다**. `checkout_count`(신설 주당 119~147)는 지점 전체 체크아웃이 아니라 **그 채널로 예약한 고객의 체크아웃 수**다(신설 20행은 전부 아고다 예약 기준). 그래서 채널 단위로 저장하고, 한 채널에 넣은 값은 같은 지점의 다른 채널에 반영되지 않는다.
+>
+> 2026-07-22에 이 표를 잠시 `(branch, week_start)` 키로 옮긴 적이 있다. "체크아웃 수는 지점의 속성"이라는 **틀린 전제**에서 나온 변경이었고, 그 결과 신설의 비아고다 채널들이 아고다 분모를 빌려 써 분자·분모의 모집단이 어긋난 값이 화면에 떴다(신설 Booking "3.4%" = 부킹 리뷰 4건 / 아고다 체크아웃 119건). 같은 날 채널 키로 되돌렸다 — `docs/superpowers/migrations/2026-07-22-ota-checkouts-rekey-property.sql`. **다시 지점 단위로 묶지 말 것.**
+>
+> 현재 체크아웃 데이터가 있는 채널은 **신설 Agoda 하나뿐**이다. 따라서 작성률이 나오는 조합도 신설 Agoda 하나다. 나머지 채널은 "체크아웃 수가 입력되지 않았습니다" 안내를 본다 — 추정값으로 채우지 않는다.
 >
 > 분자인 리뷰 건수는 **`ota_scores` 스냅샷의 주간 델타**에서 파생한다(별도 저장하지 않는다). `lib/pageData.ts`가 채널별로 `이번 주 review_count - 지난주 review_count`를 계산하고 음수는 0으로 클램프한다. 직전 스냅샷이 없는 첫 주는 델타를 낼 수 없어 작성률이 나오지 않는다.
 >
 > ⚠️ **`ota_score_dist`가 아니다.** 점수 분포는 `raw_reviews` **표본**을 집계한 값이고, 작성률 분자는 OTA 사이트가 표시하는 **총 리뷰 수의 증가분(전수)** 이다. 두 서브탭의 숫자는 실제로 어긋난다 — 동대문 Agoda 2026-06-29은 스냅샷 델타 26건, raw 표본 2건이다(Agoda raw 커버리지 31~34%). 같은 소스라고 읽으면 이 차이가 버그로 보인다.
 >
-> 채널 단위로 작성률을 들고 있던 옛 표 `ota_agoda_review_rate`는 **2026-07-22 드롭됐다**(체크아웃 20행 전부 `ota_branch_checkouts`로 이관 확인 후). 마이그레이션 기록은 `docs/superpowers/migrations/`.
+> 작성률(분자·분모·비율)을 통째로 들고 있던 옛 표 `ota_agoda_review_rate`는 **2026-07-22 드롭됐다**(체크아웃 20행 전부 `ota_branch_checkouts`로 이관 확인 후). 마이그레이션 기록은 `docs/superpowers/migrations/`.
 
 ---
 
@@ -271,7 +277,7 @@ Raw Data
 지점 + 채널을 고르면 `📊 기본 추이` 옆에 `🔍 <채널> 상세` 탭이 뜬다. **아고다 전용이 아니라 전 채널에 존재한다.** 서브탭은 4종 — `리뷰 작성률` · `점수 분포` · `불만 분석` · `VOC`.
 
 - 원본이 월 단위 날짜만 주는 채널(에어비앤비·여기어때)은 주별 토글 대신 "월 단위 날짜만 제공" 안내가 뜨고, 월별로만 표시된다
-- 리뷰 작성률은 해당 지점의 `ota_branch_checkouts`가 있어야 산출된다 — 없으면 「데이터 입력」으로 유도하는 안내가 나온다
+- 리뷰 작성률은 **해당 채널의** `ota_branch_checkouts`가 있어야 산출된다 — 없으면 「데이터 입력」으로 유도하는 안내가 나온다. 현재 데이터가 있는 채널은 신설 Agoda 하나뿐이라, 작성률 그래프가 뜨는 곳도 신설 Agoda 하나다
 
 ---
 
@@ -299,7 +305,7 @@ Raw Data
 2. **파생 배치** — `npm run derive:ota`가 `raw_reviews`를 읽어 산출. 이 행은 `source='derived'`
    - `--fill-empty`는 `source='manual'` 행을 덮어쓰지 않는다(사람 손이 닿은 행 보존)
    - 점수 분포는 실제 `rating` 집계로 LLM을 거치지 않고, 불만·VOC만 LLM 배치를 탄다
-   - 체크아웃 수는 파생 대상이 아니다 — 지점 단위 수기 입력값이다
+   - 체크아웃 수는 파생 대상이 아니다 — **채널 단위** 수기 입력값이다(`POST /api/ota/channel-checkouts`)
 
 ---
 
