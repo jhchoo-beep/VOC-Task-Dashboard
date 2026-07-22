@@ -28,6 +28,7 @@ interface OtaData {
   branches:        string[]
   otaList:         OtaEntry[]
   dateLabels:      string[]
+  dates:           string[]   // 점수 스냅샷 기준일(ISO, 오름차순)
   scoreHistory:    ScoreHistory
   reviewHistory:   ReviewHistory
   scoreDist:       Record<string, Record<string, DistWeek[]>>
@@ -1116,12 +1117,19 @@ function vocBandsFor(scoreMax: number): string[] {
   return scoreMax === 5 ? [...bandsFor(5)].reverse() : VOC_BANDS_10
 }
 
+// 스냅샷 날짜(ISO)를 읽기 쉬운 한글 표기로 — 값 자체는 원본 ISO를 그대로 전송한다
+function fmtSnapshotDate(iso: string): string {
+  return `${parseInt(iso.substring(5, 7))}월 ${parseInt(iso.substring(8, 10))}일`
+}
+
 function InputModal({
-  branch, ota, propertyId, otaEntry, scoreMax, mode, onClose, onSaved,
+  branch, ota, propertyId, otaEntry, scoreMax, mode, dates, granularity, onClose, onSaved,
 }: {
   branch: string; ota: string; propertyId?: number; otaEntry?: OtaEntry
   scoreMax: number
   mode: ModalMode
+  dates: string[]                      // 점수 스냅샷 기준일(ISO, 오름차순)
+  granularity: 'week' | 'month'        // 채널이 저장하는 단위 — 월 단위 채널은 월로 저장해야 한다
   onClose: () => void; onSaved: () => void
 }) {
   const today = new Date(); const pad = (n: number) => String(n).padStart(2, '0')
@@ -1130,11 +1138,24 @@ function InputModal({
   // 모달은 showModal일 때만 마운트되므로, 채널을 바꿔 다시 열면 아래 초기값이 새 scoreMax로 다시 잡힌다
   const vocBands = vocBandsFor(scoreMax)
 
-  const [date, setDate]           = useState(todayStr)
+  // granularity를 함께 저장하는 모드들. checkouts는 지점 단위 값이라 granularity가 없다.
+  const usesGranularity = mode === 'score-dist' || mode === 'complaints' || mode === 'voc'
+  // 월 단위 채널(에어비앤비·여기어때)은 배치와 같은 키(YYYY-MM-01)로 써야 주/월 행이 섞이지 않는다
+  const monthlyInput    = usesGranularity && granularity === 'month'
+  // 체크아웃은 점수 스냅샷 기준일과 정확히 일치해야 작성률 조인이 성립한다 (최신 먼저)
+  const snapshotDates   = useMemo(() => [...dates].sort().reverse(), [dates])
+  const useSnapshotPick = mode === 'checkouts' && snapshotDates.length > 0
+
+  const [date, setDate]           = useState(() => {
+    if (mode === 'checkouts' && dates.length > 0) return dates[dates.length - 1]
+    if (usesGranularity && granularity === 'month') return `${todayStr.substring(0, 7)}-01`
+    return todayStr
+  })
   const [score, setScore]         = useState('')
   const [reviews, setReviews]     = useState('')
   const [checkouts, setCheckouts] = useState('')
-  const [distVals, setDistVals]   = useState<number[]>(() => new Array(scoreMax === 5 ? 5 : 10).fill(0))
+  // 빈 문자열을 허용해야 앞자리 0이 남지 않는다 — 숫자 변환은 저장 시점에만
+  const [distVals, setDistVals]   = useState<string[]>(() => new Array(scoreMax === 5 ? 5 : 10).fill(''))
   const [roomComp, setRoom] = useState('0')
   const [bathComp, setBath] = useState('0')
   const [memo, setMemo]     = useState('')
@@ -1171,12 +1192,13 @@ function InputModal({
 
       } else if (mode === 'score-dist') {
         if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
+        const nums = distVals.map(v => parseInt(v) || 0)
         const counts: Record<string, number> = {}
-        distVals.forEach((v, i) => { counts[`score_${i + 1}`] = v })
-        if (!distVals.some(v => v > 0)) { setError('점수 분포 값을 1개 이상 입력하세요.'); setSaving(false); return }
+        nums.forEach((v, i) => { counts[`score_${i + 1}`] = v })
+        if (!nums.some(v => v > 0)) { setError('점수 분포 값을 1개 이상 입력하세요.'); setSaving(false); return }
         const res = await fetch('/api/ota/score-dist', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propertyId, weekStart: date, scoreMax, counts }),
+          body: JSON.stringify({ propertyId, weekStart: date, granularity, scoreMax, counts }),
         })
         if (!res.ok) throw new Error(await res.text())
 
@@ -1184,7 +1206,7 @@ function InputModal({
         if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
         const res = await fetch('/api/ota/complaints', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propertyId, weekStart: date, roomComplaints: parseInt(roomComp)||0, bathroomComplaints: parseInt(bathComp)||0, memo }),
+          body: JSON.stringify({ propertyId, weekStart: date, granularity, roomComplaints: parseInt(roomComp)||0, bathroomComplaints: parseInt(bathComp)||0, memo }),
         })
         if (!res.ok) throw new Error(await res.text())
 
@@ -1194,7 +1216,7 @@ function InputModal({
         if (!validItems.length) { setError('키워드를 1개 이상 입력하세요.'); setSaving(false); return }
         const res = await fetch('/api/ota/voc', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propertyId, weekStart: date, items: validItems }),
+          body: JSON.stringify({ propertyId, weekStart: date, granularity, items: validItems }),
         })
         if (!res.ok) throw new Error(await res.text())
       }
@@ -1220,11 +1242,32 @@ function InputModal({
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20 }}>{branch} · {ota}</div>
 
-        {/* 날짜 — 공통 */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>기준 날짜 (주 시작일)</label>
-          <input style={inputStyle} type="date" value={date} onChange={e => setDate(e.target.value)} />
-        </div>
+        {/* 날짜 — 공통 (체크아웃은 스냅샷 선택, 월 단위 채널은 월 선택) */}
+        {useSnapshotPick ? (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>대상 주 (점수 스냅샷 기준일)</label>
+            <select style={selectStyle} value={date} onChange={e => setDate(e.target.value)}>
+              {snapshotDates.map(dt => <option key={dt} value={dt}>{fmtSnapshotDate(dt)}</option>)}
+            </select>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.7 }}>
+              작성률은 점수 스냅샷과 같은 날짜에만 산출됩니다 — 스냅샷이 있는 주만 선택할 수 있습니다.
+            </div>
+          </div>
+        ) : monthlyInput ? (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>기준 월</label>
+            <input style={inputStyle} type="month" value={date.substring(0, 7)}
+              onChange={e => setDate(e.target.value ? `${e.target.value}-01` : '')} />
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.7 }}>
+              이 채널은 OTA가 월 단위 날짜만 제공합니다 — 해당 월 1일자로 저장됩니다.
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>기준 날짜 (주 시작일)</label>
+            <input style={inputStyle} type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+        )}
 
         {/* ── 기본 추이: 평점 + 리뷰 수 ── */}
         {mode === 'basic' && (
@@ -1258,8 +1301,8 @@ function InputModal({
             {bandsFor(scoreMax).map((label, i) => (
               <div key={label}>
                 <label style={labelStyle}>{label}</label>
-                <input style={inputStyle} type="number" min="0" value={distVals[i]}
-                  onChange={e => setDistVals(prev => prev.map((v, idx) => idx === i ? (parseInt(e.target.value) || 0) : v))} />
+                <input style={inputStyle} type="number" min="0" placeholder="0" value={distVals[i] ?? ''}
+                  onChange={e => setDistVals(prev => prev.map((v, idx) => idx === i ? e.target.value : v))} />
               </div>
             ))}
           </div>
@@ -1366,6 +1409,12 @@ function OtaDetailView({
   const weeklyNew     = curReviews > 0 && prevReviews > 0 ? curReviews - prevReviews : 0
   const propertyId    = branchOtaToId?.[branch]?.[ota]
 
+  // 채널의 저장 단위 — OtaDetailTabs의 monthlyOnly와 같은 판정.
+  // 월 단위 채널(에어비앤비·여기어때)에 주 단위 행을 섞어 넣으면 월별 집계 키가 충돌한다.
+  const distRows      = d.scoreDist[branch]?.[ota] ?? []
+  const granularity: 'week' | 'month' =
+    distRows.length > 0 && distRows.every(r => r.granularity === 'month') ? 'month' : 'week'
+
   // 주간 신규 리뷰 = 누적값 차이 (delta). 한 주 앞 값이 필요하므로 9개 슬라이스
   const last9Reviews  = allReviews.slice(-9)
   const weeklyReviews = last8Labels.map((_, i) => {
@@ -1448,6 +1497,8 @@ function OtaDetailView({
         <InputModal branch={branch} ota={ota} propertyId={propertyId} otaEntry={otaEntry}
           scoreMax={d.scoreMaxByBranchOta[branch]?.[ota] ?? 10}
           mode={getModalMode()}
+          dates={d.dates}
+          granularity={granularity}
           onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); onSaved() }} />
       )}
     </div>
@@ -1504,7 +1555,7 @@ export default function OtaScoresClient({
       { name: '여기어때', max: 10, okr: 9.0 }, { name: 'Airbnb', max: 5, okr: 4.8 },
       { name: 'NOL', max: 5, okr: 4.5 },
     ],
-    dateLabels, scoreHistory, reviewHistory,
+    dateLabels, dates, scoreHistory, reviewHistory,
     scoreDist, complaints, complaintMemos, voc, reviewRate, scoreMaxByBranchOta,
   }
 
