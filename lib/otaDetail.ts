@@ -114,25 +114,34 @@ export function monthsCovering(weekStarts: string[]): string[] {
   return out
 }
 
-// 이 버킷이 '아직 끝나지 않은 달'인가 — --fill-empty의 보호 대상에서 뺄지 결정한다.
+// 버킷이 덮는 구간의 마지막 날('YYYY-MM-DD').
+// 주 버킷은 시작일(월)+6일(일), 월 버킷은 그 달의 말일이다.
+export function bucketPeriodEnd(weekStart: string, granularity: Granularity): string {
+  if (granularity === 'month') {
+    return addDaysIso(monthStartOf(nextMonth(weekStart.substring(0, 7))), -1)
+  }
+  return addDaysIso(weekStart, 6)
+}
+
+// 구간이 끝난 뒤에도 뒤늦은 리뷰를 기다려 주는 유예 일수.
+// raw_reviews는 주기적 수집으로 채워지므로 구간이 끝난 뒤에도 그 구간의 리뷰가 계속 들어온다
+// (에어비앤비 실측: review_month 2026-06의 47건 중 6건이 7월에, 2026-05의 51건 중 18건이
+//  6월에, 2026-04의 54건 중 28건이 5월에 적재됐다).
+export const SETTLE_GRACE_DAYS = 7
+
+// 이 버킷이 아직 '확정되지 않았는가' — 뒤늦은 리뷰가 더 들어올 여지가 있는가.
 //
-// 월 입도 채널(에어비앤비·여기어때)은 한 달을 한 행으로 접는다. 배치는 한 달 안에서
-// 여러 번 돌기 때문에, 달 중간에 쓴 행은 그 달의 일부만 담은 미완성 값이다.
-// --fill-empty가 '행이 있으면 건너뛴다'로만 동작하면 그 미완성 값이 영구히 굳어
-// 다음 주 실행도 건너뛰고, 그 달은 끝내 완성되지 않는다(매달 반복된다).
-// 그래서 '기준일이 속한 달'의 월 버킷만 보호에서 제외하고 매 실행 다시 쓴다.
-// 이미 끝난 달은 확정값이므로 그대로 보호한다.
-//
-// 주 입도는 대상이 아니다 — 주간 루틴은 완료된 주를 상대로 고정 주기로 돌기 때문에
-// 구조가 다르다. 미래 달(기준일보다 뒤)도 대상이 아니다 — 정상 데이터가 아니며
-// 여기서 임의로 되살릴 근거가 없다.
-export function isInProgressMonthBucket(
+// 구간이 아직 끝나지 않았거나, 끝난 지 SETTLE_GRACE_DAYS일 이내면 미확정으로 본다.
+// 파생 배치가 자기가 쓴 행을 다시 분석할지 정하는 기준이다 — 확정된 버킷까지 매주 다시
+// 분석하면 주간 루틴이 몇 달치 본문을 반복 분석하는 비용을 치른다.
+// 값이 싼 점수 분포는 이 판정을 쓰지 않고 자기 행을 항상 다시 계산한다.
+export function isUnsettledBucket(
   weekStart: string,
   granularity: Granularity,
   todayIso: string,
 ): boolean {
-  if (granularity !== 'month') return false
-  return weekStart.substring(0, 7) === todayIso.substring(0, 7)
+  // ISO 'YYYY-MM-DD'는 사전순 비교가 곧 날짜 비교다.
+  return todayIso <= addDaysIso(bucketPeriodEnd(weekStart, granularity), SETTLE_GRACE_DAYS)
 }
 
 // ota_properties.ota_name → raw_reviews.ota_site (같은 채널의 두 표기)

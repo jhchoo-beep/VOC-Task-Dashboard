@@ -8,10 +8,17 @@
  *
  * 점수 분포는 LLM을 타지 않는다 — 재실행 시 값이 같아야 하고 검산이 가능해야 한다.
  *
- * --fill-empty 는 '빈 자리만 채운다'는 뜻이다. 붙이지 않으면 기존 행을 덮어쓴다
- * (손으로 넣은 값도 포함). 덮어쓰기 전에 몇 건이 걸리는지 경고로 알린다.
- * 단, 아직 끝나지 않은 달의 월 버킷(에어비앤비·여기어때)은 예외로 매번 다시 쓴다 —
- * 달 중간에 쓴 부분값이 영구히 굳는 것을 막기 위해서다. 갱신 시 로그로 알린다.
+ * --fill-empty 는 '수기 입력을 보호한다'는 뜻이다(행의 존재 여부가 아니라 출처로 판단).
+ * 각 행은 source 컬럼에 'manual'(사람이 넣음) 또는 'derived'(이 배치가 씀)를 달고 있고,
+ * 이 배치가 쓰는 행은 항상 'derived'다. --fill-empty를 붙이면:
+ *   · source='manual' 행 — 절대 건드리지 않는다.
+ *   · source='derived' 행 — 점수 분포는 매번 다시 계산해 덮어쓴다(LLM을 타지 않아 싸고 결정론적).
+ *                           불만·VOC는 '미확정' 버킷일 때만 다시 분석한다(사람·LLM 비용).
+ * 붙이지 않으면 수기 입력까지 덮어쓴다 — 몇 건이 걸리는지 경고로 알린다.
+ *
+ * '행이 있으면 건너뛴다'로 하지 않는 이유: 대상 주에는 항상 아직 끝나지 않은 이번 주가 들어
+ * 있어, 첫 실행이 쓴 부분값(7일 중 3일)이 영구히 굳는다. 뒤늦게 들어오는 리뷰도 같은 이유로
+ * 영영 반영되지 않는다(에어비앤비 실측: 한 달치의 14~52%가 그 달이 끝난 뒤 적재됐다).
  *
  * ── 실행 환경 주의 ──────────────────────────────────────────────
  * 이 리포의 `.env.local`에는 쓸 수 있는 Supabase 접속 정보가 없다.
@@ -29,7 +36,7 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import {
   parseRawDate, weekStartOf, monthStartOf, distFromRatings, distColumnsFor,
-  recentWeekStarts, monthsCovering, isInProgressMonthBucket,
+  recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
   OTA_SITE_BY_NAME, type Granularity,
 } from '../lib/otaDetail'
 
@@ -101,7 +108,7 @@ function todayIsoLocal(): string {
   return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`
 }
 
-// '오늘'은 실행당 한 번만 정한다. 대상 주 계산과 '진행 중인 달' 판정이 각자
+// '오늘'은 실행당 한 번만 정한다. 대상 주 계산과 '미확정 버킷' 판정이 각자
 // new Date()를 부르면, 자정을 걸친 실행에서 한 실행이 서로 다른 날짜를 믿게 된다.
 const TODAY = todayIsoLocal()
 
@@ -241,14 +248,20 @@ async function buildBuckets(): Promise<Bucket[]> {
   return buckets
 }
 
+type Source = 'manual' | 'derived'
+
 // ota_score_dist·ota_complaints는 주·채널이 쌓일수록 커진다 — 여기도 끝까지 페이징한다.
-// 조용히 1000행에서 잘리면 --fill-empty가 기존 행을 '없다'고 보고 덮어쓴다.
+// 조용히 1000행에서 잘리면 기존 수기 행을 '없다'고 보고 덮어쓴다.
 // (fetchRawReviews와 같은 이유로 종료 조건은 '빈 페이지'다.)
-async function existingKeys(table: string): Promise<Set<string>> {
-  const keys = new Set<string>()
+//
+// 키만이 아니라 출처(source)까지 읽는다 — 보호 여부는 '행이 있는가'가 아니라
+// '누가 썼는가'로 정한다. source가 없거나 값이 이상하면 보수적으로 manual로 본다
+// (사람이 넣은 값을 덮어쓰는 쪽이 훨씬 비싼 실수다).
+async function existingSources(table: string): Promise<Map<string, Source>> {
+  const out = new Map<string, Source>()
   for (let from = 0; ;) {
     const { data, error } = await db.from(table)
-      .select('property_id,week_start,granularity')
+      .select('property_id,week_start,granularity,source')
       .order('property_id', { ascending: true })
       .order('week_start', { ascending: true })
       .order('granularity', { ascending: true })
@@ -256,50 +269,50 @@ async function existingKeys(table: string): Promise<Set<string>> {
     if (error) throw error
     const page = data ?? []
     if (page.length === 0) break
-    page.forEach((r: any) => keys.add(`${r.property_id}|${r.week_start}|${r.granularity ?? 'week'}`))
+    page.forEach((r: any) => out.set(
+      `${r.property_id}|${r.week_start}|${r.granularity ?? 'week'}`,
+      r.source === 'derived' ? 'derived' : 'manual',
+    ))
     from += page.length
   }
-  return keys
+  return out
 }
 
-// --fill-empty 없이 기존 행을 덮어쓰려 할 때 몇 건이 걸리는지 알린다.
+// --fill-empty 없이 수기 입력을 덮어쓰려 할 때 몇 건이 걸리는지 알린다.
 // 파생 주 라벨은 손으로 넣은 아고다 라벨과 한 주 어긋나 있고 평균 산식도 다르다 —
 // 플래그 하나 빠뜨린 실행이 수기 데이터를 다른 축의 값으로 덮어쓸 수 있다.
-function warnOverwrite(table: string, collide: number) {
-  if (fillEmpty || collide === 0) return
+// (이 배치가 쓴 derived 행은 언제든 다시 만들 수 있으므로 경고 대상이 아니다.)
+function warnOverwrite(table: string, manualCollide: number) {
+  if (fillEmpty || manualCollide === 0) return
   const bar = '='.repeat(72)
   console.warn('')
   console.warn(bar)
-  console.warn(`[경고] --fill-empty 없이 실행 중 — ${table} 기존 ${collide}건을 덮어씁니다`)
+  console.warn(`[경고] --fill-empty 없이 실행 중 — ${table} 수기 입력(source=manual) ${manualCollide}건을 덮어씁니다`)
   console.warn('       손으로 넣은 값(주 라벨·평균 산식이 다를 수 있음)이 파생값으로 대체됩니다.')
-  console.warn('       기존 값을 보존하려면 --fill-empty 를 붙여 다시 실행하세요.')
+  console.warn('       수기 입력을 보존하려면 --fill-empty 를 붙여 다시 실행하세요.')
   if (dryRun) console.warn('       (dry-run이라 이번 실행은 쓰지 않습니다)')
   console.warn(bar)
   console.warn('')
 }
 
 async function runDist(buckets: Bucket[]) {
-  // --fill-empty 여부와 무관하게 기존 키를 읽는다 — 무엇을 덮어쓰는지 세어 알리기 위해서다.
-  const have = await existingKeys('ota_score_dist')
+  // --fill-empty 여부와 무관하게 기존 행의 출처를 읽는다 — 무엇을 덮어쓰는지 세어 알리기 위해서다.
+  const have = await existingSources('ota_score_dist')
   const writable = buckets.filter(b => b.ratings.length > 0)
-  warnOverwrite('ota_score_dist', writable.filter(b => have.has(`${b.propertyId}|${b.weekStart}|${b.granularity}`)).length)
+  warnOverwrite('ota_score_dist',
+    writable.filter(b => have.get(`${b.propertyId}|${b.weekStart}|${b.granularity}`) === 'manual').length)
 
-  let wrote = 0, skipped = 0, overwrote = 0, refreshed = 0
+  // 점수 분포는 LLM을 타지 않아 재계산이 사실상 공짜다. 그래서 '확정/미확정'을 따지지 않고
+  // 자기가 쓴(derived) 행은 매 실행 다시 계산한다 — 끝나지 않은 구간의 부분값도, 뒤늦게
+  // 들어온 리뷰도 다음 실행에서 저절로 교정된다. 보호 대상은 오직 수기 입력(manual)이다.
+  let wrote = 0, skippedManual = 0, refreshedDerived = 0, overwroteManual = 0
 
   for (const b of writable) {
-    const k = `${b.propertyId}|${b.weekStart}|${b.granularity}`
-    const exists = have.has(k)
-    // 진행 중인 달의 월 버킷은 --fill-empty로도 보호하지 않는다 — 달 중간에 쓴
-    // 부분값이 영구히 굳는 것을 막는다(사유는 isInProgressMonthBucket 주석 참조).
-    const inProgress = isInProgressMonthBucket(b.weekStart, b.granularity, TODAY)
+    const src = have.get(`${b.propertyId}|${b.weekStart}|${b.granularity}`)
 
-    if (exists && fillEmpty && !inProgress) { skipped++; continue }
-    if (exists && fillEmpty && inProgress) {
-      refreshed++
-      console.log(`[진행 중인 달 갱신] ${b.branch} ${b.ota} ${b.weekStart}(월) — 아직 끝나지 않은 달이라 기존 행을 보존하지 않고 다시 씁니다`)
-    } else if (exists) {
-      overwrote++
-    }
+    if (src === 'manual' && fillEmpty) { skippedManual++; continue }
+    if (src === 'manual') overwroteManual++
+    else if (src === 'derived') refreshedDerived++
 
     // 부동소수점 덧셈은 결합법칙이 성립하지 않는다 — 반올림 경계에 걸린 버킷은
     // 더하는 순서만 바뀌어도 평균이 뒤집힌다. raw_reviews.id는 랜덤 UUID라
@@ -308,7 +321,7 @@ async function runDist(buckets: Bucket[]) {
     const { counts, avg, total } = distFromRatings(ratings, b.scoreMax)
     const row = {
       property_id: b.propertyId, week_start: b.weekStart, granularity: b.granularity,
-      ...counts, weekly_avg_score: avg,
+      ...counts, weekly_avg_score: avg, source: 'derived',
     }
     console.log(`${b.branch} ${b.ota} ${b.weekStart}(${b.granularity}) — ${total}건 avg ${avg} ` +
       distColumnsFor(b.scoreMax).map(c => `${c.replace('score_','')}:${counts[c]}`).filter(s => !s.endsWith(':0')).join(' '))
@@ -316,23 +329,28 @@ async function runDist(buckets: Bucket[]) {
     if (!dryRun) {
       const { error } = await db.from('ota_score_dist').upsert(row, { onConflict: 'property_id,week_start,granularity' })
       if (error) throw error
-      wrote++
     }
+    wrote++
   }
-  console.log(`\n점수 분포 — 기록 ${wrote}건 · 기존 보존 ${skipped}건 · 덮어씀 ${overwrote}건 · 진행 중인 달 갱신 ${refreshed}건${dryRun ? ' (dry-run)' : ''}`)
+  // 기록은 '신규 + 파생 재계산 + 수기 덮어씀'의 합이다 — 내역을 함께 적어 합이 맞는지 보이게 한다.
+  const fresh = wrote - refreshedDerived - overwroteManual
+  console.log(`\n점수 분포 — ${dryRun ? '기록 예정' : '기록'} ${wrote}건` +
+    `(신규 ${fresh} · 파생 재계산 ${refreshedDerived} · 수기 덮어씀 ${overwroteManual})` +
+    ` · 수기 보존 ${skippedManual}건${dryRun ? ' (dry-run)' : ''}`)
 }
 
 async function runEmitText(buckets: Bucket[], path: string) {
-  const have = fillEmpty ? await existingKeys('ota_complaints') : new Set<string>()
+  const have = fillEmpty ? await existingSources('ota_complaints') : new Map<string, Source>()
   const payload = buckets
     .filter(b => b.texts.length > 0)
-    // 아래 --apply-text가 진행 중인 달을 다시 쓰려면 분석 대상 파일에도 남아 있어야 한다.
-    // 여기서만 걸러내면 쓰기 경로의 예외가 실제로는 한 번도 열리지 않는다.
+    // 아래 --apply-text와 같은 규칙으로 걸러야 한다 — 여기서만 빼면 쓰기 경로의 조건이
+    // 실제로는 한 번도 열리지 않고, 여기서만 넣으면 분석 비용만 치르고 버려진다.
     .filter(b => {
-      const k = `${b.propertyId}|${b.weekStart}|${b.granularity}`
-      if (!have.has(k)) return true
-      if (!isInProgressMonthBucket(b.weekStart, b.granularity, TODAY)) return false
-      console.log(`[진행 중인 달 갱신] ${b.branch} ${b.ota} ${b.weekStart}(월) — 아직 끝나지 않은 달이라 기존 행이 있어도 분석 대상에 넣습니다`)
+      const src = have.get(`${b.propertyId}|${b.weekStart}|${b.granularity}`)
+      if (src === undefined) return true
+      if (src === 'manual') return false          // 수기 입력은 건드리지 않는다
+      if (!isUnsettledBucket(b.weekStart, b.granularity, TODAY)) return false  // 확정된 파생 버킷
+      console.log(`[미확정 재분석] ${b.branch} ${b.ota} ${b.weekStart}(${b.granularity}) — 구간이 끝난 지 ${SETTLE_GRACE_DAYS}일이 지나지 않아 다시 분석 대상에 넣습니다`)
       return true
     })
     .map(b => ({
@@ -378,7 +396,7 @@ async function runApplyText(path: string) {
   const results = parsed as TextResult[]
 
   const meta = await propertyMeta()
-  const have = await existingKeys('ota_complaints')
+  const have = await existingSources('ota_complaints')
 
   // 1) 검증을 먼저 전부 끝낸다 — 한 건이라도 어긋나면 아무것도 쓰지 않고 종료한다.
   const rows = results.map((r, i) => {
@@ -406,17 +424,22 @@ async function runApplyText(path: string) {
     }
   })
 
-  // 2) --fill-empty면 기존 행을 건드리지 않는다(수기 입력 보호). 아니면 덮어쓸 건수를 경고한다.
-  warnOverwrite('ota_complaints', rows.filter(r => have.has(`${r.propertyId}|${r.weekStart}|${r.granularity}`)).length)
+  // 2) --fill-empty면 수기 입력을 건드리지 않는다. 아니면 덮어쓸 건수를 경고한다.
+  warnOverwrite('ota_complaints',
+    rows.filter(r => have.get(`${r.propertyId}|${r.weekStart}|${r.granularity}`) === 'manual').length)
 
-  let wrote = 0, skipped = 0, refreshed = 0
+  // 불만·VOC는 본문을 사람·LLM이 읽어야 나오는 값이라 재분석이 비싸다. 그래서 분포와 달리
+  // 자기가 쓴(derived) 행도 '미확정'일 때만 다시 쓴다 — 구간이 아직 안 끝났거나 끝난 지
+  // SETTLE_GRACE_DAYS일 이내라 뒤늦은 리뷰가 더 들어올 여지가 있는 버킷이다.
+  // 확정된 버킷까지 매주 다시 분석하면 주간 루틴이 몇 달치 본문 값을 반복해서 치른다.
+  let wrote = 0, skippedManual = 0, refreshedDerived = 0, skippedSettled = 0
   for (const r of rows) {
-    const k = `${r.propertyId}|${r.weekStart}|${r.granularity}`
-    // 분포 경로와 같은 규칙 — 진행 중인 달의 월 버킷은 --fill-empty로 보호하지 않는다.
-    if (fillEmpty && have.has(k)) {
-      if (!isInProgressMonthBucket(r.weekStart, r.granularity, TODAY)) { skipped++; continue }
-      refreshed++
-      console.log(`[진행 중인 달 갱신] ${r.label} ${r.weekStart}(월) — 아직 끝나지 않은 달이라 기존 행을 보존하지 않고 다시 씁니다`)
+    const src = have.get(`${r.propertyId}|${r.weekStart}|${r.granularity}`)
+    if (fillEmpty && src === 'manual') { skippedManual++; continue }
+    if (fillEmpty && src === 'derived') {
+      if (!isUnsettledBucket(r.weekStart, r.granularity, TODAY)) { skippedSettled++; continue }
+      refreshedDerived++
+      console.log(`[미확정 재분석] ${r.label} ${r.weekStart}(${r.granularity}) — 구간이 끝난 지 ${SETTLE_GRACE_DAYS}일이 지나지 않아 기존 파생 행을 다시 씁니다`)
     }
 
     if (dryRun) {
@@ -427,6 +450,7 @@ async function runApplyText(path: string) {
     const { error: cErr } = await db.from('ota_complaints').upsert({
       property_id: r.propertyId, week_start: r.weekStart, granularity: r.granularity,
       room_complaints: r.roomComplaints, bathroom_complaints: r.bathroomComplaints, memo: r.memo,
+      source: 'derived',
     }, { onConflict: 'property_id,week_start,granularity' })
     if (cErr) throw cErr
 
@@ -443,14 +467,15 @@ async function runApplyText(path: string) {
       const { error: vErr } = await db.from('ota_voc').insert(
         r.voc.map(v => ({
           property_id: r.propertyId, week_start: r.weekStart, granularity: r.granularity,
-          band: v.band, sentiment: v.sentiment, keyword: v.keyword,
+          band: v.band, sentiment: v.sentiment, keyword: v.keyword, source: 'derived',
         }))
       )
       if (vErr) throw vErr
     }
     wrote++
   }
-  console.log(`\n불만·VOC — 기록 ${wrote}건 · 기존 보존 ${skipped}건 · 진행 중인 달 갱신 ${refreshed}건${dryRun ? ' (dry-run)' : ''}`)
+  console.log(`\n불만·VOC — 기록 ${wrote}건 · 수기 보존 ${skippedManual}건 · ` +
+    `파생 재분석 ${refreshedDerived}건 · 확정 버킷 건너뜀 ${skippedSettled}건${dryRun ? ' (dry-run)' : ''}`)
 }
 
 async function main() {

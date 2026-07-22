@@ -124,33 +124,68 @@ describe('monthsCovering', () => {
   })
 })
 
-import { isInProgressMonthBucket } from './otaDetail'
+import { bucketPeriodEnd, isUnsettledBucket, SETTLE_GRACE_DAYS } from './otaDetail'
 
-describe('isInProgressMonthBucket', () => {
-  it('기준일이 속한 달의 월 버킷은 아직 진행 중이다', () => {
-    // 7/22에 쓰는 2026-07 월 버킷은 그 달의 일부만 담고 있다 — 다음 주에 다시 써야 한다
-    expect(isInProgressMonthBucket('2026-07-01', 'month', '2026-07-22')).toBe(true)
-    expect(isInProgressMonthBucket('2026-07-01', 'month', '2026-07-01')).toBe(true)
-    expect(isInProgressMonthBucket('2026-07-01', 'month', '2026-07-31')).toBe(true)
+describe('bucketPeriodEnd', () => {
+  it('주 버킷은 시작일(월)+6일인 일요일이다', () => {
+    expect(bucketPeriodEnd('2026-07-20', 'week')).toBe('2026-07-26')
+    expect(bucketPeriodEnd('2026-07-27', 'week')).toBe('2026-08-02') // 월 경계
   })
 
-  it('이미 끝난 달의 월 버킷은 확정값이다', () => {
-    expect(isInProgressMonthBucket('2026-06-01', 'month', '2026-07-22')).toBe(false)
-    expect(isInProgressMonthBucket('2025-12-01', 'month', '2026-01-05')).toBe(false)
+  it('월 버킷은 그 달의 말일이다', () => {
+    expect(bucketPeriodEnd('2026-07-01', 'month')).toBe('2026-07-31')
+    expect(bucketPeriodEnd('2026-06-01', 'month')).toBe('2026-06-30')
+    expect(bucketPeriodEnd('2026-02-01', 'month')).toBe('2026-02-28') // 2026은 평년
+    expect(bucketPeriodEnd('2024-02-01', 'month')).toBe('2024-02-29') // 윤년
+    expect(bucketPeriodEnd('2026-12-01', 'month')).toBe('2026-12-31') // 연 경계
+  })
+})
+
+describe('isUnsettledBucket', () => {
+  it('유예 일수는 7일이다', () => {
+    expect(SETTLE_GRACE_DAYS).toBe(7)
   })
 
-  it('미래 달은 진행 중으로 보지 않는다', () => {
-    expect(isInProgressMonthBucket('2026-08-01', 'month', '2026-07-22')).toBe(false)
+  it('아직 끝나지 않은 주는 미확정이다', () => {
+    // 7/22(수)에 보는 7/20 주는 7/26에나 끝난다 — 이번 주가 굳어 버리는 것이 이 규칙의 발단
+    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-22')).toBe(true)
+    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-20')).toBe(true)
+    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-26')).toBe(true)
   })
 
-  it('주 입도는 같은 달이라도 대상이 아니다', () => {
-    // 주간 루틴은 완료된 주를 상대로 고정 주기로 돈다 — 구조가 다르다
-    expect(isInProgressMonthBucket('2026-07-20', 'week', '2026-07-22')).toBe(false)
-    expect(isInProgressMonthBucket('2026-07-01', 'week', '2026-07-22')).toBe(false)
+  it('끝난 지 7일 이내인 주는 여전히 미확정이다', () => {
+    // 구간 종료 7/26 + 유예 7일 = 8/2까지 미확정
+    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-27')).toBe(true)
+    expect(isUnsettledBucket('2026-07-20', 'week', '2026-08-02')).toBe(true)
   })
 
-  it('연도가 다르면 월 숫자가 같아도 진행 중이 아니다', () => {
-    expect(isInProgressMonthBucket('2025-07-01', 'month', '2026-07-22')).toBe(false)
+  it('끝난 지 7일을 넘긴 주는 확정이다', () => {
+    expect(isUnsettledBucket('2026-07-20', 'week', '2026-08-03')).toBe(false)
+    expect(isUnsettledBucket('2026-06-29', 'week', '2026-07-22')).toBe(false)
+  })
+
+  it('아직 끝나지 않은 달은 미확정이다', () => {
+    expect(isUnsettledBucket('2026-07-01', 'month', '2026-07-01')).toBe(true)
+    expect(isUnsettledBucket('2026-07-01', 'month', '2026-07-22')).toBe(true)
+    expect(isUnsettledBucket('2026-07-01', 'month', '2026-07-31')).toBe(true)
+  })
+
+  it('끝난 지 7일 이내인 달은 여전히 미확정이다', () => {
+    // 6월 말일 6/30 + 유예 7일 = 7/7까지 — 지난달 뒤늦은 리뷰가 들어오는 구간이다
+    expect(isUnsettledBucket('2026-06-01', 'month', '2026-07-01')).toBe(true)
+    expect(isUnsettledBucket('2026-06-01', 'month', '2026-07-07')).toBe(true)
+  })
+
+  it('끝난 지 7일을 넘긴 달은 확정이다', () => {
+    expect(isUnsettledBucket('2026-06-01', 'month', '2026-07-08')).toBe(false)
+    expect(isUnsettledBucket('2026-06-01', 'month', '2026-07-22')).toBe(false)
+    expect(isUnsettledBucket('2025-12-01', 'month', '2026-01-09')).toBe(false) // 연 경계
+  })
+
+  it('미래 구간은 미확정이다', () => {
+    // 아직 오지 않은 구간을 확정으로 봐서 건너뛰면 영영 분석되지 않는다
+    expect(isUnsettledBucket('2026-08-01', 'month', '2026-07-22')).toBe(true)
+    expect(isUnsettledBucket('2026-08-03', 'week', '2026-07-22')).toBe(true)
   })
 })
 
