@@ -101,7 +101,10 @@ interface Bucket {
   weekStart: string
   granularity: Granularity
   ratings: number[]
-  texts: string[]
+  // 밴드(10점/9점대/…) 판정은 본문 톤이 아니라 이 rating으로 한다 — --emit-text가
+  // 그대로 실어 내보내므로 분석자가 raw_reviews를 따로 조회할 필요가 없다.
+  // rating이 없는 리뷰는 0으로 채우지 않고 필드 자체를 비운다(허위 0점 방지).
+  texts: { content: string; rating?: number }[]
 }
 
 // 오늘 날짜는 실행자의 로컬 달력(KST)으로 정하고, 이후 주·월 계산은 전부 UTC로만 한다.
@@ -228,7 +231,13 @@ async function buildBuckets(): Promise<Bucket[]> {
       }
       const b = byKey.get(k)!
       if (r.rating != null) b.ratings.push(Number(r.rating))
-      if (r.content && r.content.trim().length > 5) b.texts.push(r.content.trim())
+      if (r.content && r.content.trim().length > 5) {
+        // rating이 없으면 키 자체를 넣지 않는다(undefined는 JSON.stringify가 드롭한다) —
+        // 0점으로 채우면 실제 1점 리뷰와 구분이 안 돼 밴드 오판정을 만든다.
+        const entry: { content: string; rating?: number } = { content: r.content.trim() }
+        if (r.rating != null) entry.rating = Number(r.rating)
+        b.texts.push(entry)
+      }
     }
     buckets.push(...byKey.values())
   }
@@ -380,6 +389,8 @@ async function runEmitText(buckets: Bucket[], path: string) {
     .map(b => ({
       propertyId: b.propertyId, branch: b.branch, ota: b.ota,
       weekStart: b.weekStart, granularity: b.granularity,
+      // reviews[]는 {content, rating} 쌍이다 — rating이 있어야 밴드(10점/9점대/…)를
+      // 톤 추측이 아니라 실제 점수로 판정할 수 있다. rating 없는 리뷰는 필드가 비어 있다.
       scoreMax: b.scoreMax, reviews: b.texts,
     }))
   writeFileSync(path, JSON.stringify(payload, null, 2), 'utf8')
