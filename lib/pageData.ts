@@ -16,12 +16,16 @@ export const getOtaScoresProps = unstable_cache(async () => {
     { data: vocRaw },
     { data: checkoutsRaw },
   ] = await Promise.all([
-    supabase.from('ota_scores').select('property_id,overall_score,review_count,recorded_at').order('recorded_at', { ascending: true }),
-    supabase.from('ota_properties').select('property_id,branch,ota_name,score_max,okr_target').eq('active', true),
-    supabase.from('ota_score_dist').select('*').order('week_start', { ascending: true }),
-    supabase.from('ota_complaints').select('*').order('week_start', { ascending: true }),
-    supabase.from('ota_voc').select('*').order('week_start', { ascending: false }),
-    supabase.from('ota_branch_checkouts').select('branch,week_start,checkout_count').order('week_start', { ascending: true }),
+    // range를 빼면 PostgREST 기본 상한 1000행에서 조용히 잘린다 — 경고도 에러도 없다.
+    // 특히 dist·complaints는 week_start 오름차순이라, 상한을 넘는 순간 잘려 나가는 쪽이
+    // '가장 최신 주'다. 이 페이지가 보여 주려는 바로 그 데이터가 먼저 사라진다.
+    // (같은 파일의 getDashboardProps·getAnalyticsProps와 동일한 관례로 맞춘다.)
+    supabase.from('ota_scores').select('property_id,overall_score,review_count,recorded_at').order('recorded_at', { ascending: true }).range(0, 9999),
+    supabase.from('ota_properties').select('property_id,branch,ota_name,score_max,okr_target').eq('active', true).range(0, 9999),
+    supabase.from('ota_score_dist').select('*').order('week_start', { ascending: true }).range(0, 9999),
+    supabase.from('ota_complaints').select('*').order('week_start', { ascending: true }).range(0, 9999),
+    supabase.from('ota_voc').select('*').order('week_start', { ascending: false }).range(0, 9999),
+    supabase.from('ota_branch_checkouts').select('branch,week_start,checkout_count').order('week_start', { ascending: true }).range(0, 9999),
   ])
 
   const scores     = scoresRaw     ?? []
@@ -139,6 +143,24 @@ export const getOtaScoresProps = unstable_cache(async () => {
     put(reviewRate, p.branch, p.ota_name, rows)
   })
 
+  // 지점별로 '체크아웃 수를 넣으면 실제로 작성률이 나오는' 스냅샷 기준일.
+  // 위 루프가 i=1부터 도는 이유는 델타를 내려면 직전 스냅샷이 있어야 하기 때문이다 —
+  // 그래서 그 지점의 가장 이른 스냅샷 날짜는 무엇을 입력해도 한 줄도 만들지 못한다.
+  // 전 지점 합집합(dates)을 그대로 입력 모달에 내려보내면, 조인될 수 없는 날짜를 골라
+  // 저장에 성공하고도 화면이 그대로인 막다른 길이 생긴다(실측: 신설 체크아웃 20행 중
+  // 3행이 어떤 스냅샷과도 짝이 없다). 고를 수 있는 날짜만 내려보낸다.
+  const datesByBranch = new Map<string, Set<string>>()
+  scores.forEach((s: any) => {
+    const p = propMap.get(s.property_id)
+    if (!p) return
+    if (!datesByBranch.has(p.branch)) datesByBranch.set(p.branch, new Set())
+    datesByBranch.get(p.branch)!.add(s.recorded_at)
+  })
+  const snapshotDatesByBranch: Record<string, string[]> = {}
+  datesByBranch.forEach((set, branch) => {
+    snapshotDatesByBranch[branch] = [...set].sort().slice(1)
+  })
+
   const latestDate = allDates[allDates.length - 1] ?? '2026-05-18'
 
   // branch+ota → property_id 매핑 (데이터 입력 모달용)
@@ -154,6 +176,7 @@ export const getOtaScoresProps = unstable_cache(async () => {
     reviewHistory,
     dateLabels,
     dates: allDates,
+    snapshotDatesByBranch,
     otaList,
     scoreDist,
     complaints: complaints2,

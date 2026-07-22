@@ -199,6 +199,29 @@ export const OTA_SITE_BY_NAME: Record<string, string> = {
   '여기어때':  '여기어때',
 }
 
+// ── 채널별 입도(granularity) ──────────────────────────────────────
+// '이 채널이 주 단위인가 월 단위인가'의 단일 정본.
+//
+// 파생 배치와 입력 모달이 각자 사본을 들고 있으면 반드시 어긋난다. 모달 쪽은 사본 대신
+// '이미 쌓인 분포 행이 전부 month인가'로 추론했는데, 여기어때는 3개 지점 모두 분포 행이
+// 0개라 그 추론이 week로 떨어졌다 — 월 단위 채널에 주 행을 쓰게 되고, 한 property에
+// 주·월 행이 섞이면 월별 뷰가 '07/06'과 '7월'을 똑같이 '7월'로 접어 React 키가 중복된다.
+//
+// 판정은 데이터가 아니라 채널이 한다. 행이 0개여도 답이 달라지지 않는다.
+const MONTHLY_ONLY_SITES = new Set(['에어비앤비', '여기어때'])
+
+// raw_reviews.ota_site 표기 기준 — 파생 배치가 보는 이름.
+export function granularityForSite(otaSite: string): Granularity {
+  return MONTHLY_ONLY_SITES.has(otaSite) ? 'month' : 'week'
+}
+
+// ota_properties.ota_name 표기 기준 — 앱·UI가 보는 이름.
+// 매핑에 없는 이름은 이름 그대로 판정해 보고, 그래도 아니면 주 단위로 본다
+// (새 채널이 아무 근거 없이 월 버킷으로 빠지는 쪽이 더 나쁜 기본값이다).
+export function granularityForOtaName(otaName: string): Granularity {
+  return granularityForSite(OTA_SITE_BY_NAME[otaName] ?? otaName)
+}
+
 export function bandsFor(scoreMax: number): string[] {
   if (scoreMax === 5) return ['1점', '2점', '3점', '4점', '5점']
   return ['1점대','2점대','3점대','4점대','5점대','6점대','7점대','8점대','9점대','10점']

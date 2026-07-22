@@ -295,7 +295,53 @@ describe('planDetailWrite', () => {
   })
 })
 
-import { bandsFor, distColumnsFor, distFromRatings, OTA_SITE_BY_NAME } from './otaDetail'
+import {
+  bandsFor, distColumnsFor, distFromRatings, OTA_SITE_BY_NAME,
+  granularityForSite, granularityForOtaName,
+} from './otaDetail'
+
+describe('granularityForSite / granularityForOtaName', () => {
+  it('일 단위 날짜를 안 주는 두 채널만 월 버킷이다', () => {
+    expect(granularityForSite('에어비앤비')).toBe('month')
+    expect(granularityForSite('여기어때')).toBe('month')
+  })
+
+  it('나머지 채널은 전부 주 버킷이다', () => {
+    ;['아고다', '부킹닷컴', '트립닷컴', '익스피디아', '야놀자'].forEach(site => {
+      expect(granularityForSite(site)).toBe('week')
+    })
+  })
+
+  it('ota_name(앱 표기)으로도 같은 답이 나온다', () => {
+    // 파생 배치는 raw_reviews.ota_site(한글), UI는 ota_properties.ota_name(영문)을 본다.
+    // 두 표기가 다른 답을 내면 한 채널에 주 행과 월 행이 섞인다.
+    expect(granularityForOtaName('Airbnb')).toBe('month')
+    expect(granularityForOtaName('여기어때')).toBe('month')
+    expect(granularityForOtaName('Agoda')).toBe('week')
+    expect(granularityForOtaName('Booking')).toBe('week')
+    expect(granularityForOtaName('Trip.com')).toBe('week')
+    expect(granularityForOtaName('Expedia')).toBe('week')
+    expect(granularityForOtaName('NOL')).toBe('week')
+  })
+
+  it('두 표기의 판정이 전 채널에서 일치한다', () => {
+    Object.entries(OTA_SITE_BY_NAME).forEach(([name, site]) => {
+      expect(granularityForOtaName(name)).toBe(granularityForSite(site))
+    })
+  })
+
+  it('행이 하나도 없는 채널도 월 단위로 판정한다', () => {
+    // 여기어때는 3개 지점 모두 ota_score_dist가 0행이다. '쌓인 행이 전부 month인가'로
+    // 추론하던 입력 모달은 이 채널을 week로 판정해 월 단위 채널에 주 행을 쓸 수 있었다.
+    // 이 함수는 데이터를 보지 않으므로 0행이어도 답이 흔들리지 않는다.
+    expect(granularityForOtaName('여기어때')).toBe('month')
+  })
+
+  it('모르는 채널명은 주 단위가 기본값이다', () => {
+    expect(granularityForOtaName('알 수 없는 채널')).toBe('week')
+    expect(granularityForSite('알 수 없는 채널')).toBe('week')
+  })
+})
 
 describe('bandsFor', () => {
   it('10점 채널은 1점대~10점 10밴드다', () => {

@@ -42,16 +42,14 @@ import {
   parseRawDate, weekStartOf, monthStartOf, distFromRatings, distColumnsFor,
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
   mergeSource, planDetailWrite, isWriteAction, WRITE_ACTION_LABEL,
-  OTA_SITE_BY_NAME, type Granularity, type DetailSource, type WriteAction,
+  OTA_SITE_BY_NAME, granularityForSite,
+  type Granularity, type DetailSource, type WriteAction,
 } from '../lib/otaDetail'
 
 function die(msg: string): never {
   console.error(msg)
   process.exit(1)
 }
-
-// 일 단위 날짜를 제공하지 않는 채널 — 월 버킷으로만 적재한다
-const MONTHLY_ONLY = new Set(['에어비앤비', '여기어때'])
 
 // 인자 검증을 접속 정보 확인보다 먼저 한다 — 오타 난 명령이 접속 오류로만 보이지 않게.
 const argv = process.argv.slice(2)
@@ -196,9 +194,8 @@ async function buildBuckets(): Promise<Bucket[]> {
 
     // 입도는 채널이 정한다 — 행 단위로 정하면 일자 못 구한 리뷰 하나가 주간 채널에
     // 월 버킷을 끼워 넣어, 한 채널에 '7월'과 '07/14' 라벨이 섞이고 월간 뷰에서
-    // React 키가 중복된다. MONTHLY_ONLY만 월, 나머지는 무조건 주.
-    const monthly  = MONTHLY_ONLY.has(site)
-    const granularity: Granularity = monthly ? 'month' : 'week'
+    // React 키가 중복된다. 규칙의 정본은 lib/otaDetail.ts — 입력 모달도 같은 함수를 쓴다.
+    const granularity: Granularity = granularityForSite(site)
     const chanKey  = `${p.branch} ${p.ota_name}`
     const scoreMax = p.score_max === 5 ? 5 : 10
     const byKey    = new Map<string, Bucket>()
@@ -272,14 +269,19 @@ async function buildBuckets(): Promise<Bucket[]> {
 //
 // ota_voc는 키 하나에 키워드 행이 여러 개다 — 마지막 행이 이기게 두면 수기·파생이 섞인 키가
 // 정렬 순서에 따라 derived로 보인다. mergeSource로 '한 행이라도 수기면 manual'로 합친다.
+//
+// 페이징 정렬은 반드시 '유일한' 키로 한다. (property_id, week_start, granularity)는
+// ota_voc에서 전순서가 아니다 — 한 키에 키워드 행이 여럿이라 값이 같은 행들이 페이지
+// 경계에 걸치면 서버가 그 안에서 어떤 순서로 돌려줘도 규격 위반이 아니라, 경계에 걸친
+// 행이 통째로 건너뛰어질 수 있다. 그 키의 유일한 행이 건너뛰어지면 planDetailWrite가
+// undefined를 받아 '신규'로 보고, 손으로 넣은 VOC를 지우고 파생값으로 덮어쓴다.
+// fetchRawReviews와 같은 이유로 유일 컬럼인 id로 정렬한다.
 async function existingSources(table: string): Promise<Map<string, DetailSource>> {
   const out = new Map<string, DetailSource>()
   for (let from = 0; ;) {
     const { data, error } = await db.from(table)
       .select('property_id,week_start,granularity,source')
-      .order('property_id', { ascending: true })
-      .order('week_start', { ascending: true })
-      .order('granularity', { ascending: true })
+      .order('id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
     if (error) throw error
     const page = data ?? []
@@ -407,7 +409,7 @@ interface TextResult {
   voc?: { band: string; sentiment: 'good' | 'bad'; keyword: string }[]
 }
 
-// 입도는 채널이 정한다 — 분포 경로와 같은 규칙(MONTHLY_ONLY만 월)을 여기서도 쓴다.
+// 입도는 채널이 정한다 — 분포 경로와 같은 규칙(granularityForSite)을 여기서도 쓴다.
 // JSON에 적힌 granularity를 그대로 믿으면, 손으로 고쳤거나 LLM이 만든 파일 하나가
 // 주간 채널에 월 버킷을 되돌려 놓는다.
 async function propertyMeta(): Promise<Map<number, { granularity: Granularity; label: string }>> {
@@ -418,7 +420,7 @@ async function propertyMeta(): Promise<Map<number, { granularity: Granularity; l
     const site = OTA_SITE_BY_NAME[p.ota_name]
     if (!site) continue
     m.set(p.property_id, {
-      granularity: MONTHLY_ONLY.has(site) ? 'month' : 'week',
+      granularity: granularityForSite(site),
       label: `${p.branch} ${p.ota_name}`,
     })
   }
