@@ -1,0 +1,13 @@
+-- 리뷰 작성률 전용이던 옛 아고다 테이블을 걷어낸다.
+-- 이 파일은 전체가 멱등이다 — 몇 번을 다시 실행해도 결과가 같고 에러도 나지 않는다.
+--
+-- 배경: ota_agoda_review_rate는 (property_id, week_start)에 review_count·checkout_count·
+-- rate_pct를 함께 들고 있었다. 체크아웃 수는 채널이 아니라 지점의 속성이므로
+-- (같은 주 신설의 체크아웃 수는 아고다든 부킹이든 하나다) 지점 단위 테이블
+-- ota_branch_checkouts로 분리해 이관했고, 분자인 리뷰 수는 ota_score_dist에서
+-- 파생하도록 바꿨다. 남은 이 테이블은 더 이상 읽는 코드가 없다.
+--
+-- 드롭 전 대조(2026-07-22): checkout_count > 0인 20행 전부가 ota_branch_checkouts에
+-- 같은 branch·week_start·checkout_count로 존재함을 확인했다(불일치 0건).
+--   신설 2026-03-10 ~ 2026-07-20, 20주.
+drop table if exists ota_agoda_review_rate;
