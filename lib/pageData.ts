@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { supabase, calcCLX } from '@/lib/supabase'
+import { distColumnsFor } from '@/lib/otaDetail'
 
 // 모든 페이지가 auth()로 인해 동적 렌더링되므로 revalidate만으로는 캐시가 작동하지 않는다.
 // unstable_cache로 데이터 레이어를 직접 캐시하고, 쓰기 API에서 revalidateTag로 즉시 무효화한다.
@@ -13,14 +14,14 @@ export const getOtaScoresProps = unstable_cache(async () => {
     { data: distRaw },
     { data: complaintsRaw },
     { data: vocRaw },
-    { data: reviewRateRaw },
+    { data: checkoutsRaw },
   ] = await Promise.all([
     supabase.from('ota_scores').select('property_id,overall_score,review_count,recorded_at').order('recorded_at', { ascending: true }),
     supabase.from('ota_properties').select('property_id,branch,ota_name,score_max,okr_target').eq('active', true),
-    supabase.from('ota_agoda_score_dist').select('*').order('week_start', { ascending: true }),
-    supabase.from('ota_agoda_complaints').select('*').order('week_start', { ascending: true }),
-    supabase.from('ota_agoda_voc').select('*').order('week_start', { ascending: false }),
-    supabase.from('ota_agoda_review_rate').select('property_id,week_start,review_count,checkout_count,rate_pct').order('week_start', { ascending: true }),
+    supabase.from('ota_score_dist').select('*').order('week_start', { ascending: true }),
+    supabase.from('ota_complaints').select('*').order('week_start', { ascending: true }),
+    supabase.from('ota_voc').select('*').order('week_start', { ascending: false }),
+    supabase.from('ota_branch_checkouts').select('branch,week_start,checkout_count').order('week_start', { ascending: true }),
   ])
 
   const scores     = scoresRaw     ?? []
@@ -69,57 +70,73 @@ export const getOtaScoresProps = unstable_cache(async () => {
     return `${parseInt(parts[1])}/${parseInt(parts[2])}`
   })
 
-  const agodaProps = properties.filter((p: any) => p.ota_name === 'Agoda')
+  // 채널 무관 조립. Agoda 필터를 걸지 않는다.
+  const dist2      = <T,>() => ({} as Record<string, Record<string, T>>)
+  const put = <T,>(o: Record<string, Record<string, T>>, b: string, ota: string, v: T) => {
+    if (!o[b]) o[b] = {}
+    o[b][ota] = v
+  }
 
-  // Agoda score distribution: branch → [{week, scores, avgScore}[]] all weeks (max 10)
-  const agodaDist: Record<string, { week: string; scores: number[]; avgScore: number }[]> = {}
-  agodaProps.forEach((p: any) => {
-    const rows = (dist as any[]).filter(d => d.property_id === p.property_id)
-    agodaDist[p.branch] = rows.slice(-10).map((r: any) => ({
-      week: r.week_start.substring(5).replace('-', '/'),
-      scores: [r.score_2 ?? 0, r.score_3 ?? 0, r.score_4 ?? 0, r.score_5 ?? 0,
-               r.score_6 ?? 0, r.score_7 ?? 0, r.score_8 ?? 0, r.score_9 ?? 0, r.score_10 ?? 0],
-      avgScore: Number(r.weekly_avg_score) || 0,
-    }))
-  })
+  const fmtWeek = (ws: string) => ws.substring(5).replace('-', '/')
 
-  // Complaints: branch → [{week, room, bathroom}[]] (recent 8 weeks)
-  const agodaComplaints: Record<string, { week: string; room: number; bathroom: number }[]> = {}
-  const complaintMemos: Record<string, string> = {}
-  agodaProps.forEach((p: any) => {
-    const rows = (complaints as any[]).filter(c => c.property_id === p.property_id)
-    agodaComplaints[p.branch] = rows.slice(-8).map(c => ({
-      week: c.week_start.substring(5).replace('-', '/'),
-      room: c.room_complaints,
+  const scoreDist      = dist2<{ week: string; scores: number[]; avgScore: number; granularity: 'week' | 'month' }[]>()
+  const complaints2    = dist2<{ week: string; room: number; bathroom: number }[]>()
+  const complaintMemos = dist2<string>()
+  const voc2           = dist2<{ week_start: string; band: string; sentiment: string; keyword: string }[]>()
+  const scoreMaxByBranchOta = dist2<number>()
+
+  properties.forEach((p: any) => {
+    const max  = p.score_max === 5 ? 5 : 10
+    const cols = distColumnsFor(max)
+    put(scoreMaxByBranchOta, p.branch, p.ota_name, max)
+
+    const dRows = (dist as any[]).filter(d => d.property_id === p.property_id)
+    put(scoreDist, p.branch, p.ota_name, dRows.slice(-10).map((r: any) => ({
+      week:        r.granularity === 'month' ? `${parseInt(r.week_start.substring(5, 7))}월` : fmtWeek(r.week_start),
+      scores:      cols.map(c => r[c] ?? 0),
+      avgScore:    Number(r.weekly_avg_score) || 0,
+      granularity: (r.granularity ?? 'week') as 'week' | 'month',
+    })))
+
+    const cRows = (complaints as any[]).filter(c => c.property_id === p.property_id)
+    put(complaints2, p.branch, p.ota_name, cRows.slice(-8).map((c: any) => ({
+      week:     c.granularity === 'month' ? `${parseInt(c.week_start.substring(5, 7))}월` : fmtWeek(c.week_start),
+      room:     c.room_complaints,
       bathroom: c.bathroom_complaints,
-    }))
-    const latest = rows[rows.length - 1]
-    complaintMemos[p.branch] = latest?.memo ?? ''
+    })))
+    put(complaintMemos, p.branch, p.ota_name, cRows[cRows.length - 1]?.memo ?? '')
+
+    const vRows = (voc as any[]).filter(v => v.property_id === p.property_id)
+    put(voc2, p.branch, p.ota_name, vRows.map((v: any) => ({
+      week_start: v.week_start, band: v.band, sentiment: v.sentiment, keyword: v.keyword,
+    })))
   })
 
-  // VOC: branch → [{week_start, band, sentiment, keyword}[]] all weeks sorted desc
-  const agodaVoc: Record<string, { week_start: string; band: string; sentiment: string; keyword: string }[]> = {}
-  agodaProps.forEach((p: any) => {
-    const rows = (voc as any[]).filter(v => v.property_id === p.property_id)
-    agodaVoc[p.branch] = rows.map(v => ({
-      week_start: v.week_start,
-      band: v.band,
-      sentiment: v.sentiment,
-      keyword: v.keyword,
-    }))
-  })
+  // 리뷰 작성률 = 채널별 주간 신규 리뷰(ota_scores 델타) / 지점 주간 체크아웃.
+  // 분자를 저장하지 않는 이유: collect-ota-scores가 이미 매주 누적 리뷰 수를 찍고 있다.
+  const checkoutByBranchWeek = new Map<string, number>()
+  ;(checkoutsRaw ?? []).forEach((c: any) => checkoutByBranchWeek.set(`${c.branch}|${c.week_start}`, c.checkout_count))
 
-  // Review rate: branch → [{week, reviewCount, checkoutCount, ratePct}[]]
-  const reviewRate = reviewRateRaw ?? []
-  const agodaReviewRate: Record<string, { week: string; reviewCount: number; checkoutCount: number; ratePct: number }[]> = {}
-  agodaProps.forEach((p: any) => {
-    const rows = (reviewRate as any[]).filter(r => r.property_id === p.property_id)
-    agodaReviewRate[p.branch] = rows.map(r => ({
-      week: r.week_start.substring(5).replace('-', '/'),
-      reviewCount: r.review_count ?? 0,
-      checkoutCount: r.checkout_count ?? 0,
-      ratePct: r.rate_pct ?? 0,
-    }))
+  const reviewRate = dist2<{ week: string; reviewCount: number; checkoutCount: number; ratePct: number }[]>()
+  properties.forEach((p: any) => {
+    const snaps = scores
+      .filter((s: any) => s.property_id === p.property_id)
+      .sort((a: any, b: any) => a.recorded_at < b.recorded_at ? -1 : 1)
+
+    const rows: { week: string; reviewCount: number; checkoutCount: number; ratePct: number }[] = []
+    for (let i = 1; i < snaps.length; i++) {
+      const ws = snaps[i].recorded_at
+      const co = checkoutByBranchWeek.get(`${p.branch}|${ws}`)
+      if (!co) continue // 체크아웃 미입력 주는 작성률을 낼 수 없다
+      const delta = Math.max(0, (snaps[i].review_count ?? 0) - (snaps[i - 1].review_count ?? 0))
+      rows.push({
+        week: fmtWeek(ws),
+        reviewCount: delta,
+        checkoutCount: co,
+        ratePct: Math.round(delta / co * 1000) / 10,
+      })
+    }
+    put(reviewRate, p.branch, p.ota_name, rows)
   })
 
   const latestDate = allDates[allDates.length - 1] ?? '2026-05-18'
@@ -138,11 +155,12 @@ export const getOtaScoresProps = unstable_cache(async () => {
     dateLabels,
     dates: allDates,
     otaList,
-    agodaDist,
-    agodaComplaints,
+    scoreDist,
+    complaints: complaints2,
     complaintMemos,
-    agodaVoc,
-    agodaReviewRate,
+    voc: voc2,
+    reviewRate,
+    scoreMaxByBranchOta,
     branchOtaToId,
   }
 }, ['ota-scores-props'], { revalidate: 300, tags: ['ota'] })
