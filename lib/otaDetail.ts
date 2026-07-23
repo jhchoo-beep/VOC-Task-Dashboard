@@ -195,20 +195,62 @@ export function isWriteAction(a: WriteAction): boolean {
   return a === 'new' || a === 'refresh' || a === 'overwrite'
 }
 
+// 판정에 필요한 입력 전부. --fill-empty가 묶어 주던 두 보장을 여기서 분리한다.
+//   · fillEmpty        — 수기 입력(manual)을 보호한다.
+//   · unsettled        — 이 버킷이 아직 확정되지 않았는가.
+//   · reanalyzeSettled — 확정된 파생 버킷도 다시 분석 대상에 넣는다(--reanalyze-settled).
+export interface WritePlanOpts {
+  fillEmpty: boolean
+  unsettled: boolean
+  // 생략하면 false. 기존 호출부(점수 분포 등)의 동작을 바꾸지 않기 위해 선택 값이다.
+  reanalyzeSettled?: boolean
+}
+
+// 기존 행이 'derived'라고 이미 확정된 뒤에만 부르는 내부 판정.
+// 반환 타입에 skip-manual·overwrite가 아예 없다 — 이 함수는 수기 행을 판정할 수단 자체가 없고,
+// reanalyzeSettled는 오직 여기서만 읽힌다. 그래서 이 플래그로 수기 보호를 뚫는 경로가
+// 주석이 아니라 구조적으로 존재하지 않는다.
+function planDerivedWrite(opts: WritePlanOpts): 'refresh' | 'skip-settled' {
+  // --fill-empty가 없으면 확정 여부를 따지지 않고 어차피 전부 다시 쓴다.
+  // 그래서 --reanalyze-settled 는 --fill-empty 없이는 구조적으로 아무 일도 하지 않는다
+  // (강제할 대상인 'skip-settled' 자체가 나오지 않는다).
+  if (!opts.fillEmpty) return 'refresh'
+  if (opts.unsettled) return 'refresh'
+  // 여기가 확정된 파생 버킷 — 주간 루틴은 건너뛰고, 소급 적재(backfill)는 강제로 다시 분석한다.
+  return opts.reanalyzeSettled === true ? 'refresh' : 'skip-settled'
+}
+
 // 대상 표(불만·VOC·점수 분포)마다 자기 표의 출처로 따로 부른다.
 // 불만 행의 출처로 VOC 삭제까지 결정하면, 손으로 넣은 VOC가 '불만 행이 없다'거나
 // '불만 행이 파생이다'라는 남의 사정으로 통째로 지워진다.
 //
 // unsettled=false는 '이 버킷은 확정됐다'는 뜻으로, 재분석이 비싼 값(불만·VOC)에만 쓴다.
 // 재계산이 사실상 공짜인 점수 분포는 항상 unsettled=true로 불러 자기 행을 매번 다시 쓴다.
+//
+// 🔴 수기 보호(manual)는 어떤 플래그로도 열리지 않는다. --reanalyze-settled 는 아래
+//    manual 분기를 지난 뒤에야 닿을 수 있는 곳(planDerivedWrite)에서만 읽힌다.
 export function planDetailWrite(
   existing: DetailSource | undefined,
-  opts: { fillEmpty: boolean; unsettled: boolean },
+  opts: WritePlanOpts,
 ): WriteAction {
   if (existing === undefined) return 'new'
+  // 수기 행은 여기서 판정이 끝난다 — reanalyzeSettled 는 이 아래로 전달되지 않는다.
   if (existing === 'manual') return opts.fillEmpty ? 'skip-manual' : 'overwrite'
-  if (opts.fillEmpty && !opts.unsettled) return 'skip-settled'
-  return 'refresh'
+  return planDerivedWrite(opts)
+}
+
+// 이 버킷이 '--reanalyze-settled 때문에' 다시 분석 대상이 됐는가.
+// 플래그가 없었으면 어떤 판정이 나왔을지를 같은 함수로 직접 계산해 비교한다 —
+// 조건을 로그 쪽에 손으로 다시 적으면 판정과 로그가 언젠가 어긋난다.
+// 운영자가 '플래그가 실제로 무엇을 되살렸는지'를 세고 볼 수 있게 하는 것이 목적이다.
+export function isForcedReanalysis(
+  existing: DetailSource | undefined,
+  opts: WritePlanOpts,
+): boolean {
+  if (opts.reanalyzeSettled !== true) return false
+  const withFlag = planDetailWrite(existing, opts)
+  const without  = planDetailWrite(existing, { ...opts, reanalyzeSettled: false })
+  return withFlag === 'refresh' && without === 'skip-settled'
 }
 
 // ota_properties.ota_name → raw_reviews.ota_site (같은 채널의 두 표기)

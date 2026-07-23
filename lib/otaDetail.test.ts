@@ -231,7 +231,7 @@ describe('isUnsettledBucket', () => {
 })
 
 import {
-  mergeSource, planDetailWrite, isWriteAction, WRITE_ACTION_LABEL,
+  mergeSource, planDetailWrite, isForcedReanalysis, isWriteAction, WRITE_ACTION_LABEL,
   type DetailSource, type WriteAction,
 } from './otaDetail'
 
@@ -333,6 +333,162 @@ describe('planDetailWrite', () => {
   it('반대로 불만만 수기면 VOC는 정상 기록된다', () => {
     expect(planDetailWrite('manual', fill)).toBe('skip-manual')
     expect(planDetailWrite(undefined, fill)).toBe('new')
+  })
+})
+
+// ── --reanalyze-settled (확정 파생 버킷 강제 재분석) ────────────────
+// 소급 적재 시나리오: 지난달 raw 리뷰를 뒤늦게 파싱해 넣었는데 그 달 버킷은 이미
+// derived로 확정돼 있다. 점수 분포는 확정 여부를 안 따져 갱신되지만 불만·VOC는 건너뛰어
+// 같은 달을 두고 두 탭이 다른 말을 한다. 이 플래그는 그 두 표만 다시 연다.
+describe('planDetailWrite — --reanalyze-settled', () => {
+  const sources: (DetailSource | undefined)[] = [undefined, 'manual', 'derived']
+
+  it('확정된 파생 버킷을 다시 쓰게 한다 — 이 플래그의 전부다', () => {
+    expect(planDetailWrite('derived', { fillEmpty: true, unsettled: false })).toBe('skip-settled')
+    expect(planDetailWrite('derived', { fillEmpty: true, unsettled: false, reanalyzeSettled: true }))
+      .toBe('refresh')
+  })
+
+  it('미확정 파생 버킷의 판정은 바꾸지 않는다', () => {
+    expect(planDetailWrite('derived', { fillEmpty: true, unsettled: true, reanalyzeSettled: true }))
+      .toBe('refresh')
+  })
+
+  it('신규(기존 행 없음) 판정은 바꾸지 않는다', () => {
+    expect(planDetailWrite(undefined, { fillEmpty: true, unsettled: false, reanalyzeSettled: true }))
+      .toBe('new')
+  })
+
+  // ── 수기 보호는 이 플래그로 절대 열리지 않는다 ──
+  it('🔴 수기 행은 이 플래그를 붙여도 보존한다 — 확정·미확정 모두', () => {
+    expect(planDetailWrite('manual', { fillEmpty: true, unsettled: false, reanalyzeSettled: true }))
+      .toBe('skip-manual')
+    expect(planDetailWrite('manual', { fillEmpty: true, unsettled: true, reanalyzeSettled: true }))
+      .toBe('skip-manual')
+  })
+
+  it('🔴 --fill-empty가 있는 한 어떤 조합에서도 수기 행이 기록 대상이 되지 않는다', () => {
+    for (const unsettled of [true, false]) {
+      for (const reanalyzeSettled of [true, false]) {
+        const act = planDetailWrite('manual', { fillEmpty: true, unsettled, reanalyzeSettled })
+        expect(act).toBe('skip-manual')
+        expect(isWriteAction(act)).toBe(false)
+      }
+    }
+  })
+
+  it('🔴 수기 보호를 여는 것은 오직 --fill-empty 누락뿐이다 — 이 플래그는 무관하다', () => {
+    // --fill-empty 없이는 원래부터 전부 덮어쓴다(기존 동작). 이 플래그는 그 판정에 영향이 없다.
+    expect(planDetailWrite('manual', { fillEmpty: false, unsettled: false, reanalyzeSettled: true }))
+      .toBe('overwrite')
+    expect(planDetailWrite('manual', { fillEmpty: false, unsettled: false, reanalyzeSettled: false }))
+      .toBe('overwrite')
+  })
+
+  it('--fill-empty 없이는 아무 판정도 바꾸지 않는다 — 무의미(no-op) 플래그다', () => {
+    for (const s of sources) {
+      for (const unsettled of [true, false]) {
+        expect(planDetailWrite(s, { fillEmpty: false, unsettled, reanalyzeSettled: true }))
+          .toBe(planDetailWrite(s, { fillEmpty: false, unsettled, reanalyzeSettled: false }))
+      }
+    }
+  })
+
+  it('플래그를 생략하면 기존 동작 그대로다 — 주간 루틴이 바뀌지 않는다', () => {
+    for (const s of sources) {
+      for (const fillEmpty of [true, false]) {
+        for (const unsettled of [true, false]) {
+          expect(planDetailWrite(s, { fillEmpty, unsettled }))
+            .toBe(planDetailWrite(s, { fillEmpty, unsettled, reanalyzeSettled: false }))
+        }
+      }
+    }
+  })
+
+  it('네 축(출처·확정·fill-empty·플래그) 전 조합이 표대로 떨어진다', () => {
+    // 표: 없음=new / manual=skip-manual(fill) · overwrite(no fill) /
+    //     derived 미확정=refresh / derived 확정=skip-settled, 단 플래그가 있으면 refresh
+    const expected: Record<string, WriteAction> = {
+      'undefined|f|u|r': 'new',   'undefined|f|u|-': 'new',
+      'undefined|f|s|r': 'new',   'undefined|f|s|-': 'new',
+      'undefined|-|u|r': 'new',   'undefined|-|u|-': 'new',
+      'undefined|-|s|r': 'new',   'undefined|-|s|-': 'new',
+      'manual|f|u|r': 'skip-manual',  'manual|f|u|-': 'skip-manual',
+      'manual|f|s|r': 'skip-manual',  'manual|f|s|-': 'skip-manual',
+      'manual|-|u|r': 'overwrite',    'manual|-|u|-': 'overwrite',
+      'manual|-|s|r': 'overwrite',    'manual|-|s|-': 'overwrite',
+      'derived|f|u|r': 'refresh',      'derived|f|u|-': 'refresh',
+      'derived|f|s|r': 'refresh',      'derived|f|s|-': 'skip-settled',
+      'derived|-|u|r': 'refresh',      'derived|-|u|-': 'refresh',
+      'derived|-|s|r': 'refresh',      'derived|-|s|-': 'refresh',
+    }
+    for (const s of sources) {
+      for (const fillEmpty of [true, false]) {
+        for (const unsettled of [true, false]) {
+          for (const reanalyzeSettled of [true, false]) {
+            const k = `${String(s)}|${fillEmpty ? 'f' : '-'}|${unsettled ? 'u' : 's'}|${reanalyzeSettled ? 'r' : '-'}`
+            expect(`${k} → ${planDetailWrite(s, { fillEmpty, unsettled, reanalyzeSettled })}`)
+              .toBe(`${k} → ${expected[k]}`)
+          }
+        }
+      }
+    }
+  })
+
+  it('플래그가 열어 주는 칸은 정확히 하나다 — derived × 확정 × --fill-empty', () => {
+    let changed = 0
+    for (const s of sources) {
+      for (const fillEmpty of [true, false]) {
+        for (const unsettled of [true, false]) {
+          const withFlag = planDetailWrite(s, { fillEmpty, unsettled, reanalyzeSettled: true })
+          const without  = planDetailWrite(s, { fillEmpty, unsettled, reanalyzeSettled: false })
+          if (withFlag !== without) changed++
+        }
+      }
+    }
+    expect(changed).toBe(1)
+  })
+})
+
+describe('isForcedReanalysis', () => {
+  it('플래그가 실제로 되살린 버킷만 참이다', () => {
+    expect(isForcedReanalysis('derived', { fillEmpty: true, unsettled: false, reanalyzeSettled: true }))
+      .toBe(true)
+  })
+
+  it('플래그가 없거나 판정이 바뀌지 않은 경우는 거짓이다', () => {
+    // 플래그 자체가 없음
+    expect(isForcedReanalysis('derived', { fillEmpty: true, unsettled: false })).toBe(false)
+    // 미확정이라 플래그 없이도 refresh
+    expect(isForcedReanalysis('derived', { fillEmpty: true, unsettled: true, reanalyzeSettled: true }))
+      .toBe(false)
+    // --fill-empty가 없어 원래부터 refresh
+    expect(isForcedReanalysis('derived', { fillEmpty: false, unsettled: false, reanalyzeSettled: true }))
+      .toBe(false)
+    // 기존 행 없음
+    expect(isForcedReanalysis(undefined, { fillEmpty: true, unsettled: false, reanalyzeSettled: true }))
+      .toBe(false)
+  })
+
+  it('🔴 수기 행은 어떤 조합에서도 강제 재분석으로 세지 않는다', () => {
+    for (const fillEmpty of [true, false]) {
+      for (const unsettled of [true, false]) {
+        expect(isForcedReanalysis('manual', { fillEmpty, unsettled, reanalyzeSettled: true })).toBe(false)
+      }
+    }
+  })
+
+  it('참인 칸의 수는 판정이 바뀌는 칸의 수와 같다 — 카운터가 로그와 어긋나지 않는다', () => {
+    const sources: (DetailSource | undefined)[] = [undefined, 'manual', 'derived']
+    let forced = 0
+    for (const s of sources) {
+      for (const fillEmpty of [true, false]) {
+        for (const unsettled of [true, false]) {
+          if (isForcedReanalysis(s, { fillEmpty, unsettled, reanalyzeSettled: true })) forced++
+        }
+      }
+    }
+    expect(forced).toBe(1)
   })
 })
 

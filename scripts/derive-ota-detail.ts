@@ -22,6 +22,16 @@
  *                           불만·VOC는 '미확정' 버킷일 때만 다시 분석한다(사람·LLM 비용).
  * 붙이지 않으면 수기 입력까지 덮어쓴다 — 몇 건이 걸리는지 경고로 알린다.
  *
+ * --reanalyze-settled 는 위 둘 중 '확정 버킷 건너뜀'만 끈다(수기 보호는 그대로다).
+ *   npm run derive:ota -- --weeks 12 --fill-empty --reanalyze-settled --emit-text buckets.json
+ *   npm run derive:ota -- --apply-text results.json --fill-empty --reanalyze-settled
+ * 쓰는 때: 지난달 raw 리뷰를 뒤늦게 파싱해 넣은 뒤. 그 달 버킷은 이미 derived로 확정돼 있어
+ * 점수 분포만 다시 계산되고(확정 여부를 안 따짐) 불만·VOC는 조용히 건너뛴다 — 같은 달을 두고
+ * 점수 분포와 VOC 탭이 서로 다른 말을 하게 된다. 이 플래그가 그 두 표를 다시 열어 준다.
+ *   · source='manual' 행 — 이 플래그로도 절대 건드리지 않는다(판정 함수 구조상 불가능).
+ *   · --fill-empty 없이 쓰면 아무 일도 하지 않는다 — 그때는 확정 버킷도 어차피 다 덮어쓴다.
+ * 이 플래그가 되살린 버킷은 로그에 [확정 재분석 강제]로 찍히고 요약에 따로 집계된다.
+ *
  * 출처는 표마다 따로 읽고 따로 판정한다. UI가 불만(ota_complaints)과 VOC(ota_voc)를
  * 서로 다른 모달·라우트로 저장해 한쪽만 사람이 고쳐 놓을 수 있기 때문이다. 불만 행의 출처로
  * VOC 삭제까지 결정하면, 손으로 넣은 VOC가 '불만 행이 없다'는 남의 사정으로 통째로 지워진다.
@@ -47,7 +57,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import {
   parseRawDate, weekStartOf, monthStartOf, distFromRatings, distColumnsFor,
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
-  mergeSource, planDetailWrite, isWriteAction, WRITE_ACTION_LABEL,
+  mergeSource, planDetailWrite, isForcedReanalysis, isWriteAction, WRITE_ACTION_LABEL,
   OTA_SITE_BY_NAME, granularityForSite,
   parseExclusions, isExcludedPair, formatExclusion, isScraperChromeReviewer,
   type Granularity, type DetailSource, type WriteAction, type OtaExclusion,
@@ -60,7 +70,15 @@ function die(msg: string): never {
 
 // 인자 검증을 접속 정보 확인보다 먼저 한다 — 오타 난 명령이 접속 오류로만 보이지 않게.
 const argv = process.argv.slice(2)
-const flag = (n: string) => argv.includes(`--${n}`)
+
+// 값 없는 스위치. `--fill-empty=1` 같은 표기는 argv.includes에 걸리지 않아 조용히 '꺼짐'이
+// 되고, 그 실행은 수기 입력을 덮어쓰거나(=--fill-empty 누락) 확정 버킷을 그대로 건너뛴다.
+// opt()·optAll()과 같은 태도로, 알아볼 수 없는 표기는 조용히 넘기지 않고 비정상 종료한다.
+const flag = (n: string): boolean => {
+  const eq = argv.find(t => t.startsWith(`--${n}=`))
+  if (eq) die(`--${n} 은 값을 받지 않는 스위치입니다 (받은 값: ${eq}) — '--${n}' 만 적어 주세요`)
+  return argv.includes(`--${n}`)
+}
 
 // 값을 받는 옵션. 값이 없거나 다음 토큰이 또 다른 플래그면 즉시 종료한다.
 // 조용히 undefined로 흘리면 `--weeks --dry-run`이 '--dry-run'을 주 수로 먹고,
@@ -104,6 +122,10 @@ if (!Number.isFinite(weeks) || weeks < 1) {
 
 const dryRun    = flag('dry-run')
 const fillEmpty = flag('fill-empty')
+// 확정된 파생 버킷도 다시 분석 대상에 넣는다. 수기 보호(--fill-empty의 첫 번째 보장)와는
+// 완전히 별개다 — 판정 함수에서 manual 분기를 지난 뒤에만 읽히므로 이 플래그로 수기 행이
+// 덮여 쓰이는 경로는 존재하지 않는다.
+const reanalyzeSettled = flag('reanalyze-settled')
 const onlyBranch = opt('branch')
 const onlyOta    = opt('ota')
 const emitText   = opt('emit-text')
@@ -116,6 +138,16 @@ try {
   exclusions = parseExclusions(optAll('exclude'))
 } catch (e) {
   die((e as Error).message)
+}
+
+// 플래그가 실제로 무엇을 하는지(또는 하지 않는지)를 실행 첫머리에 밝힌다.
+// --fill-empty 없이 붙인 --reanalyze-settled 는 무해하지만 아무 일도 하지 않는다 —
+// '강제했다'고 믿은 실행이 조용히 통과하면 다음에 같은 실수를 반복한다.
+if (reanalyzeSettled && !fillEmpty) {
+  console.warn('[안내] --reanalyze-settled 는 --fill-empty 와 함께일 때만 의미가 있습니다 — ' +
+    '지금은 확정 버킷도 어차피 전부 다시 씁니다(이번 실행에서 무시됨)')
+} else if (reanalyzeSettled) {
+  console.log('--reanalyze-settled — 확정된 파생 버킷도 다시 분석합니다 (수기 입력 보호는 그대로 유지)')
 }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -405,6 +437,8 @@ async function runDist(buckets: Bucket[]) {
   // (unsettled: true 고정) 자기가 쓴(derived) 행은 매 실행 다시 계산한다 — 끝나지 않은 구간의
   // 부분값도, 뒤늦게 들어온 리뷰도 다음 실행에서 저절로 교정된다.
   // 보호 대상은 오직 수기 입력(manual)이다.
+  // 그래서 --reanalyze-settled 도 여기서는 넘기지 않는다 — 강제할 'skip-settled' 자체가 없다.
+  // (바로 이것이 소급 적재에서 점수 분포만 갱신되고 불만·VOC는 조용히 빠지던 원인이다.)
   const tally = newTally()
 
   for (const b of writable) {
@@ -443,6 +477,9 @@ async function runEmitText(buckets: Bucket[], path: string) {
   const empty = new Map<string, DetailSource>()
   const haveComplaints = fillEmpty ? await existingSources('ota_complaints') : empty
   const haveVoc        = fillEmpty ? await existingSources('ota_voc')        : empty
+  // --reanalyze-settled 가 실제로 되살린 버킷 수. 표별로 센다 — 두 표의 판정은 갈릴 수 있고,
+  // '플래그를 붙였는데 0건'이면 대상 월이 잘못 잡혔다는 뜻이라 운영자가 바로 알아야 한다.
+  let forcedComplaints = 0, forcedVoc = 0
   const payload = buckets
     .filter(b => b.texts.length > 0)
     // 아래 --apply-text와 같은 규칙으로 걸러야 한다 — 여기서만 빼면 쓰기 경로의 조건이
@@ -451,11 +488,23 @@ async function runEmitText(buckets: Bucket[], path: string) {
     .filter(b => {
       const key = `${b.propertyId}|${b.weekStart}|${b.granularity}`
       const unsettled = isUnsettledBucket(b.weekStart, b.granularity, TODAY)
-      const cAct = planDetailWrite(haveComplaints.get(key), { fillEmpty, unsettled })
-      const vAct = planDetailWrite(haveVoc.get(key), { fillEmpty, unsettled })
+      // 쓰기 경로(--apply-text)와 반드시 같은 인자로 판정한다 — 한쪽에만 플래그를 넘기면
+      // 분석해 놓고 쓰기에서 거부되거나(비용만 지불), 쓸 수 있는 버킷을 분석에서 빠뜨린다.
+      const plan = { fillEmpty, unsettled, reanalyzeSettled }
+      const cAct = planDetailWrite(haveComplaints.get(key), plan)
+      const vAct = planDetailWrite(haveVoc.get(key), plan)
+      const cForced = isForcedReanalysis(haveComplaints.get(key), plan)
+      const vForced = isForcedReanalysis(haveVoc.get(key), plan)
+      if (cForced) forcedComplaints++
+      if (vForced) forcedVoc++
       const at = `${b.branch} ${b.ota} ${b.weekStart}(${b.granularity})`
       if (!isWriteAction(cAct) && !isWriteAction(vAct)) return false
-      if (fillEmpty && (cAct === 'refresh' || vAct === 'refresh')) {
+      // 확정 버킷을 되살린 것과, 아직 유예 기간이라 다시 도는 것은 사유가 전혀 다르다.
+      // 플래그가 무엇을 했는지 보이려면 두 문구가 섞이면 안 된다.
+      if (cForced || vForced) {
+        console.log(`[확정 재분석 강제] ${at} — --reanalyze-settled 로 확정 버킷을 다시 분석 대상에 넣습니다 ` +
+          `(불만 ${cForced ? '강제' : WRITE_ACTION_LABEL[cAct]} · VOC ${vForced ? '강제' : WRITE_ACTION_LABEL[vAct]})`)
+      } else if (fillEmpty && (cAct === 'refresh' || vAct === 'refresh')) {
         console.log(`[미확정 재분석] ${at} — 구간이 끝난 지 ${SETTLE_GRACE_DAYS}일이 지나지 않아 다시 분석 대상에 넣습니다`)
       }
       if (isWriteAction(cAct) !== isWriteAction(vAct)) {
@@ -472,6 +521,11 @@ async function runEmitText(buckets: Bucket[], path: string) {
     }))
   writeFileSync(path, JSON.stringify(payload, null, 2), 'utf8')
   console.log(`분석 대상 ${payload.length}개 버킷 · 리뷰 ${payload.reduce((s, p) => s + p.reviews.length, 0)}건 → ${path}`)
+  if (reanalyzeSettled && fillEmpty) {
+    console.log(`  · --reanalyze-settled 로 되살린 확정 버킷 — 불만 ${forcedComplaints}건 · VOC ${forcedVoc}건` +
+      (forcedComplaints + forcedVoc === 0
+        ? ' (되살린 것이 없습니다 — 대상 구간에 확정된 파생 버킷이 없는지 확인하세요)' : ''))
+  }
 }
 
 interface TextResult {
@@ -573,21 +627,36 @@ async function runApplyText(path: string) {
   //
   // 카운터는 표별로 따로 센다. 두 표의 판정이 갈릴 수 있으므로 합쳐 세면 어느 쪽이 몇 건
   // 걸렸는지 알 수 없고, 판정이 상호 배타적이라 각 표의 다섯 칸 합은 항상 대상 버킷 수와 같다.
+  //
+  // --reanalyze-settled 로 되살린 건수는 refresh 안에 섞여 있으므로 따로 센다(부분집합이다).
   const cTally = newTally(), vTally = newTally()
+  let forcedComplaints = 0, forcedVoc = 0
   let diverged = 0
 
   for (const r of rows) {
     const key = keyOf(r)
     const unsettled = isUnsettledBucket(r.weekStart, r.granularity, TODAY)
-    const cAct = planDetailWrite(haveComplaints.get(key), { fillEmpty, unsettled })
-    const vAct = planDetailWrite(haveVoc.get(key), { fillEmpty, unsettled })
+    // --emit-text와 반드시 같은 인자로 판정한다. 한쪽만 플래그를 보면 분석해 온 결과가
+    // 쓰기에서 '확정 버킷 건너뜀'으로 버려진다.
+    const plan = { fillEmpty, unsettled, reanalyzeSettled }
+    const cAct = planDetailWrite(haveComplaints.get(key), plan)
+    const vAct = planDetailWrite(haveVoc.get(key), plan)
+    const cForced = isForcedReanalysis(haveComplaints.get(key), plan)
+    const vForced = isForcedReanalysis(haveVoc.get(key), plan)
+    if (cForced) forcedComplaints++
+    if (vForced) forcedVoc++
     cTally[cAct]++
     vTally[vAct]++
 
     const at = `${r.label} ${r.weekStart}(${r.granularity})`
+    // 확정 버킷을 플래그로 되살린 것과, 유예 기간이라 다시 도는 것은 사유가 다르다 — 섞지 않는다.
+    if (cForced || vForced) {
+      console.log(`[확정 재분석 강제] ${at} — --reanalyze-settled 로 확정된 파생 행을 다시 씁니다 ` +
+        `(불만 ${cForced ? '강제' : WRITE_ACTION_LABEL[cAct]} · VOC ${vForced ? '강제' : WRITE_ACTION_LABEL[vAct]})`)
+    }
     // '미확정이라 다시 쓴다'는 --fill-empty에서만 성립하는 사유다. 플래그가 없으면 확정 버킷도
     // 어차피 다시 쓰므로, 여기서 이 문구를 찍으면 확정된 구간에 거짓 사유가 붙는다.
-    if (fillEmpty && (cAct === 'refresh' || vAct === 'refresh')) {
+    else if (fillEmpty && (cAct === 'refresh' || vAct === 'refresh')) {
       console.log(`[미확정 재분석] ${at} — 구간이 끝난 지 ${SETTLE_GRACE_DAYS}일이 지나지 않아 기존 파생 행을 다시 씁니다`)
     }
     // 한쪽만 처리하고 조용히 넘어가지 않는다 — 반쪽만 쓴 실행은 로그에서 바로 보여야 한다.
@@ -639,14 +708,17 @@ async function runApplyText(path: string) {
 
   // 표마다 '기록 = 신규 + 파생 재분석 + 수기 덮어씀', '보류 = 수기 보존 + 확정 버킷 건너뜀'.
   // 다섯 칸은 겹치지 않고 빠지지도 않으므로 합계가 대상 버킷 수와 같아야 한다 — 그 검산을 같이 찍는다.
-  const line = (label: string, t: Tally) =>
+  // '파생 재분석' 안에 --reanalyze-settled 로 되살린 건수를 괄호로 덧붙인다(부분집합이므로
+  // 다섯 칸의 합은 그대로 대상 버킷 수와 같다). 플래그가 실제로 몇 건을 되살렸는지 보이게 한다.
+  const line = (label: string, t: Tally, forced: number) =>
     `${label} — ${dryRun ? '기록 예정' : '기록'} ${writtenOf(t)}건` +
-    `(신규 ${t['new']} · 파생 재분석 ${t.refresh} · 수기 덮어씀 ${t.overwrite})` +
+    `(신규 ${t['new']} · 파생 재분석 ${t.refresh}${reanalyzeSettled && fillEmpty ? ` [확정 강제 ${forced}]` : ''}` +
+    ` · 수기 덮어씀 ${t.overwrite})` +
     ` · 수기 보존 ${t['skip-manual']}건 · 확정 버킷 건너뜀 ${t['skip-settled']}건` +
     ` · 합계 ${totalOf(t)}/${rows.length}`
   console.log(`\n대상 버킷 ${rows.length}개 · 불만/VOC 판정이 갈린 버킷 ${diverged}개${dryRun ? ' (dry-run)' : ''}`)
-  console.log(line('불만', cTally))
-  console.log(line('VOC ', vTally))
+  console.log(line('불만', cTally, forcedComplaints))
+  console.log(line('VOC ', vTally, forcedVoc))
 }
 
 async function main() {
