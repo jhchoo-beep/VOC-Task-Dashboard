@@ -469,3 +469,92 @@ describe('OTA_SITE_BY_NAME', () => {
     expect(OTA_SITE_BY_NAME['여기어때']).toBe('여기어때')
   })
 })
+
+// ── 지점×채널 제외 지정 ────────────────────────────────────────────
+import { parseExclusions, isExcludedPair, formatExclusion } from './otaDetail'
+
+describe('parseExclusions', () => {
+  it("'지점:채널' 하나를 해석한다", () => {
+    expect(parseExclusions(['신설:Agoda'])).toEqual([{ branch: '신설', ota: 'Agoda' }])
+  })
+
+  it('쉼표로 여러 조합을 이어 쓸 수 있다', () => {
+    expect(parseExclusions(['신설:Agoda,동대문:Booking'])).toEqual([
+      { branch: '신설', ota: 'Agoda' },
+      { branch: '동대문', ota: 'Booking' },
+    ])
+  })
+
+  it('--exclude 를 여러 번 쓴 것과 쉼표로 이어 쓴 것이 같다', () => {
+    expect(parseExclusions(['신설:Agoda', '동대문:Booking']))
+      .toEqual(parseExclusions(['신설:Agoda,동대문:Booking']))
+  })
+
+  it('앞뒤 공백을 허용한다', () => {
+    expect(parseExclusions([' 신설 : Agoda , 고성:NOL '])).toEqual([
+      { branch: '신설', ota: 'Agoda' },
+      { branch: '고성', ota: 'NOL' },
+    ])
+  })
+
+  it('같은 조합을 두 번 적어도 한 번만 담는다', () => {
+    expect(parseExclusions(['신설:Agoda,신설:Agoda'])).toEqual([{ branch: '신설', ota: 'Agoda' }])
+  })
+
+  it('제외 지정이 없으면 빈 배열이다', () => {
+    expect(parseExclusions([])).toEqual([])
+  })
+
+  it("'지점:채널' 형식이 아니면 던진다 — 조용히 무시하면 안 되는 오타다", () => {
+    expect(() => parseExclusions(['신설'])).toThrow()
+    expect(() => parseExclusions(['신설:Agoda:extra'])).toThrow()
+    expect(() => parseExclusions(['신설 Agoda'])).toThrow()
+  })
+
+  it('지점 또는 채널이 비면 던진다', () => {
+    expect(() => parseExclusions([':Agoda'])).toThrow()
+    expect(() => parseExclusions(['신설:'])).toThrow()
+    expect(() => parseExclusions(['신설:Agoda,'])).toThrow()
+    expect(() => parseExclusions([''])).toThrow()
+  })
+
+  it('알 수 없는 채널명은 던진다 — 표기가 흔들리면 아무것도 제외되지 않는다', () => {
+    expect(() => parseExclusions(['신설:agoda'])).toThrow()
+    expect(() => parseExclusions(['신설:아고다'])).toThrow()
+    expect(() => parseExclusions(['신설:Agodaa'])).toThrow()
+  })
+
+  it('알려진 채널명은 모두 통과한다', () => {
+    for (const name of ['Agoda', 'Booking', 'Trip.com', 'Expedia', 'Airbnb', 'NOL', '여기어때']) {
+      expect(parseExclusions([`신설:${name}`])).toEqual([{ branch: '신설', ota: name }])
+    }
+  })
+})
+
+describe('isExcludedPair', () => {
+  const ex = parseExclusions(['신설:Agoda,동대문:Booking'])
+
+  it('지정한 조합만 제외한다', () => {
+    expect(isExcludedPair(ex, '신설', 'Agoda')).toBe(true)
+    expect(isExcludedPair(ex, '동대문', 'Booking')).toBe(true)
+  })
+
+  it('같은 지점의 다른 채널은 제외하지 않는다', () => {
+    expect(isExcludedPair(ex, '신설', 'Booking')).toBe(false)
+  })
+
+  it('다른 지점의 같은 채널은 제외하지 않는다', () => {
+    expect(isExcludedPair(ex, '동대문', 'Agoda')).toBe(false)
+    expect(isExcludedPair(ex, '고성', 'Agoda')).toBe(false)
+  })
+
+  it('제외 지정이 없으면 아무것도 제외하지 않는다', () => {
+    expect(isExcludedPair([], '신설', 'Agoda')).toBe(false)
+  })
+})
+
+describe('formatExclusion', () => {
+  it('입력한 형식 그대로 되돌린다 — 로그에서 명령과 대조할 수 있어야 한다', () => {
+    expect(formatExclusion({ branch: '신설', ota: 'Agoda' })).toBe('신설:Agoda')
+  })
+})

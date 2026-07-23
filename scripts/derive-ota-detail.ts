@@ -6,6 +6,12 @@
  *   npm run derive:ota -- --weeks 4 --emit-text buckets.json  불만·VOC용 본문 묶음 출력
  *   npm run derive:ota -- --apply-text results.json --fill-empty  분석 결과 적재
  *
+ * --branch / --ota 는 '이것만' 고르는 필터고, --exclude 는 '이것만 빼는' 필터다.
+ *   npm run derive:ota -- --weeks 12 --fill-empty --exclude 신설:Agoda
+ *   npm run derive:ota -- --weeks 12 --fill-empty --exclude 신설:Agoda,동대문:Booking
+ * 제외는 세 경로(분포·본문 추출·본문 적재)에 똑같이 걸린다 — 같은 명령이 경로마다
+ * 다르게 동작하면 한 번은 비워 둔 구간을 다음 실행이 채워 버린다.
+ *
  * 점수 분포는 LLM을 타지 않는다 — 재실행 시 값이 같아야 하고 검산이 가능해야 한다.
  *
  * --fill-empty 는 '수기 입력을 보호한다'는 뜻이다(행의 존재 여부가 아니라 출처로 판단).
@@ -43,7 +49,8 @@ import {
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
   mergeSource, planDetailWrite, isWriteAction, WRITE_ACTION_LABEL,
   OTA_SITE_BY_NAME, granularityForSite,
-  type Granularity, type DetailSource, type WriteAction,
+  parseExclusions, isExcludedPair, formatExclusion,
+  type Granularity, type DetailSource, type WriteAction, type OtaExclusion,
 } from '../lib/otaDetail'
 
 function die(msg: string): never {
@@ -68,6 +75,22 @@ const opt = (n: string): string | undefined => {
   return v
 }
 
+// 여러 번 쓸 수 있는 옵션(--exclude). opt()는 첫 번째 것만 보므로 따로 모은다.
+// 값 검사는 opt()와 같다 — `--exclude --dry-run` 같은 실수가 조용히 통과하면
+// 제외했다고 믿은 조합이 그대로 파생 대상이 된다.
+const optAll = (n: string): string[] => {
+  const out: string[] = []
+  argv.forEach((tok, i) => {
+    if (tok !== `--${n}`) return
+    const v = argv[i + 1]
+    if (v === undefined || v.startsWith('--')) {
+      die(`--${n} 에는 값이 필요합니다 (받은 값: ${v ?? '없음'})`)
+    }
+    out.push(v)
+  })
+  return out
+}
+
 // NaN이 흘러 들어가면 대상 주가 0개 → .in() 필터가 비어 0행 → "버킷 0개"가
 // 성공처럼 보인다. 파싱 실패는 조용히 넘기지 않고 비정상 종료한다.
 const weeksRaw = opt('weeks')
@@ -85,6 +108,15 @@ const onlyBranch = opt('branch')
 const onlyOta    = opt('ota')
 const emitText   = opt('emit-text')
 const applyText  = opt('apply-text')
+
+// 형식·채널명 오타는 여기서 즉시 비정상 종료한다. 조용히 '아무것도 제외하지 않음'으로
+// 떨어지면, 비워 두기로 한 구간 위에 파생 행이 그대로 쓰인다.
+let exclusions: OtaExclusion[] = []
+try {
+  exclusions = parseExclusions(optAll('exclude'))
+} catch (e) {
+  die((e as Error).message)
+}
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -164,6 +196,24 @@ function dedupe<T extends { reviewer?: string; raw_date?: string; rating?: numbe
   })
 }
 
+// 제외 지정이 실제로 무엇을 걸렀는지 조합별로 찍는다 — '걸렸겠지'를 믿지 않게.
+// 어느 하나라도 ota_properties에서 짚이는 조합이 없으면 비정상 종료한다. 오타 난 제외는
+// 아무것도 제외하지 못한 채 실행이 성공한 것처럼 끝나는 것이 가장 나쁜 결과다.
+// 지점×채널 대조는 --branch/--ota 필터를 적용하기 전 전체 목록으로 한다
+// (다른 필터에 이미 걸려 나간 조합을 '오타'로 오판하지 않기 위해서다).
+function reportExclusions(props: { branch: string; ota_name: string }[]) {
+  if (exclusions.length === 0) return
+  console.log(`제외 지정 ${exclusions.length}건 — 이번 실행에서 건드리지 않습니다`)
+  for (const e of exclusions) {
+    const n = props.filter(p => p.branch === e.branch && p.ota_name === e.ota).length
+    if (n === 0) {
+      die(`--exclude ${formatExclusion(e)} 에 해당하는 지점×채널이 ota_properties에 없습니다 — ` +
+          '오타로 아무것도 제외되지 않는 사고를 막기 위해 실행을 중단합니다')
+    }
+    console.log(`  · ${e.branch} ${e.ota} — 제외(대상 property ${n}개)`)
+  }
+}
+
 async function buildBuckets(): Promise<Bucket[]> {
   const targetWeeks = recentWeekStarts(TODAY, weeks)
   // 주 시작일의 달만 모으면 최신 주가 월 경계를 걸칠 때 이번 달이 통째로 빠진다
@@ -177,6 +227,7 @@ async function buildBuckets(): Promise<Bucket[]> {
   const { data: props, error: pErr } = await db
     .from('ota_properties').select('property_id,branch,ota_name,score_max').eq('active', true)
   if (pErr) throw pErr
+  reportExclusions(props ?? [])
 
   const buckets: Bucket[] = []
   let unparsed = 0
@@ -187,6 +238,9 @@ async function buildBuckets(): Promise<Bucket[]> {
   for (const p of props ?? []) {
     if (onlyBranch && p.branch !== onlyBranch) continue
     if (onlyOta && p.ota_name !== onlyOta) continue
+    // 제외 조합은 raw 조회조차 하지 않는다 — 버킷이 만들어지지 않아야 쓰기 경로에
+    // 흘러들 여지가 없다(분포·본문 추출이 모두 이 함수의 결과만 본다).
+    if (isExcludedPair(exclusions, p.branch, p.ota_name)) continue
     const site = OTA_SITE_BY_NAME[p.ota_name]
     if (!site) { console.warn(`매핑 없는 채널: ${p.ota_name} — 건너뜀`); continue }
 
@@ -412,16 +466,26 @@ interface TextResult {
 // 입도는 채널이 정한다 — 분포 경로와 같은 규칙(granularityForSite)을 여기서도 쓴다.
 // JSON에 적힌 granularity를 그대로 믿으면, 손으로 고쳤거나 LLM이 만든 파일 하나가
 // 주간 채널에 월 버킷을 되돌려 놓는다.
-async function propertyMeta(): Promise<Map<number, { granularity: Granularity; label: string }>> {
+interface PropMeta {
+  granularity: Granularity
+  label: string
+  branch: string
+  ota: string
+}
+
+async function propertyMeta(): Promise<Map<number, PropMeta>> {
   const { data, error } = await db.from('ota_properties').select('property_id,branch,ota_name')
   if (error) throw error
-  const m = new Map<number, { granularity: Granularity; label: string }>()
+  reportExclusions(data ?? [])
+  const m = new Map<number, PropMeta>()
   for (const p of data ?? []) {
     const site = OTA_SITE_BY_NAME[p.ota_name]
     if (!site) continue
     m.set(p.property_id, {
       granularity: granularityForSite(site),
       label: `${p.branch} ${p.ota_name}`,
+      branch: p.branch,
+      ota: p.ota_name,
     })
   }
   return m
@@ -439,7 +503,7 @@ async function runApplyText(path: string) {
   const haveVoc        = await existingSources('ota_voc')
 
   // 1) 검증을 먼저 전부 끝낸다 — 한 건이라도 어긋나면 아무것도 쓰지 않고 종료한다.
-  const rows = results.map((r, i) => {
+  const allRows = results.map((r, i) => {
     const at = `${i + 1}번째 항목`
     if (typeof r?.propertyId !== 'number') die(`[${at}] propertyId 가 없거나 숫자가 아닙니다`)
     if (typeof r?.weekStart !== 'string' || !r.weekStart) die(`[${at}] weekStart 가 없습니다 (property ${r.propertyId})`)
@@ -457,6 +521,8 @@ async function runApplyText(path: string) {
       weekStart: r.weekStart,
       granularity: info.granularity,
       label: info.label,
+      branch: info.branch,
+      ota: info.ota,
       roomComplaints: r.roomComplaints ?? 0,
       bathroomComplaints: r.bathroomComplaints ?? 0,
       memo: r.memo ?? '',
@@ -464,7 +530,15 @@ async function runApplyText(path: string) {
     }
   })
 
-  // 2) --fill-empty면 수기 입력을 건드리지 않는다. 아니면 덮어쓸 건수를 표별로 경고한다.
+  // 2) 제외 조합은 검증만 마친 뒤 여기서 통째로 뺀다 — 파일에 들어 있어도 쓰지 않는다.
+  //    (분포·본문 추출과 같은 규칙이어야 한 번의 실행이 경로마다 다르게 동작하지 않는다.)
+  const rows = allRows.filter(r => !isExcludedPair(exclusions, r.branch, r.ota))
+  const droppedByExclude = allRows.length - rows.length
+  if (droppedByExclude > 0) {
+    console.log(`제외 지정으로 건너뛴 항목 ${droppedByExclude}개 (파일에는 있으나 쓰지 않습니다)`)
+  }
+
+  // 3) --fill-empty면 수기 입력을 건드리지 않는다. 아니면 덮어쓸 건수를 표별로 경고한다.
   //    VOC도 따로 경고한다 — 지워지는 것은 불만 행이 아니라 VOC 행이다.
   const keyOf = (r: { propertyId: number; weekStart: string; granularity: Granularity }) =>
     `${r.propertyId}|${r.weekStart}|${r.granularity}`

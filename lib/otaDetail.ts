@@ -222,6 +222,70 @@ export const OTA_SITE_BY_NAME: Record<string, string> = {
   '여기어때':  '여기어때',
 }
 
+// ── 지점×채널 제외 지정(--exclude) ────────────────────────────────
+// '이번 실행에서 손대지 않을 조합'의 규칙. 스크립트가 아니라 여기 두는 이유는 DB 없이
+// 전수 검증하기 위해서다 — 오타 하나가 조용히 '아무것도 제외하지 않음'으로 떨어지면,
+// 비워 두기로 한 구간에 파생 행이 덮여 쓰이고 실행 로그만으로는 알 수 없다.
+//
+// 형식은 '지점:채널'이고 쉼표로 여러 개를 이어 쓸 수 있다. --exclude 를 여러 번 써도 된다.
+//   --exclude 신설:Agoda
+//   --exclude 신설:Agoda,동대문:Booking
+//   --exclude 신설:Agoda --exclude 동대문:Booking
+
+export interface OtaExclusion {
+  branch: string
+  ota: string   // ota_properties.ota_name 표기(Agoda·Booking…)
+}
+
+// 형식이 어긋나거나 채널명을 알 수 없으면 던진다 — 호출부가 비정상 종료시킨다.
+// 조용히 건너뛰면 '제외했다'고 믿은 조합이 그대로 파생 대상이 된다.
+export function parseExclusions(values: string[]): OtaExclusion[] {
+  const known = Object.keys(OTA_SITE_BY_NAME)
+  const out: OtaExclusion[] = []
+
+  for (const raw of values) {
+    const parts = raw.split(',')
+    for (const part of parts) {
+      const token = part.trim()
+      if (!token) {
+        throw new Error(`--exclude 에 빈 항목이 있습니다 (받은 값: "${raw}") — '지점:채널' 형식으로 적어 주세요`)
+      }
+      const seg = token.split(':')
+      if (seg.length !== 2) {
+        throw new Error(`--exclude 는 '지점:채널' 형식이어야 합니다 (받은 값: "${token}")`)
+      }
+      const branch = seg[0].trim()
+      const ota    = seg[1].trim()
+      if (!branch || !ota) {
+        throw new Error(`--exclude 의 지점 또는 채널이 비어 있습니다 (받은 값: "${token}")`)
+      }
+      // 채널명은 정본 매핑에 있는 이름만 받는다 — 'agoda'·'아고다' 같은 표기 흔들림도
+      // 실제로는 아무것도 제외하지 못하므로 여기서 막는다.
+      if (!known.includes(ota)) {
+        throw new Error(
+          `--exclude 의 채널명 '${ota}' 을(를) 알 수 없습니다 (받은 값: "${token}") — ` +
+          `가능한 값: ${known.join(', ')}`
+        )
+      }
+      // 같은 조합을 두 번 적어도 로그·검증이 중복되지 않게 한 번만 담는다.
+      if (!out.some(e => e.branch === branch && e.ota === ota)) out.push({ branch, ota })
+    }
+  }
+  return out
+}
+
+export function isExcludedPair(
+  exclusions: OtaExclusion[],
+  branch: string,
+  otaName: string,
+): boolean {
+  return exclusions.some(e => e.branch === branch && e.ota === otaName)
+}
+
+export function formatExclusion(e: OtaExclusion): string {
+  return `${e.branch}:${e.ota}`
+}
+
 // ── 채널별 입도(granularity) ──────────────────────────────────────
 // '이 채널이 주 단위인가 월 단위인가'의 단일 정본.
 //
