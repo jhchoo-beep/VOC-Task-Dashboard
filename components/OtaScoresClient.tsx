@@ -698,7 +698,7 @@ function OtaDetailBasic({
 // ════════════════════════════════════════════════════════════════════════════
 // OTA 상세 서브탭 — 전 채널
 // ════════════════════════════════════════════════════════════════════════════
-type DetailSubTab = '리뷰 작성률' | '점수 분포' | '불만 분석' | 'VOC'
+type DetailSubTab = '점수 분포' | '불만 분석' | 'VOC' | '리뷰 작성률'
 
 function OtaDetailTabs({ branch, ota, d, sub, onSubChange }: {
   branch: string; ota: string; d: OtaData
@@ -778,7 +778,7 @@ function OtaDetailTabs({ branch, ota, d, sub, onSubChange }: {
       {/* 서브탭 바 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 4 }}>
-          {(['리뷰 작성률', '점수 분포', '불만 분석', 'VOC'] as DetailSubTab[]).map(t => (
+          {(['점수 분포', '불만 분석', 'VOC', '리뷰 작성률'] as DetailSubTab[]).map(t => (
             <button key={t} onClick={() => setSub(t)} style={{
               padding: '6px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12,
               background: sub === t ? 'var(--accent)' : 'var(--bg-card)',
@@ -1403,7 +1403,7 @@ function OtaDetailView({
   onSaved: () => void
 }) {
   const [mainTab, setMainTab]   = useState<'basic' | 'detail'>('basic')
-  const [detailSub, setDetailSub] = useState<DetailSubTab>('리뷰 작성률')
+  const [detailSub, setDetailSub] = useState<DetailSubTab>('점수 분포')
   const [showModal, setShowModal] = useState(false)
 
   function getModalMode(): ModalMode {
