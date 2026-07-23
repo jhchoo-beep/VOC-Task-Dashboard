@@ -124,6 +124,47 @@ describe('monthsCovering', () => {
   })
 })
 
+import { daysBetweenIso, isWeeklyGap, MAX_WEEKLY_GAP_DAYS } from './otaDetail'
+
+describe('daysBetweenIso', () => {
+  it('두 ISO 날짜의 일수 차이를 UTC 기준으로 낸다', () => {
+    expect(daysBetweenIso('2026-03-23', '2026-03-30')).toBe(7)
+    expect(daysBetweenIso('2026-03-23', '2026-04-06')).toBe(14) // 신설 Agoda 결손 구간
+    expect(daysBetweenIso('2026-03-30', '2026-04-06')).toBe(7)
+  })
+
+  it('월·연 경계를 넘어도 정확하다', () => {
+    expect(daysBetweenIso('2026-02-27', '2026-03-01')).toBe(2) // 2026 평년
+    expect(daysBetweenIso('2025-12-29', '2026-01-05')).toBe(7)
+  })
+})
+
+describe('isWeeklyGap', () => {
+  it('컷오프는 7일보다 크고 14일보다 작다', () => {
+    // 8일(수집 지연)은 살리고 14일(한 주 결손)은 버리는 사이 값이어야 한다
+    expect(MAX_WEEKLY_GAP_DAYS).toBeGreaterThan(7)
+    expect(MAX_WEEKLY_GAP_DAYS).toBeLessThan(14)
+  })
+
+  it('7일 정상 간격은 유지한다', () => {
+    expect(isWeeklyGap('2026-03-30', '2026-04-06')).toBe(true)
+  })
+
+  it('8일 지연 간격도 유지한다 — 정확히 7일로 조이면 안 되는 이유', () => {
+    expect(isWeeklyGap('2026-04-06', '2026-04-14')).toBe(true)
+  })
+
+  it('14일(한 주 결손) 간격은 버린다', () => {
+    // 신설 Agoda 03-23 → 04-06. 델타 84가 2주치라 168 체크아웃으로 나누면 50%로 부푼다
+    expect(isWeeklyGap('2026-03-23', '2026-04-06')).toBe(false)
+  })
+
+  it('컷오프 경계에서 갈린다 — 10일까지 유지, 11일부터 제외', () => {
+    expect(isWeeklyGap('2026-04-06', '2026-04-16')).toBe(true)  // 10일
+    expect(isWeeklyGap('2026-04-06', '2026-04-17')).toBe(false) // 11일
+  })
+})
+
 import { bucketPeriodEnd, isUnsettledBucket, SETTLE_GRACE_DAYS } from './otaDetail'
 
 describe('bucketPeriodEnd', () => {

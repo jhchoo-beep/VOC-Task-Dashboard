@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { supabase, calcCLX } from '@/lib/supabase'
-import { distColumnsFor } from '@/lib/otaDetail'
+import { distColumnsFor, isWeeklyGap } from '@/lib/otaDetail'
 
 // 모든 페이지가 auth()로 인해 동적 렌더링되므로 revalidate만으로는 캐시가 작동하지 않는다.
 // unstable_cache로 데이터 레이어를 직접 캐시하고, 쓰기 API에서 revalidateTag로 즉시 무효화한다.
@@ -138,6 +138,12 @@ export const getOtaScoresProps = unstable_cache(async () => {
       const ws = snaps[i].recorded_at
       const co = checkoutByPropWeek.get(`${p.property_id}|${ws}`)
       if (!co) continue // 체크아웃 미입력 주는 작성률을 낼 수 없다
+      // 델타는 '직전 스냅샷 이후 늘어난 리뷰'다. 두 스냅샷 간격이 한 주보다 크게 벌어지면
+      // (예: 수집이 한 주 빠져 14일 간격) 이 델타는 여러 주치를 담고 있어 한 주 체크아웃으로
+      // 나눌 수 없다 — 부풀려진 작성률(신설 Agoda 04-06의 84/168=50%) 대신 그 주를 통째로
+      // 뺀다. 행이 없으면 서브탭이 깔끔히 넘어가므로 누락이 곧 의도한 결과다. 컷오프 근거는
+      // otaDetail의 MAX_WEEKLY_GAP_DAYS 주석 참조(8일=정상 유지, 14일=한 주 결손 제외).
+      if (!isWeeklyGap(snaps[i - 1].recorded_at, ws)) continue
       const delta = Math.max(0, (snaps[i].review_count ?? 0) - (snaps[i - 1].review_count ?? 0))
       rows.push({
         week: fmtWeek(ws),

@@ -82,6 +82,29 @@ export function addDaysIso(isoDate: string, days: number): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
 }
 
+// 'YYYY-MM-DD' 두 날짜의 일수 차이(later - earlier). 전부 UTC 자정으로 파싱한다 —
+// 문자열 뺄셈이나 로컬 Date는 시간대·서머타임에 흔들리므로 쓰지 않는다.
+export function daysBetweenIso(earlier: string, later: string): number {
+  const a = new Date(`${earlier}T00:00:00Z`).getTime()
+  const b = new Date(`${later}T00:00:00Z`).getTime()
+  return Math.round((b - a) / 86_400_000)
+}
+
+// 리뷰 작성률 분자는 연속한 두 ota_scores 스냅샷의 review_count 델타이고, 이 델타를
+// '한 주치 신규 리뷰'로 보려면 두 스냅샷이 실제로 한 주 간격이어야 한다. 이 컷오프는
+// '직전 스냅샷과의 간격이 한 주로 볼 수 있는 정상 범위인가'를 판정한다.
+//
+// 컷오프를 10일로 둔 근거: 스냅샷은 7일 간격으로 수집하도록 설계됐지만 실제 수집은
+// 하루이틀 밀린다. 8일 간격은 정상적인 한 주고, 14일 간격은 한 주가 통째로 빠진 것이다.
+// 그래서 그 사이인 10일을 경계로 삼는다.
+// 🔴 이 값을 정확히 7일로 조이지 말 것 — 정상적인 8·9일 주가 통째로 버려져
+//    (신설 Agoda 04-06처럼) 멀쩡한 작성률까지 사라진다. 8일은 살리고 14일은 버리는 게 목적이다.
+export const MAX_WEEKLY_GAP_DAYS = 10
+
+export function isWeeklyGap(prevIso: string, currIso: string): boolean {
+  return daysBetweenIso(prevIso, currIso) <= MAX_WEEKLY_GAP_DAYS
+}
+
 // 기준일(오늘)이 속한 주부터 거슬러 n개 주의 월요일 목록(오름차순).
 // 기준일을 인자로 받는 이유: new Date()(로컬)와 toISOString()(UTC)을 섞으면
 // KST 09시 이전 실행에서 '오늘'이 전날로 밀려 월요일 오전 실행 시 이번 주가 통째로 빠진다.
