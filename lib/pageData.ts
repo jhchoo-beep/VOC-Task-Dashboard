@@ -10,33 +10,64 @@ import type {
 // unstable_cache로 데이터 레이어를 직접 캐시하고, 쓰기 API에서 revalidateTag로 즉시 무효화한다.
 // 태그: reviews / tasks / raw-reviews / ota (테이블 단위)
 
+// ─── 전량 조회 헬퍼 ──────────────────────────────────────────
+// 🔴 PostgREST는 한 응답에 최대 1000행만 준다(서버 설정 db-max-rows).
+//    `.range(0, 9999)`를 걸어도 **소용없다** — 서버 상한이 클라이언트 요청 범위를 이기므로
+//    딱 1000행만 오고, 에러도 경고도 없다. 조용히 잘린다.
+//    실측(2026-07-23): ota_voc는 count(*)=1,016인데 .range(0, 9999)가 정확히 1,000행을
+//    돌려줬다. 잘려 나간 16행이 하필 최신 주라, 한 채널의 bad 감성 VOC 키워드가
+//    그 주 화면에서 통째로 사라진 채 아무 증상도 남기지 않았다.
+//    그래서 1000행씩 이어 받는다 — 마지막 페이지가 1000행 미만이면 끝.
+//
+// 페이지마다 같은 정렬을 걸어야 경계가 흔들리지 않으므로 정렬·필터를 콜백으로 받는다.
+// 여기에 더해 `tiebreak` 컬럼으로 항상 최종 정렬을 한 번 더 건다: 정렬 키가 week_start·
+// task_month처럼 동값이 대량으로 겹치는 컬럼이면 LIMIT/OFFSET마다 동값 구간의 순서가
+// 뒤바뀔 수 있고, 그러면 페이지 경계에서 행이 중복되거나 누락된다. PK로 순서를 확정한다.
+const PAGE = 1000
+async function fetchAllRows(
+  table: string,
+  columns: string,
+  shape: (q: any) => any = q => q,
+  tiebreak = 'id',
+): Promise<any[]> {
+  const out: any[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await shape(supabase.from(table).select(columns))
+      .order(tiebreak, { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`${table} 조회 실패: ${error.message}`)
+    const rows = data ?? []
+    out.push(...rows)
+    if (rows.length < PAGE) return out
+  }
+}
+
 // ─── 점수 현황 (OTA Scores) ─────────────────────────────────
 export const getOtaScoresProps = unstable_cache(async () => {
   const [
-    { data: scoresRaw },
-    { data: propsRaw },
-    { data: distRaw },
-    { data: complaintsRaw },
-    { data: vocRaw },
-    { data: checkoutsRaw },
+    scoresRaw, propsRaw, distRaw, complaintsRaw, vocRaw, checkoutsRaw,
   ] = await Promise.all([
-    // range를 빼면 PostgREST 기본 상한 1000행에서 조용히 잘린다 — 경고도 에러도 없다.
-    // 특히 dist·complaints는 week_start 오름차순이라, 상한을 넘는 순간 잘려 나가는 쪽이
-    // '가장 최신 주'다. 이 페이지가 보여 주려는 바로 그 데이터가 먼저 사라진다.
-    // (같은 파일의 getDashboardProps·getAnalyticsProps와 동일한 관례로 맞춘다.)
-    supabase.from('ota_scores').select('property_id,overall_score,review_count,recorded_at').order('recorded_at', { ascending: true }).range(0, 9999),
-    supabase.from('ota_properties').select('property_id,branch,ota_name,score_max,okr_target').eq('active', true).range(0, 9999),
-    supabase.from('ota_score_dist').select('*').order('week_start', { ascending: true }).range(0, 9999),
-    supabase.from('ota_complaints').select('*').order('week_start', { ascending: true }).range(0, 9999),
-    supabase.from('ota_voc').select('*').order('week_start', { ascending: false }).range(0, 9999),
-    supabase.from('ota_channel_checkouts').select('property_id,week_start,checkout_count').order('week_start', { ascending: true }).range(0, 9999),
+    // 전부 fetchAllRows로 이어 받는다. `.range(0, 9999)`는 상한을 못 넘는다(헬퍼 주석 참조).
+    // 특히 dist·complaints·scores·checkouts는 오름차순이라, 상한을 넘는 순간 잘려 나가는 쪽이
+    // '가장 최신 주'다 — 이 페이지가 보여 주려는 바로 그 데이터가 먼저 사라진다.
+    // voc의 내림차순은 consumer가 의존한다(밴드·키워드 표시 순서). 정렬은 그대로 두고
+    // 잘림만 없앤다 — 내림차순은 잘림을 덜 아프게 하려는 임시방편이 아니라 표시 순서다.
+    fetchAllRows('ota_scores', 'property_id,overall_score,review_count,recorded_at', q => q.order('recorded_at', { ascending: true })),
+    // ota_properties는 지점 × 채널 마스터(현재 24행, 상한은 지점 수 × 채널 수)라 구조적으로
+    // 1000행에 닿지 않지만, 페이징해도 요청 수가 늘지 않으므로(1000행 미만이면 1회에 종료)
+    // 예외를 두지 않는다. PK가 id가 아니라 property_id다.
+    fetchAllRows('ota_properties', 'property_id,branch,ota_name,score_max,okr_target', q => q.eq('active', true), 'property_id'),
+    fetchAllRows('ota_score_dist', '*', q => q.order('week_start', { ascending: true })),
+    fetchAllRows('ota_complaints', '*', q => q.order('week_start', { ascending: true })),
+    fetchAllRows('ota_voc', '*', q => q.order('week_start', { ascending: false })),
+    fetchAllRows('ota_channel_checkouts', 'property_id,week_start,checkout_count', q => q.order('week_start', { ascending: true })),
   ])
 
-  const scores     = scoresRaw     ?? []
-  const properties = propsRaw      ?? []
-  const dist       = distRaw       ?? []
-  const complaints = complaintsRaw ?? []
-  const voc        = vocRaw        ?? []
+  const scores     = scoresRaw
+  const properties = propsRaw
+  const dist       = distRaw
+  const complaints = complaintsRaw
+  const voc        = vocRaw
 
   // property_id → {branch, ota_name, score_max, okr_target}
   const propMap = new Map<number, { branch: string; ota_name: string; score_max: number; okr_target: number }>()
@@ -129,7 +160,7 @@ export const getOtaScoresProps = unstable_cache(async () => {
   // 아무 의미 없는 비율이 나온다(실측: 신설 Booking 4/119 = 3.4%).
   // 체크아웃이 없는 채널은 행을 한 줄도 만들지 않는다 — UI가 안내 문구를 띄운다.
   const checkoutByPropWeek = new Map<string, number>()
-  ;(checkoutsRaw ?? []).forEach((c: any) => checkoutByPropWeek.set(`${c.property_id}|${c.week_start}`, c.checkout_count))
+  ;checkoutsRaw.forEach((c: any) => checkoutByPropWeek.set(`${c.property_id}|${c.week_start}`, c.checkout_count))
 
   const reviewRate = dist2<{ week: string; reviewCount: number; checkoutCount: number; ratePct: number }[]>()
   properties.forEach((p: any) => {
@@ -204,14 +235,16 @@ export const getOtaScoresProps = unstable_cache(async () => {
 
 // ─── 대시보드 (Dashboard) ───────────────────────────────────
 export const getDashboardProps = unstable_cache(async (month?: string) => {
-  // 1) 월 목록만 컬럼 한정 조회 (리뷰 원문 등 무거운 컬럼 제외, 1000행 기본 캡 회피)
-  const [{ data: reviewMonthsRaw }, { data: taskMonthsRaw }] = await Promise.all([
-    supabase.from('reviews').select('review_month').order('review_month', { ascending: false }).range(0, 9999),
-    supabase.from('tasks').select('task_month').order('task_month', { ascending: false }).range(0, 9999),
+  // 1) 월 목록만 컬럼 한정 조회 (리뷰 원문 등 무거운 컬럼 제외)
+  //    컬럼을 줄여도 행 수는 그대로다 — 리뷰 한 건이 한 행이라 상한을 넘는다(2026-07-23 927행).
+  //    월 목록이 잘리면 드롭다운에서 월이 사라지고, 그 월은 아예 조회할 수 없게 된다.
+  const [reviewMonthsRaw, taskMonthsRaw] = await Promise.all([
+    fetchAllRows('reviews', 'review_month', q => q.order('review_month', { ascending: false })),
+    fetchAllRows('tasks', 'task_month', q => q.order('task_month', { ascending: false })),
   ])
   const months = [...new Set([
-    ...(reviewMonthsRaw ?? []).map((r: any) => r.review_month),
-    ...(taskMonthsRaw ?? []).map((t: any) => t.task_month),
+    ...reviewMonthsRaw.map((r: any) => r.review_month),
+    ...taskMonthsRaw.map((t: any) => t.task_month),
   ].filter(Boolean))].sort().reverse() as string[]
 
   const currentMonth = month ?? months[0] ?? ''
@@ -223,13 +256,15 @@ export const getDashboardProps = unstable_cache(async (month?: string) => {
 
   // 2) 현재월·전월 데이터만 병렬 조회
   //    - CLX 계산용은 평점만, 리뷰 원문(content)은 Critical/High 행에서만 내려받음
+  //    두 달치 리뷰는 현재 ~325행이지만 월 리뷰량이 늘면 상한에 닿는다. 잘리면 CLX 분모가
+  //    조용히 줄어 지점 지수가 틀린 값으로 나온다 — 화면에는 아무 표시도 없다.
   const targetMonths = [currentMonth, prevMonth].filter(Boolean)
-  const [{ data: ratingRows }, { data: criticalRows }, { data: monthTasksRaw }] = await Promise.all([
-    supabase.from('reviews').select('branch, rating, review_month').in('review_month', targetMonths).range(0, 9999),
-    supabase.from('reviews').select('id, branch, ota_site, rating, review_month, content_ko, content, severity, status').eq('review_month', currentMonth).in('severity', ['Critical', 'High']),
-    supabase.from('tasks').select('id, branch, status, task_month, title, churn_trigger, assignee, solution').eq('task_month', currentMonth),
+  const [ratingRows, criticalRows, monthTasksRaw] = await Promise.all([
+    fetchAllRows('reviews', 'branch, rating, review_month', q => q.in('review_month', targetMonths)),
+    fetchAllRows('reviews', 'id, branch, ota_site, rating, review_month, content_ko, content, severity, status', q => q.eq('review_month', currentMonth).in('severity', ['Critical', 'High'])),
+    fetchAllRows('tasks', 'id, branch, status, task_month, title, churn_trigger, assignee, solution', q => q.eq('task_month', currentMonth)),
   ])
-  const reviews = ratingRows ?? []
+  const reviews = ratingRows
 
   // 지점 목록 (현재월·전월 리뷰 기준 — 리뷰 없는 지점은 어차피 CLX 계산에서 제외됨)
   const branches = [...new Set(reviews.map((r: any) => r.branch).filter(Boolean))] as string[]
@@ -262,17 +297,17 @@ export const getDashboardProps = unstable_cache(async (month?: string) => {
 
   // Critical/High 미처리 (criticalRows는 이미 현재월 + Critical/High만 조회됨)
   const sevSort = (a: any, b: any) => (a.severity === 'Critical' ? 0 : 1) - (b.severity === 'Critical' ? 0 : 1)
-  const criticals = (criticalRows ?? []).filter((r: any) =>
+  const criticals = criticalRows.filter((r: any) =>
     !['완료', '문서화완료'].includes(r.status)
   ).sort(sevSort).slice(0, 10)
 
   // Critical/High 처리완료 (되돌리기용) - 항상 내려보냄
-  const completedCriticals = (criticalRows ?? []).filter((r: any) =>
+  const completedCriticals = criticalRows.filter((r: any) =>
     ['완료', '문서화완료'].includes(r.status)
   ).sort(sevSort).slice(0, 10)
 
   // 수행과제 진행률 (monthTasksRaw는 이미 currentMonth만 조회됨)
-  const monthTasks = monthTasksRaw ?? []
+  const monthTasks = monthTasksRaw
 
   // 수행과제가 있는 지점만 표시 (리뷰 없어도 수행과제 있으면 표시)
   const taskBranchSet = [...new Set(monthTasks.map((t: any) => t.branch).filter(Boolean))] as string[]
@@ -296,7 +331,11 @@ export const getDashboardProps = unstable_cache(async (month?: string) => {
 // ─── 수행과제 (Tasks) ───────────────────────────────────────
 // highlightTaskId(URL의 ?task=)는 캐시 키에 들어가지 않도록 데이터 조회만 캐시한다
 const getTasksData = unstable_cache(async (month?: string) => {
-  const monthsQuery = supabase.from('tasks').select('task_month').order('task_month', { ascending: false }).range(0, 9999)
+  // 월 목록은 tasks 전 행을 훑는다 — 과제가 쌓이면 상한에 닿고, 잘리면 오래된 월이
+  // 드롭다운에서 사라진다(정렬이 내림차순이라 꼬리부터). 이어 받는다.
+  const fetchMonths = () => fetchAllRows('tasks', 'task_month', q => q.order('task_month', { ascending: false }))
+  const fetchMonthTasks = (m: string) =>
+    fetchAllRows('tasks', '*', q => q.eq('task_month', m).order('priority_score', { ascending: false }))
 
   let months: string[]
   let currentMonth: string
@@ -304,23 +343,15 @@ const getTasksData = unstable_cache(async (month?: string) => {
 
   if (month) {
     // month가 URL에 있으면 2개 쿼리 병렬 실행
-    const [{ data: allTasks }, { data: tasksData }] = await Promise.all([
-      monthsQuery,
-      supabase.from('tasks').select('*').eq('task_month', month).order('priority_score', { ascending: false }),
-    ])
-    months = [...new Set((allTasks ?? []).map((t: any) => t.task_month).filter(Boolean))] as string[]
+    const [allTasks, tasksData] = await Promise.all([fetchMonths(), fetchMonthTasks(month)])
+    months = [...new Set(allTasks.map((t: any) => t.task_month).filter(Boolean))] as string[]
     currentMonth = month
-    tasks = tasksData ?? []
+    tasks = tasksData
   } else {
-    const { data: allTasks = [] } = await monthsQuery
-    months = [...new Set((allTasks ?? []).map((t: any) => t.task_month).filter(Boolean))] as string[]
+    const allTasks = await fetchMonths()
+    months = [...new Set(allTasks.map((t: any) => t.task_month).filter(Boolean))] as string[]
     currentMonth = months[0] ?? ''
-    const { data: tasksData = [] } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('task_month', currentMonth)
-      .order('priority_score', { ascending: false })
-    tasks = tasksData ?? []
+    tasks = await fetchMonthTasks(currentMonth)
   }
 
   return { tasks, months, currentMonth }
@@ -333,12 +364,14 @@ export async function getTasksProps(month?: string, task?: string) {
 
 // ─── 분석 & 트렌드 (Analytics) ──────────────────────────────
 export const getAnalyticsProps = unstable_cache(async () => {
-  const [{ data: reviews = [] }, { data: allTasks = [] }] = await Promise.all([
-    supabase.from('reviews').select('review_month, branch, rating, categories, severity, churn_triggers').order('review_month', { ascending: false }).range(0, 9999),
-    supabase.from('tasks').select('id, churn_trigger, status, task_month').order('task_month', { ascending: false }).range(0, 9999),
+  // 이 페이지는 전 기간 리뷰를 전수로 집계한다 — 이 파일에서 상한에 가장 먼저 닿는 쿼리다
+  // (2026-07-23 기준 927행). 잘리면 월별 CLX·카테고리·severity 트렌드가 전부 조용히 틀어진다.
+  const [reviews, allTasks] = await Promise.all([
+    fetchAllRows('reviews', 'review_month, branch, rating, categories, severity, churn_triggers', q => q.order('review_month', { ascending: false })),
+    fetchAllRows('tasks', 'id, churn_trigger, status, task_month', q => q.order('task_month', { ascending: false })),
   ])
-  const rv = reviews ?? []
-  const tasks = allTasks ?? []
+  const rv = reviews
+  const tasks = allTasks
 
   const months  = [...new Set(rv.map((r: any) => r.review_month).filter(Boolean))].sort() as string[]
   const branches = [...new Set(rv.map((r: any) => r.branch).filter(Boolean))] as string[]
@@ -414,27 +447,6 @@ export const getAnalyticsProps = unstable_cache(async () => {
 }, ['analytics-props'], { revalidate: 60, tags: ['reviews', 'tasks'] })
 
 // ─── 주간 리포트 (Weekly Report) ────────────────────────────────
-// PostgREST는 한 응답에 최대 1000행만 준다(서버 설정 db-max-rows). .range(0, 9999)를
-// 걸어도 서버 상한이 이겨서 1000행에서 잘리고, 에러도 경고도 없다. 1000행씩 이어 받아
-// 전부 가져온다 — 마지막 페이지가 1000행 미만이면 끝.
-// 페이지마다 같은 정렬을 걸어야 경계가 흔들리지 않으므로 정렬·필터를 콜백으로 받는다.
-const PAGE = 1000
-async function fetchAllRows(
-  table: string,
-  columns: string,
-  shape: (q: any) => any = q => q,
-): Promise<any[]> {
-  const out: any[] = []
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await shape(supabase.from(table).select(columns)).range(from, from + PAGE - 1)
-    if (error) throw new Error(`${table} 조회 실패: ${error.message}`)
-    const rows = data ?? []
-    out.push(...rows)
-    if (rows.length < PAGE) return out
-  }
-}
-
-
 // FO Weekly 260721 결정: '그 주에 리뷰를 쓴 사람들'이 채널 누적 점수보다 낮게 줬는가로
 // 확인 대상을 가른다. 판정 규칙 자체는 lib/weeklyReport.ts(순수 함수)에 있고,
 // 여기서는 조회와 조립만 한다 — DB 없이 판정을 전수 검증할 수 있게 하기 위해서다.
@@ -444,14 +456,11 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
   weeks: string[]
 }> => {
   const [propsRaw, distRaw, scoresRaw, complaintsRaw, vocRaw] = await Promise.all([
-    // 🔴 range를 빼면 PostgREST가 1000행에서 조용히 자른다 — 경고도 에러도 없다.
-    //    그런데 range(0, 9999)만으로도 부족하다: 서버의 db-max-rows(=1000)가 응답 자체를
-    //    1000행에서 자르므로 요청 범위가 넓어도 1000행만 온다. 실측(2026-07-23) —
-    //    ota_voc는 count=1,016인데 range(0,9999)가 정확히 1,000행을 돌려줬고, 잘려 나간
-    //    16행이 하필 최신 주(week_start 오름차순 정렬의 꼬리)라 동대문 Agoda 07-20의
-    //    bad 키워드 2개가 통째로 사라진 채 '원인 미기록'으로 표시됐다.
-    //    그래서 1000행씩 끝까지 이어 받는다.
-    fetchAllRows('ota_properties', 'property_id,branch,ota_name,score_max', q => q.eq('active', true)),
+    // 잘림 사고의 전말은 파일 상단 fetchAllRows 주석 참조. 실측(2026-07-23) —
+    // ota_voc count=1,016인데 range(0,9999)가 1,000행만 돌려줬고, 잘려 나간 16행이 하필
+    // 최신 주(week_start 오름차순의 꼬리)라 동대문 Agoda 07-20의 bad 키워드 2개가
+    // 통째로 사라진 채 '원인 미기록'으로 표시됐다.
+    fetchAllRows('ota_properties', 'property_id,branch,ota_name,score_max', q => q.eq('active', true), 'property_id'),
     fetchAllRows('ota_score_dist', '*', q => q.order('week_start', { ascending: true })),
     fetchAllRows('ota_scores', 'property_id,overall_score,review_count,recorded_at', q => q.order('recorded_at', { ascending: true })),
     fetchAllRows('ota_complaints', 'property_id,week_start,granularity,memo', q => q.order('week_start', { ascending: true })),
