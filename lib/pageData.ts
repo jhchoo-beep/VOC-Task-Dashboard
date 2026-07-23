@@ -1,6 +1,10 @@
 import { unstable_cache } from 'next/cache'
 import { supabase, calcCLX } from '@/lib/supabase'
 import { distColumnsFor, isWeeklyGap } from '@/lib/otaDetail'
+import { buildWeeklyReport, listReportWeeks } from '@/lib/weeklyReport'
+import type {
+  PropertyRow, DistRow, ScoreSnapshotRow, ComplaintRow, VocRow, WeeklyReport,
+} from '@/lib/weeklyReport'
 
 // 모든 페이지가 auth()로 인해 동적 렌더링되므로 revalidate만으로는 캐시가 작동하지 않는다.
 // unstable_cache로 데이터 레이어를 직접 캐시하고, 쓰기 API에서 revalidateTag로 즉시 무효화한다.
@@ -408,3 +412,72 @@ export const getAnalyticsProps = unstable_cache(async () => {
 
   return { monthlyRaw, catData, severityData, triggerResolution, triggerMonthlyData, triggerNames }
 }, ['analytics-props'], { revalidate: 60, tags: ['reviews', 'tasks'] })
+
+// ─── 주간 리포트 (Weekly Report) ────────────────────────────────
+// PostgREST는 한 응답에 최대 1000행만 준다(서버 설정 db-max-rows). .range(0, 9999)를
+// 걸어도 서버 상한이 이겨서 1000행에서 잘리고, 에러도 경고도 없다. 1000행씩 이어 받아
+// 전부 가져온다 — 마지막 페이지가 1000행 미만이면 끝.
+// 페이지마다 같은 정렬을 걸어야 경계가 흔들리지 않으므로 정렬·필터를 콜백으로 받는다.
+const PAGE = 1000
+async function fetchAllRows(
+  table: string,
+  columns: string,
+  shape: (q: any) => any = q => q,
+): Promise<any[]> {
+  const out: any[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await shape(supabase.from(table).select(columns)).range(from, from + PAGE - 1)
+    if (error) throw new Error(`${table} 조회 실패: ${error.message}`)
+    const rows = data ?? []
+    out.push(...rows)
+    if (rows.length < PAGE) return out
+  }
+}
+
+
+// FO Weekly 260721 결정: '그 주에 리뷰를 쓴 사람들'이 채널 누적 점수보다 낮게 줬는가로
+// 확인 대상을 가른다. 판정 규칙 자체는 lib/weeklyReport.ts(순수 함수)에 있고,
+// 여기서는 조회와 조립만 한다 — DB 없이 판정을 전수 검증할 수 있게 하기 위해서다.
+export const getWeeklyReportProps = unstable_cache(async (week?: string): Promise<{
+  report: WeeklyReport | null
+  week: string
+  weeks: string[]
+}> => {
+  const [propsRaw, distRaw, scoresRaw, complaintsRaw, vocRaw] = await Promise.all([
+    // 🔴 range를 빼면 PostgREST가 1000행에서 조용히 자른다 — 경고도 에러도 없다.
+    //    그런데 range(0, 9999)만으로도 부족하다: 서버의 db-max-rows(=1000)가 응답 자체를
+    //    1000행에서 자르므로 요청 범위가 넓어도 1000행만 온다. 실측(2026-07-23) —
+    //    ota_voc는 count=1,016인데 range(0,9999)가 정확히 1,000행을 돌려줬고, 잘려 나간
+    //    16행이 하필 최신 주(week_start 오름차순 정렬의 꼬리)라 동대문 Agoda 07-20의
+    //    bad 키워드 2개가 통째로 사라진 채 '원인 미기록'으로 표시됐다.
+    //    그래서 1000행씩 끝까지 이어 받는다.
+    fetchAllRows('ota_properties', 'property_id,branch,ota_name,score_max', q => q.eq('active', true)),
+    fetchAllRows('ota_score_dist', '*', q => q.order('week_start', { ascending: true })),
+    fetchAllRows('ota_scores', 'property_id,overall_score,review_count,recorded_at', q => q.order('recorded_at', { ascending: true })),
+    fetchAllRows('ota_complaints', 'property_id,week_start,granularity,memo', q => q.order('week_start', { ascending: true })),
+    fetchAllRows('ota_voc', 'property_id,week_start,granularity,band,sentiment,keyword', q => q.order('week_start', { ascending: true })),
+  ])
+
+  const dist  = (distRaw ?? []) as DistRow[]
+  const weeks = listReportWeeks(dist)   // 최신 우선
+
+  // 요청한 주에 데이터가 없으면 조용히 최신 주로 바꿔치지 않는다 —
+  // '지난주는 문제 없었다'로 읽히는 화면이 나온다. 목록에 없는 주는 report=null 이다.
+  const target = week ?? weeks[0] ?? ''
+  if (!target || !weeks.includes(target)) {
+    return { report: null, week: target, weeks }
+  }
+
+  return {
+    report: buildWeeklyReport({
+      weekStart:  target,
+      properties: (propsRaw ?? []) as PropertyRow[],
+      dist,
+      scores:     (scoresRaw ?? []) as ScoreSnapshotRow[],
+      complaints: (complaintsRaw ?? []) as ComplaintRow[],
+      voc:        (vocRaw ?? []) as VocRow[],
+    }),
+    week: target,
+    weeks,
+  }
+}, ['weekly-report-props'], { revalidate: 300, tags: ['ota'] })
