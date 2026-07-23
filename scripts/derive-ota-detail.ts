@@ -49,7 +49,7 @@ import {
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
   mergeSource, planDetailWrite, isWriteAction, WRITE_ACTION_LABEL,
   OTA_SITE_BY_NAME, granularityForSite,
-  parseExclusions, isExcludedPair, formatExclusion,
+  parseExclusions, isExcludedPair, formatExclusion, isScraperChromeReviewer,
   type Granularity, type DetailSource, type WriteAction, type OtaExclusion,
 } from '../lib/otaDetail'
 
@@ -234,6 +234,8 @@ async function buildBuckets(): Promise<Bucket[]> {
   let scanned = 0
   // 주간 채널에서 일자를 못 구해 제외한 행 수 — 채널별로 따로 센다
   const droppedNoDay = new Map<string, number>()
+  // 스크래퍼가 리뷰로 잘못 잡은 UI 요소 행(리뷰 아님) — 날짜 사유와 별개로 따로 센다
+  const droppedChrome = new Map<string, number>()
 
   for (const p of props ?? []) {
     if (onlyBranch && p.branch !== onlyBranch) continue
@@ -255,7 +257,14 @@ async function buildBuckets(): Promise<Bucket[]> {
     const byKey    = new Map<string, Bucket>()
 
     // 부킹닷컴 raw에 중복 행이 실재한다(~14%) — 집계 전에 반드시 제거한다
-    const rows = dedupe(raw)
+    const deduped = dedupe(raw)
+
+    // 스크래퍼가 리뷰로 잘못 잡은 화면 UI 요소 행을 읽는 시점에 뺀다(판정 정본은 lib/otaDetail.ts).
+    // raw_reviews는 원본 데이터라 지우지 않는다 — 여기서 건너뛸 뿐이다.
+    // 진짜 고칠 곳은 수집 단계다. 자세한 경위는 isScraperChromeReviewer 주석 참조.
+    const rows = deduped.filter(r => !isScraperChromeReviewer(r.reviewer))
+    const chromeN = deduped.length - rows.length
+    if (chromeN > 0) droppedChrome.set(chanKey, (droppedChrome.get(chanKey) ?? 0) + chromeN)
     scanned += rows.length
 
     for (const r of rows) {
@@ -309,6 +318,18 @@ async function buildBuckets(): Promise<Bucket[]> {
     }
   } else {
     console.log('주간 채널 일자 미확인 제외: 0건')
+  }
+
+  // 날짜 사유와 전혀 다른 사유다 — 반드시 별도 카운터로 보고한다.
+  // 한 달치의 절반을 조용히 지우는 필터는 그것이 고치려는 버그보다 나쁘다. 운영자가 봐야 한다.
+  const chromeTotal = [...droppedChrome.values()].reduce((a, b) => a + b, 0)
+  if (chromeTotal > 0) {
+    console.warn(`리뷰가 아닌 UI 요소 행으로 제외: ${chromeTotal}건 (수집기가 화면 버튼을 리뷰어로 잡은 행 — 원인 수정은 수집 단계)`)
+    for (const [k, n] of [...droppedChrome.entries()].sort((a, b) => b[1] - a[1])) {
+      console.warn(`  · ${k} — ${n}건 제외`)
+    }
+  } else {
+    console.log('리뷰가 아닌 UI 요소 행 제외: 0건')
   }
   return buckets
 }

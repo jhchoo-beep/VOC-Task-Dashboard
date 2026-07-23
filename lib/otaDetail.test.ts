@@ -558,3 +558,36 @@ describe('formatExclusion', () => {
     expect(formatExclusion({ branch: '신설', ota: 'Agoda' })).toBe('신설:Agoda')
   })
 })
+
+import { isScraperChromeReviewer } from './otaDetail'
+
+describe('isScraperChromeReviewer', () => {
+  it("에어비앤비 내비게이션 버튼 '호스팅 하기'를 리뷰가 아닌 행으로 판정한다", () => {
+    expect(isScraperChromeReviewer('호스팅 하기')).toBe(true)
+  })
+
+  it('앞뒤·중간 공백이 흔들려도 같은 라벨로 본다', () => {
+    expect(isScraperChromeReviewer('  호스팅 하기  ')).toBe(true)
+    expect(isScraperChromeReviewer('호스팅  하기')).toBe(true)
+    expect(isScraperChromeReviewer('호스팅\t하기')).toBe(true)
+  })
+
+  it('평범한 손님 이름은 리뷰로 남긴다 — 여기서의 오탐은 진짜 목소리를 지운다', () => {
+    expect(isScraperChromeReviewer('채운')).toBe(false)
+    expect(isScraperChromeReviewer('서영')).toBe(false)
+    expect(isScraperChromeReviewer('Jaeheon')).toBe(false)
+    expect(isScraperChromeReviewer('호스트')).toBe(false)
+  })
+
+  it("'호스팅 하기'를 포함하기만 하는 이름은 거르지 않는다 — 완전 일치로만 판정한다", () => {
+    expect(isScraperChromeReviewer('호스팅 하기 좋은 집')).toBe(false)
+    expect(isScraperChromeReviewer('나는 호스팅 하기')).toBe(false)
+  })
+
+  it('리뷰어가 비어 있으면 거르지 않는다 — 이름 없는 리뷰도 진짜 리뷰다', () => {
+    expect(isScraperChromeReviewer(undefined)).toBe(false)
+    expect(isScraperChromeReviewer(null)).toBe(false)
+    expect(isScraperChromeReviewer('')).toBe(false)
+    expect(isScraperChromeReviewer('   ')).toBe(false)
+  })
+})
