@@ -6,6 +6,19 @@
  *   npm run derive:ota -- --weeks 4 --emit-text buckets.json  불만·VOC용 본문 묶음 출력
  *   npm run derive:ota -- --apply-text results.json --fill-empty  분석 결과 적재
  *
+ * 대상 창은 --weeks(오늘부터 거슬러 N주) 또는 --month(달력 월) 중 하나로 정한다.
+ *   npm run derive:ota -- --month 2026-06 --fill-empty            2026년 6월 전체
+ *   npm run derive:ota -- --month 2026-06 --emit-text buckets.json
+ * 상류 파싱 절차(/parse-reviews 2026-06)가 달력 월을 키로 돌기 때문에, 그 달을 덮는
+ * 주 수를 실행할 때마다 사람이 암산하던 것을 없앤 것이다. 하나 모자라게 잡아도 실행은
+ * 성공한 것처럼 끝나고(그 달 앞부분 주가 조용히 빠진 채) 로그로는 알 수 없다.
+ *   · 주간 채널 — 그 달 1일이 든 주부터 말일이 든 주까지 전부. 양 끝 주는 이웃 달과
+ *     겹치지만 자르지 않는다(자르면 그 며칠의 리뷰가 어느 버킷에도 못 들어간다).
+ *   · 월간 채널(에어비앤비·여기어때) — 물어본 그 달 하나만. 주 창이 이웃 달을 걸친다고
+ *     이웃 달 월 버킷까지 쓰면 '6월을 돌렸는데 5·7월이 덮여 쓰였다'가 된다.
+ * --month 와 --weeks 를 함께 주면 비정상 종료한다 — 어느 쪽을 이기게 해도 운영자가
+ * 믿은 창과 실제 창이 조용히 달라질 수 있다. 창 계산 정본은 lib/otaDetail.ts:monthWindow.
+ *
  * --branch / --ota 는 '이것만' 고르는 필터고, --exclude 는 '이것만 빼는' 필터다.
  *   npm run derive:ota -- --weeks 12 --fill-empty --exclude 신설:Agoda
  *   npm run derive:ota -- --weeks 12 --fill-empty --exclude 신설:Agoda,동대문:Booking
@@ -57,7 +70,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import {
   parseRawDate, weekStartOf, monthStartOf, distFromRatings, distColumnsFor,
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
-  mergeSource, planDetailWrite, isForcedReanalysis, isWriteAction, WRITE_ACTION_LABEL,
+  monthWindow, mergeSource, planDetailWrite, isForcedReanalysis, isWriteAction, WRITE_ACTION_LABEL,
   OTA_SITE_BY_NAME, granularityForSite,
   parseExclusions, isExcludedPair, formatExclusion, isScraperChromeReviewer,
   type Granularity, type DetailSource, type WriteAction, type OtaExclusion,
@@ -120,6 +133,29 @@ if (!Number.isFinite(weeks) || weeks < 1) {
   die(`--weeks 는 1 이상의 정수여야 합니다 (받은 값: ${weeksRaw})`)
 }
 
+// 대상 창을 달력 월로 정한다. opt()가 값 누락·뒤따르는 플래그를 이미 막아 준다
+// (`--month --dry-run`은 여기 오기 전에 종료된다).
+const monthRaw = opt('month')
+
+// 둘 다 주면 종료한다. 어느 한쪽을 이기게 하는 순간, 운영자가 믿은 창과 실제 창이
+// 조용히 달라질 수 있다 — 이 배치에서 창이 어긋나는 실수는 '성공한 실행'으로 끝나므로
+// 가장 비싸다. 애매하면 실행하지 않는 쪽을 택한다.
+if (monthRaw !== undefined && weeksRaw !== undefined) {
+  die(`--month 와 --weeks 는 함께 쓸 수 없습니다 (받은 값: --month ${monthRaw} · --weeks ${weeksRaw}) — ` +
+      '대상 창은 하나로만 정해 주세요')
+}
+
+// 형식 오류는 여기서 즉시 비정상 종료한다. 조용히 기본값(4주)으로 흘리면
+// '6월을 돌렸다'고 믿은 실행이 엉뚱한 창을 돌고, 그 달 앞부분이 통째로 빠진다.
+const monthWin = (() => {
+  if (monthRaw === undefined) return undefined
+  try {
+    return monthWindow(monthRaw)
+  } catch (e) {
+    return die((e as Error).message)
+  }
+})()
+
 const dryRun    = flag('dry-run')
 const fillEmpty = flag('fill-empty')
 // 확정된 파생 버킷도 다시 분석 대상에 넣는다. 수기 보호(--fill-empty의 첫 번째 보장)와는
@@ -148,6 +184,13 @@ if (reanalyzeSettled && !fillEmpty) {
     '지금은 확정 버킷도 어차피 전부 다시 씁니다(이번 실행에서 무시됨)')
 } else if (reanalyzeSettled) {
   console.log('--reanalyze-settled — 확정된 파생 버킷도 다시 분석합니다 (수기 입력 보호는 그대로 유지)')
+}
+
+// --apply-text 는 대상 창을 보지 않는다(쓸 대상이 JSON 파일에 이미 적혀 있다).
+// 붙여도 무해하지만 아무 일도 하지 않으므로, '월을 좁혀 적재했다'는 오해를 남기지 않게 알린다.
+if (monthWin && applyText) {
+  console.warn(`[안내] --apply-text 는 대상 창을 쓰지 않습니다 — --month ${monthWin.month} 는 ` +
+    '이번 실행에서 무시됩니다(적재 대상은 JSON 파일의 항목입니다)')
 }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -247,13 +290,27 @@ function reportExclusions(props: { branch: string; ota_name: string }[]) {
 }
 
 async function buildBuckets(): Promise<Bucket[]> {
-  const targetWeeks = recentWeekStarts(TODAY, weeks)
+  const targetWeeks = monthWin ? monthWin.weeks : recentWeekStarts(TODAY, weeks)
   // 주 시작일의 달만 모으면 최신 주가 월 경계를 걸칠 때 이번 달이 통째로 빠진다
   // (예: 8/1 실행 → 마지막 주 시작 7/27 → 2026-08이 review_month 필터에서 누락).
   // 주 구간 전체(월~일)가 닿는 달을 모두 대상으로 삼는다.
+  // 이건 raw_reviews를 '읽어 올' 범위다 — 넓게 잡아야 양 끝 주가 온전히 채워진다.
   const targetMonths = monthsCovering(targetWeeks)
-  console.log(`대상 주 ${targetWeeks.join(', ')}`)
-  console.log(`대상 월 ${targetMonths.join(', ')} (주 구간 전체 기준)`)
+  // 월간 채널(에어비앤비·여기어때)이 '쓸' 버킷은 별개다. --month 는 물어본 달 하나로 좁힌다 —
+  // 읽기 범위를 그대로 쓰면 6월을 돌린 실행이 5월·7월 월 버킷까지 덮어쓴다.
+  // --weeks 는 지금까지의 동작 그대로(읽기 범위 = 쓰기 범위) 둔다.
+  const targetMonthBuckets = monthWin ? monthWin.monthBuckets : targetMonths
+
+  // 운영자가 '--month 가 무엇으로 펼쳐졌는지'를 믿지 않고 눈으로 확인할 수 있어야 한다.
+  if (monthWin) {
+    console.log(`대상 창 --month ${monthWin.month} — ${monthWin.firstDay} ~ ${monthWin.lastDay} ` +
+      `(그 달 1일이 든 주부터 말일이 든 주까지 ${monthWin.weeks.length}주)`)
+  } else {
+    console.log(`대상 창 --weeks ${weeks} — 오늘(${TODAY})부터 거슬러 ${weeks}주`)
+  }
+  console.log(`대상 주 ${targetWeeks.join(', ')} (주간 채널)`)
+  console.log(`조회 월 ${targetMonths.join(', ')} (raw 읽기 범위 — 주 구간 전체 기준)`)
+  console.log(`대상 월 ${targetMonthBuckets.join(', ')} (월간 채널 버킷)`)
 
   // ota_properties는 지점×채널 수준이라 구조적으로 수십 행 — 페이징 불필요
   const { data: props, error: pErr } = await db
@@ -312,7 +369,7 @@ async function buildBuckets(): Promise<Bucket[]> {
 
       const weekStart = granularity === 'month' ? monthStartOf(month!) : weekStartOf(date!)
       if (granularity === 'week' && !targetWeeks.includes(weekStart)) continue
-      if (granularity === 'month' && !targetMonths.includes(month!)) continue
+      if (granularity === 'month' && !targetMonthBuckets.includes(month!)) continue
 
       const k = `${weekStart}|${granularity}`
       if (!byKey.has(k)) {
@@ -724,7 +781,8 @@ async function runApplyText(path: string) {
 async function main() {
   if (applyText) { await runApplyText(applyText); return }
   const buckets = await buildBuckets()
-  console.log(`버킷 ${buckets.length}개 구성 (최근 ${weeks}주)\n`)
+  console.log(`버킷 ${buckets.length}개 구성 ` +
+    `(${monthWin ? `${monthWin.month} 전체 ${monthWin.weeks.length}주` : `최근 ${weeks}주`})\n`)
   if (emitText) { await runEmitText(buckets, emitText); return }
   await runDist(buckets)
 }

@@ -137,6 +137,50 @@ export function monthsCovering(weekStarts: string[]): string[] {
   return out
 }
 
+// ── --month YYYY-MM 이 펼쳐지는 창 ────────────────────────────────
+// 상류 파싱 절차(/parse-reviews 2026-06)는 달력 월을 키로 돈다. 그런데 파생 배치는
+// --weeks N(오늘부터 거슬러 N주)으로 창을 잡아 왔다 — 실행할 때마다 사람이 '그 달을
+// 덮으려면 몇 주인가'를 암산해야 했고, 하나 모자라게 잡아도 실행은 성공한 것처럼 끝난다
+// (그 달 앞부분 주가 조용히 빠진 채). 그 산수를 여기서 결정론적으로 한다.
+//
+// '덮는다'의 정의: 그 달의 1일이 든 주부터 말일이 든 주까지, 사이의 모든 주.
+// 달의 첫날·마지막 날은 대개 주중에 걸리므로 양 끝 주는 이웃 달과 겹친다. 겹치는 쪽을
+// 잘라내면 그 며칠의 리뷰가 어느 주 버킷에도 들어가지 못한다 — 창은 넓게 잡고,
+// 주 버킷 필터(targetWeeks)가 그대로 판정하게 둔다.
+export const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
+
+export interface MonthWindow {
+  month: string          // 'YYYY-MM'
+  firstDay: string       // 그 달 1일
+  lastDay: string        // 그 달 말일(윤년 반영)
+  weeks: string[]        // 주간 채널용 — 월요일 목록(오름차순)
+  monthBuckets: string[] // 월간 채널용 — 정확히 그 달 하나
+}
+
+// 형식이 어긋나면 던진다 — 호출부가 비정상 종료시킨다.
+// 조용히 기본값(4주)으로 흘리면 '6월을 돌렸다'고 믿은 실행이 엉뚱한 창을 돈다.
+export function monthWindow(month: string | null | undefined): MonthWindow {
+  const m = (month ?? '').trim()
+  if (!MONTH_PATTERN.test(m)) {
+    throw new Error(
+      `--month 는 'YYYY-MM' 형식(월은 01~12)이어야 합니다 (받은 값: "${month ?? '없음'}") — 예: --month 2026-06`
+    )
+  }
+  const firstDay = monthStartOf(m)
+  // 말일은 '다음 달 1일 - 1일'로 구한다 — 윤년·30/31일을 표로 들고 있지 않기 위해서다.
+  const lastDay = addDaysIso(monthStartOf(nextMonth(m)), -1)
+
+  const lastWeek = weekStartOf(lastDay)
+  const weeks: string[] = []
+  // ISO 'YYYY-MM-DD'는 사전순 비교가 곧 날짜 비교다.
+  for (let w = weekStartOf(firstDay); w <= lastWeek; w = addDaysIso(w, 7)) weeks.push(w)
+
+  // 월간 채널(에어비앤비·여기어때)은 애초에 달로 버킷을 만든다 — 주 창이 이웃 달을
+  // 걸친다고 해서 이웃 달 버킷까지 파생 대상에 넣으면, '6월을 돌렸는데 5·7월 버킷이
+  // 덮여 쓰였다'가 된다. 물어본 달 하나만 준다.
+  return { month: m, firstDay, lastDay, weeks, monthBuckets: [m] }
+}
+
 // 버킷이 덮는 구간의 마지막 날('YYYY-MM-DD').
 // 주 버킷은 시작일(월)+6일(일), 월 버킷은 그 달의 말일이다.
 export function bucketPeriodEnd(weekStart: string, granularity: Granularity): string {

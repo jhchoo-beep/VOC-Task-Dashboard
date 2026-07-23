@@ -124,6 +124,98 @@ describe('monthsCovering', () => {
   })
 })
 
+import { monthWindow } from './otaDetail'
+
+describe('monthWindow', () => {
+  // 창이 그 달을 실제로 덮는지는 '주 목록이 예쁜가'가 아니라 '1일과 말일이 창 안의
+  // 주에 들어가는가'로 판정해야 한다 — 기대값 배열을 손으로 적다 하나 빠뜨리면
+  // 테스트까지 같이 틀린다. 그래서 양 끝을 별도 함수로 다시 검산한다.
+  const coversFirstAndLast = (month: string) => {
+    const w = monthWindow(month)
+    expect(w.weeks[0]).toBe(weekStartOf(w.firstDay))
+    expect(w.weeks[w.weeks.length - 1]).toBe(weekStartOf(w.lastDay))
+    // 주 목록에 구멍이 없다(정확히 7일 간격, 오름차순)
+    for (let i = 1; i < w.weeks.length; i++) {
+      expect(addDaysIso(w.weeks[i - 1], 7)).toBe(w.weeks[i])
+    }
+    return w
+  }
+
+  it('달 중간에서 시작하는 달은 앞 주(이웃 달 걸침)까지 포함한다', () => {
+    // 2026-01-01은 목요일 — 그 주 월요일은 2025-12-29다. 이 주를 빼면 1/1~1/4이 사라진다
+    const w = coversFirstAndLast('2026-01')
+    expect(w.weeks).toEqual(['2025-12-29', '2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26'])
+  })
+
+  it('1일이 정확히 월요일이면 그 날이 첫 주의 시작이다', () => {
+    // 2026-06-01은 월요일 — 앞 달을 걸치지 않는다
+    const w = coversFirstAndLast('2026-06')
+    expect(w.weeks).toEqual(['2026-06-01', '2026-06-08', '2026-06-15', '2026-06-22', '2026-06-29'])
+    expect(w.firstDay).toBe('2026-06-01')
+    expect(w.lastDay).toBe('2026-06-30')
+  })
+
+  it('말일이 정확히 일요일이면 마지막 주가 다음 달을 걸치지 않는다', () => {
+    // 2026-05-31은 일요일 — 마지막 주는 05-25~05-31로 딱 떨어진다
+    const w = coversFirstAndLast('2026-05')
+    expect(w.weeks).toEqual(['2026-04-27', '2026-05-04', '2026-05-11', '2026-05-18', '2026-05-25'])
+    expect(addDaysIso(w.weeks[w.weeks.length - 1], 6)).toBe('2026-05-31')
+  })
+
+  it('윤년 2월은 29일까지 덮는다', () => {
+    const w = coversFirstAndLast('2024-02')
+    expect(w.lastDay).toBe('2024-02-29')
+    expect(w.weeks).toEqual(['2024-01-29', '2024-02-05', '2024-02-12', '2024-02-19', '2024-02-26'])
+  })
+
+  it('평년 2월은 28일까지 덮는다', () => {
+    const w = coversFirstAndLast('2026-02')
+    expect(w.lastDay).toBe('2026-02-28')
+    expect(w.weeks).toEqual(['2026-01-26', '2026-02-02', '2026-02-09', '2026-02-16', '2026-02-23'])
+  })
+
+  it('12월은 다음 해 1월을 걸치는 주까지 간다(연 경계)', () => {
+    const w = coversFirstAndLast('2025-12')
+    expect(w.lastDay).toBe('2025-12-31')
+    // 2025-12-31은 수요일 — 마지막 주 12-29~01-04는 다음 해로 넘어간다
+    expect(w.weeks[w.weeks.length - 1]).toBe('2025-12-29')
+    expect(addDaysIso(w.weeks[w.weeks.length - 1], 6)).toBe('2026-01-04')
+  })
+
+  it('월간 채널 버킷은 물어본 달 하나뿐이다(이웃 달을 넘기지 않는다)', () => {
+    // 주 창은 2025-12/2026-02를 걸치지만, 월 버킷까지 이웃 달을 주면
+    // '1월을 돌렸는데 12월·2월 버킷이 덮여 쓰였다'가 된다
+    expect(monthWindow('2026-01').monthBuckets).toEqual(['2026-01'])
+    expect(monthWindow('2026-06').monthBuckets).toEqual(['2026-06'])
+  })
+
+  it('그 달의 모든 날짜가 창 안의 어느 주에는 반드시 들어간다', () => {
+    for (const m of ['2026-01', '2026-02', '2024-02', '2026-05', '2026-06', '2025-12', '2026-03']) {
+      const w = monthWindow(m)
+      const covered = new Set<string>()
+      w.weeks.forEach(ws => { for (let i = 0; i < 7; i++) covered.add(addDaysIso(ws, i)) })
+      for (let d = w.firstDay; d <= w.lastDay; d = addDaysIso(d, 1)) {
+        expect(covered.has(d)).toBe(true)
+      }
+    }
+  })
+
+  it('형식이 어긋난 값은 던진다', () => {
+    expect(() => monthWindow('2026-13')).toThrow(/YYYY-MM/)
+    expect(() => monthWindow('2026-00')).toThrow(/YYYY-MM/)
+    expect(() => monthWindow('june')).toThrow(/YYYY-MM/)
+    expect(() => monthWindow('2026-6')).toThrow(/YYYY-MM/)
+    expect(() => monthWindow('2026-06-01')).toThrow(/YYYY-MM/)
+    expect(() => monthWindow('')).toThrow(/YYYY-MM/)
+    expect(() => monthWindow(undefined)).toThrow(/YYYY-MM/)
+    expect(() => monthWindow(null)).toThrow(/YYYY-MM/)
+  })
+
+  it('앞뒤 공백은 허용한다', () => {
+    expect(monthWindow('  2026-06  ').month).toBe('2026-06')
+  })
+})
+
 import { daysBetweenIso, isWeeklyGap, MAX_WEEKLY_GAP_DAYS } from './otaDetail'
 
 describe('daysBetweenIso', () => {
