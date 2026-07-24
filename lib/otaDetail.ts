@@ -345,6 +345,33 @@ export function isScraperChromeReviewer(reviewer: string | null | undefined): bo
   return SCRAPER_CHROME_REVIEWERS.has(reviewer.trim().replace(/\s+/g, ' '))
 }
 
+// ── raw_reviews 중복 제거 ─────────────────────────────────────────
+// 부킹닷컴 raw에 중복 행이 실재한다(~14%) — 파생 배치가 버킷을 만들기 전에 반드시 제거한다.
+// scripts/derive-ota-detail.ts의 로컬 함수였던 것을 그대로 옮겼다(로직 변경 없음) —
+// 드릴다운(lib/weeklyReviews.ts)이 같은 규칙을 쓰려면 스크립트가 아니라 여기 있어야 한다.
+export function dedupeRawRows<T extends { reviewer?: string | null; raw_date?: string | null; rating?: number | string | null; content?: string | null }>(rows: T[]): T[] {
+  const seen = new Set<string>()
+  return rows.filter(r => {
+    const k = `${r.reviewer ?? ''}|${r.raw_date ?? ''}|${r.rating ?? ''}|${(r.content ?? '').slice(0, 80)}`
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
+
+/**
+ * 파생 배치가 버킷을 만들기 전에 거는 행 필터. 🔴 배치와 드릴다운이 반드시 같은 것을 써야 한다.
+ *
+ * 왜 공유하는가: 화면이 "3건 8.0"이라 써 놓고 다른 3건을 띄우면 리포트가 근거를 잃는다.
+ * 예전엔 두 경로가 같은 규칙을 각자 구현했고, 그래서 드릴다운이 중복 행과 스크래퍼 UI 행을
+ * 다시 주워 왔다(부킹 중복 14%, 에어비앤비 '호스팅 하기' 행 48건).
+ *
+ * 🔴 여기에 필터를 추가하면 배치와 화면 양쪽에 자동으로 반영된다. 한쪽에만 넣지 말 것.
+ */
+export function eligibleRawRows<T extends { reviewer?: string | null; raw_date?: string | null; rating?: number | string | null; content?: string | null }>(rows: T[]): T[] {
+  return dedupeRawRows(rows).filter(r => !isScraperChromeReviewer(r.reviewer))
+}
+
 // ── 지점×채널 제외 지정(--exclude) ────────────────────────────────
 // '이번 실행에서 손대지 않을 조합'의 규칙. 스크립트가 아니라 여기 두는 이유는 DB 없이
 // 전수 검증하기 위해서다 — 오타 하나가 조용히 '아무것도 제외하지 않음'으로 떨어지면,

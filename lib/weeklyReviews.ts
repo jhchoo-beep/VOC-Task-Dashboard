@@ -9,7 +9,7 @@
 
 // 상대 경로로 가져온다 — vitest는 '@/' 별칭을 풀지 않는다.
 import type { Granularity } from './otaDetail'
-import { parseRawDate, weekStartOf, OTA_SITE_BY_NAME } from './otaDetail'
+import { parseRawDate, weekStartOf, OTA_SITE_BY_NAME, eligibleRawRows } from './otaDetail'
 
 export interface RawReviewRow {
   id: string
@@ -21,6 +21,9 @@ export interface RawReviewRow {
   country: string | null
   room_type: string | null
   content: string | null
+  // 파생 배치가 버킷을 만들기 전 거는 스크래퍼 UI 행 필터(eligibleRawRows)에 필요하다.
+  // raw_reviews.reviewer는 nullable.
+  reviewer: string | null
 }
 
 // reviews 테이블에서 번역본만 끌어온다. content 원문이 raw_reviews와 동일하게 들어 있어
@@ -75,8 +78,13 @@ export function selectBucketReviews(
   if (!site) return []          // 모르는 채널이면 아무것도 고르지 않는다
   const bucketMonth = bucket.substring(0, 7)
 
-  return rows.filter(r => {
-    if (r.branch !== branch || r.ota_site !== site) return false
+  // 지점·채널을 먼저 좁힌 뒤에 배치와 같은 필터(dedupe + 스크래퍼 UI 행 제외)를 태운다.
+  // 배치는 raw(그 채널 그 기간 행)에만 dedupe를 건다 — 여기서 순서를 바꾸면 다른 채널의
+  // 행이 중복 판정(reviewer|raw_date|rating|content 앞 80자)에 끼어들어 잘못 걸러진다.
+  const narrowed = rows.filter(r => r.branch === branch && r.ota_site === site)
+  const eligible = eligibleRawRows(narrowed)
+
+  return eligible.filter(r => {
     const { date, month } = parseRawDate(r.raw_date, r.review_month)
     if (granularity === 'month') return month === bucketMonth
     // 주 버킷은 일 단위가 있어야 어느 주인지 정해진다

@@ -72,7 +72,8 @@ import {
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
   monthWindow, mergeSource, planDetailWrite, isForcedReanalysis, isWriteAction, WRITE_ACTION_LABEL,
   OTA_SITE_BY_NAME, granularityForSite,
-  parseExclusions, isExcludedPair, formatExclusion, isScraperChromeReviewer,
+  parseExclusions, isExcludedPair, formatExclusion,
+  dedupeRawRows, eligibleRawRows,
   type Granularity, type DetailSource, type WriteAction, type OtaExclusion,
 } from '../lib/otaDetail'
 
@@ -261,16 +262,6 @@ async function fetchRawReviews(branch: string, site: string, months: string[]): 
   return out
 }
 
-function dedupe<T extends { reviewer?: string; raw_date?: string; rating?: number; content?: string }>(rows: T[]): T[] {
-  const seen = new Set<string>()
-  return rows.filter(r => {
-    const k = `${r.reviewer ?? ''}|${r.raw_date ?? ''}|${r.rating ?? ''}|${(r.content ?? '').slice(0, 80)}`
-    if (seen.has(k)) return false
-    seen.add(k)
-    return true
-  })
-}
-
 // 제외 지정이 실제로 무엇을 걸렀는지 조합별로 찍는다 — '걸렸겠지'를 믿지 않게.
 // 어느 하나라도 ota_properties에서 짚이는 조합이 없으면 비정상 종료한다. 오타 난 제외는
 // 아무것도 제외하지 못한 채 실행이 성공한 것처럼 끝나는 것이 가장 나쁜 결과다.
@@ -345,13 +336,16 @@ async function buildBuckets(): Promise<Bucket[]> {
     const scoreMax = p.score_max === 5 ? 5 : 10
     const byKey    = new Map<string, Bucket>()
 
-    // 부킹닷컴 raw에 중복 행이 실재한다(~14%) — 집계 전에 반드시 제거한다
-    const deduped = dedupe(raw)
+    // 부킹닷컴 raw에 중복 행이 실재한다(~14%) — 집계 전에 반드시 제거한다.
+    // 드릴다운(lib/weeklyReviews.ts)이 같은 필터를 타야 하므로 정본은 lib/otaDetail.ts에 있다.
+    const deduped = dedupeRawRows(raw)
 
     // 스크래퍼가 리뷰로 잘못 잡은 화면 UI 요소 행을 읽는 시점에 뺀다(판정 정본은 lib/otaDetail.ts).
     // raw_reviews는 원본 데이터라 지우지 않는다 — 여기서 건너뛸 뿐이다.
     // 진짜 고칠 곳은 수집 단계다. 자세한 경위는 isScraperChromeReviewer 주석 참조.
-    const rows = deduped.filter(r => !isScraperChromeReviewer(r.reviewer))
+    // eligibleRawRows(raw)와 결과가 같다(이미 deduped라 안쪽 dedupeRawRows는 아무것도 지우지
+    // 않는다) — chromeN 집계를 위해 두 단계로 나눠 부른다.
+    const rows = eligibleRawRows(deduped)
     const chromeN = deduped.length - rows.length
     if (chromeN > 0) droppedChrome.set(chanKey, (droppedChrome.get(chanKey) ?? 0) + chromeN)
     scanned += rows.length
