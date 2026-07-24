@@ -660,6 +660,9 @@ export function translationKey(content: string | null | undefined): string {
 }
 
 const numOrNull = (v: unknown): number | null => {
+  // 🔴 Number(null)과 Number('')는 둘 다 0이다. 먼저 걸러내지 않으면 평점 없는 리뷰가
+  //    0점으로 둔갑해 정렬 맨 앞 — '가장 나쁘 리뷰' 자리를 차지한다.
+  if (v == null || v === '') return null
   const n = Number(v)
   return Number.isFinite(n) ? n : null
 }
@@ -730,6 +733,9 @@ export function buildChannelReviews(
   // 저평점 먼저. 평점이 없는 행은 뒤로 보낸다(정렬 기준이 없는 행이 맨 앞을 차지하면
   // 가장 나쁜 리뷰가 밀려난다).
   items.sort((a, b) => {
+    // 둘 다 없으면 동순위(0)여야 한다 — 여기서 1을 돌려주면 compare(a,b)와
+    // compare(b,a)가 모두 1이 되어 비교가 비대칭이 된다.
+    if (a.rating == null && b.rating == null) return 0
     if (a.rating == null) return 1
     if (b.rating == null) return -1
     return a.rating - b.rating
