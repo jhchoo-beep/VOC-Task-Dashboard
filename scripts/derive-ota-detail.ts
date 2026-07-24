@@ -591,6 +591,7 @@ interface TextResult {
   granularity?: Granularity
   roomComplaints?: number
   bathroomComplaints?: number
+  headline?: string
   memo?: string
   voc?: { band: string; sentiment: 'good' | 'bad'; keyword: string }[]
 }
@@ -657,6 +658,9 @@ async function runApplyText(path: string) {
       ota: info.ota,
       roomComplaints: r.roomComplaints ?? 0,
       bathroomComplaints: r.bathroomComplaints ?? 0,
+      // 빈 문자열은 null로 접는다 — 화면 폴백(memo→키워드)이 걸리게 하려면
+      // '값이 없다'가 빈 문자열이 아니라 null이어야 한다.
+      headline: (r.headline ?? '').trim() || null,
       memo: r.memo ?? '',
       voc,
     }
@@ -734,7 +738,8 @@ async function runApplyText(path: string) {
     if (isWriteAction(cAct)) {
       const { error: cErr } = await db.from('ota_complaints').upsert({
         property_id: r.propertyId, week_start: r.weekStart, granularity: r.granularity,
-        room_complaints: r.roomComplaints, bathroom_complaints: r.bathroomComplaints, memo: r.memo,
+        room_complaints: r.roomComplaints, bathroom_complaints: r.bathroomComplaints,
+        headline: r.headline, memo: r.memo,
         source: 'derived',
       }, { onConflict: 'property_id,week_start,granularity' })
       if (cErr) throw cErr
