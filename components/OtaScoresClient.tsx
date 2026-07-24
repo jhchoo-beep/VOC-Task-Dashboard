@@ -1166,6 +1166,7 @@ function InputModal({
   const [roomComp, setRoom] = useState('0')
   const [bathComp, setBath] = useState('0')
   const [memo, setMemo]     = useState('')
+  const [headline, setHeadline] = useState('')
   const [vocItems, setVocItems] = useState<{ band: string; sentiment: 'good' | 'bad'; keyword: string }[]>([
     { band: vocBands[0], sentiment: 'good', keyword: '' },
   ])
@@ -1213,7 +1214,7 @@ function InputModal({
         if (!date) { setError('날짜는 필수입니다.'); setSaving(false); return }
         const res = await fetch('/api/ota/complaints', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propertyId, weekStart: date, granularity, roomComplaints: parseInt(roomComp)||0, bathroomComplaints: parseInt(bathComp)||0, memo }),
+          body: JSON.stringify({ propertyId, weekStart: date, granularity, roomComplaints: parseInt(roomComp)||0, bathroomComplaints: parseInt(bathComp)||0, memo, headline }),
         })
         if (!res.ok) throw new Error(await res.text())
 
@@ -1337,6 +1338,16 @@ function InputModal({
                 <label style={labelStyle}>욕실 불만 건수</label>
                 <input style={inputStyle} type="number" min="0" value={bathComp} onChange={e => setBath(e.target.value)} />
               </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>한 줄 요약</label>
+              <input
+                style={inputStyle}
+                type="text"
+                placeholder="한 줄 요약 — 원인만, 예: 욕실 배수 불량 수리 요청 후 미조치"
+                value={headline}
+                onChange={e => setHeadline(e.target.value)}
+              />
             </div>
             <div>
               <label style={labelStyle}>운영 메모</label>

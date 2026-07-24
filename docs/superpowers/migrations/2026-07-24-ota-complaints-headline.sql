@@ -1,0 +1,12 @@
+-- 주간 리포트의 결론 한 줄. memo(상세 서술)와 별개 필드다.
+--
+-- 왜 별도 컬럼인가: 회의 화면에 뜨는 한 줄을 memo에서 규칙으로 잘라 쓰면
+-- LLM이 다음 달에 memo 형식을 바꾸는 순간 조용히 깨진다. 또 수기 memo는
+-- 리뷰어별 서술 문단이라 애초에 자를 수 있는 구조가 아니다.
+--
+-- 작성 규칙: 원인만, 한 문장, 40자 내외. 처방·조치 문구를 넣지 않는다
+-- ("~ 점검 필요", "~ 정비 필요"는 memo 쪽에 남긴다).
+--
+-- 과거 행은 NULL로 남긴다. 소급 채우기를 하지 않고 화면이 폴백으로 받는다
+-- (lib/weeklyReport.ts resolveHeadline).
+alter table ota_complaints add column if not exists headline text;
