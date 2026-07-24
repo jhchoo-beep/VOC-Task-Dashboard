@@ -5,6 +5,8 @@ import { buildWeeklyReport, listReportWeeks } from '@/lib/weeklyReport'
 import type {
   PropertyRow, DistRow, ScoreSnapshotRow, ComplaintRow, VocRow, WeeklyReport,
 } from '@/lib/weeklyReport'
+import { buildChannelReviews } from '@/lib/weeklyReviews'
+import type { ChannelReviews, RawReviewRow, TranslatedRow } from '@/lib/weeklyReviews'
 
 // 모든 페이지가 auth()로 인해 동적 렌더링되므로 revalidate만으로는 캐시가 작동하지 않는다.
 // unstable_cache로 데이터 레이어를 직접 캐시하고, 쓰기 API에서 revalidateTag로 즉시 무효화한다.
@@ -454,6 +456,7 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
   report: WeeklyReport | null
   week: string
   weeks: string[]
+  reviews: Record<number, ChannelReviews>   // propertyId → 그 버킷 리뷰. 미달 채널만
 }> => {
   const [propsRaw, distRaw, scoresRaw, complaintsRaw, vocRaw] = await Promise.all([
     // 잘림 사고의 전말은 파일 상단 fetchAllRows 주석 참조. 실측(2026-07-23) —
@@ -463,7 +466,7 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
     fetchAllRows('ota_properties', 'property_id,branch,ota_name,score_max', q => q.eq('active', true), 'property_id'),
     fetchAllRows('ota_score_dist', '*', q => q.order('week_start', { ascending: true })),
     fetchAllRows('ota_scores', 'property_id,overall_score,review_count,recorded_at', q => q.order('recorded_at', { ascending: true })),
-    fetchAllRows('ota_complaints', 'property_id,week_start,granularity,memo', q => q.order('week_start', { ascending: true })),
+    fetchAllRows('ota_complaints', 'property_id,week_start,granularity,headline,memo', q => q.order('week_start', { ascending: true })),
     fetchAllRows('ota_voc', 'property_id,week_start,granularity,band,sentiment,keyword', q => q.order('week_start', { ascending: true })),
   ])
 
@@ -474,19 +477,59 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
   // '지난주는 문제 없었다'로 읽히는 화면이 나온다. 목록에 없는 주는 report=null 이다.
   const target = week ?? weeks[0] ?? ''
   if (!target || !weeks.includes(target)) {
-    return { report: null, week: target, weeks }
+    return { report: null, week: target, weeks, reviews: {} }
   }
 
-  return {
-    report: buildWeeklyReport({
-      weekStart:  target,
-      properties: (propsRaw ?? []) as PropertyRow[],
-      dist,
-      scores:     (scoresRaw ?? []) as ScoreSnapshotRow[],
-      complaints: (complaintsRaw ?? []) as ComplaintRow[],
-      voc:        (vocRaw ?? []) as VocRow[],
-    }),
-    week: target,
-    weeks,
+  const report = buildWeeklyReport({
+    weekStart:  target,
+    properties: (propsRaw ?? []) as PropertyRow[],
+    dist,
+    scores:     (scoresRaw ?? []) as ScoreSnapshotRow[],
+    complaints: (complaintsRaw ?? []) as ComplaintRow[],
+    voc:        (vocRaw ?? []) as VocRow[],
+  })
+
+  // 리뷰 원문은 미달 채널에만 붙인다. 통과 채널까지 끌어오면 raw_reviews 1.2만 행에서
+  // 필요 없는 범위를 매주 읽게 되고, 화면은 그걸 쓰지도 않는다.
+  //
+  // 🔴 클라이언트 조회로 만들지 말 것 — 노션 임베드는 인증 API를 타지 못한다.
+  //    서버가 미리 실어 내려야 임베드에서도 보인다(진행사항 로그에서 겪은 것과 같은 함정).
+  const drillTargets = [...report.below, ...report.monthly.filter(r => r.verdict === 'below')]
+  const reviews: Record<number, ChannelReviews> = {}
+
+  if (drillTargets.length > 0) {
+    const branches = [...new Set(drillTargets.map(r => r.branch))]
+    // 주 버킷은 두 달에 걸칠 수 있다 — 시작월과 종료월을 모두 넣는다.
+    const months = [...new Set(drillTargets.flatMap(r => [r.weekStart.substring(0, 7), r.bucketEnd.substring(0, 7)]))]
+
+    const [rawRows, transRows] = await Promise.all([
+      fetchAllRows(
+        'raw_reviews',
+        'id,branch,ota_site,review_month,raw_date,rating,country,room_type,content',
+        q => q.in('branch', branches).in('review_month', months),
+      ),
+      fetchAllRows(
+        'reviews',
+        'branch,ota_site,content,content_ko',
+        q => q.in('branch', branches).in('review_month', months),
+      ),
+    ])
+
+    for (const row of drillTargets) {
+      reviews[row.propertyId] = buildChannelReviews(
+        (rawRows ?? []) as RawReviewRow[],
+        (transRows ?? []) as TranslatedRow[],
+        {
+          propertyId: row.propertyId,
+          branch: row.branch,
+          otaName: row.otaName,
+          weekStart: row.weekStart,
+          granularity: row.granularity,
+          reviewCount: row.reviewCount,
+        },
+      )
+    }
   }
+
+  return { report, week: target, weeks, reviews }
 }, ['weekly-report-props'], { revalidate: 300, tags: ['ota'] })
