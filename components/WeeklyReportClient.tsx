@@ -350,7 +350,10 @@ export default function WeeklyReportClient({
               </div>
             </div>
           ) : (
-            cards.map(r => <DiscussionCard key={r.propertyId} r={r} cr={reviews[r.propertyId]} />)
+            // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은
+            //    인스턴스로 재사용돼 펼침 상태가 따라온다 — 회의에서 주를 넘기면 지난 주에 열어
+            //    둔 카드가 펼쳐진 채로 시작해 '논의 카드 한 벌이 한 화면'이 깨진다.
+            cards.map(r => <DiscussionCard key={`${week}-${r.propertyId}`} r={r} cr={reviews[r.propertyId]} />)
           )}
 
           <ReferenceFold report={report} />
