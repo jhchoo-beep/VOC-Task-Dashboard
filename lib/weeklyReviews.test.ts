@@ -98,4 +98,34 @@ describe('buildChannelReviews', () => {
     expect(got.items[0].translated).toBe(false)
     expect(got.items[0].body).toBe('')
   })
+
+  it('평점 없는(null) 리뷰는 0점으로 둔갑하지 않고 뒤로 밀린다', () => {
+    // Number(null) === 0 이라 가드를 통과하는 함정 — 평점 미상이 '가장 나쁜 리뷰'로 보이면 안 된다.
+    const rows: RawReviewRow[] = [
+      { id: 'p1', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: 7, country: null, room_type: null, content: '평점 있음' },
+      { id: 'p2', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: null, country: null, room_type: null, content: '평점 없음' },
+    ]
+    const got = buildChannelReviews(rows, [], { ...target, reviewCount: 2 })
+    expect(got.items.map(i => i.id)).toEqual(['p1', 'p2'])
+    expect(got.items.find(i => i.id === 'p2')!.rating).toBe(null)
+  })
+
+  it('평점이 빈 문자열인 리뷰도 null과 같게 다룬다', () => {
+    const rows: RawReviewRow[] = [
+      { id: 'q1', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: 6, country: null, room_type: null, content: '평점 있음' },
+      { id: 'q2', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: '', country: null, room_type: null, content: '평점 빈 문자열' },
+    ]
+    const got = buildChannelReviews(rows, [], { ...target, reviewCount: 2 })
+    expect(got.items.map(i => i.id)).toEqual(['q1', 'q2'])
+    expect(got.items.find(i => i.id === 'q2')!.rating).toBe(null)
+  })
+
+  it('평점 없는 리뷰가 둘이어도 항목이 유실·중복되지 않는다', () => {
+    const rows: RawReviewRow[] = [
+      { id: 'r1', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: null, country: null, room_type: null, content: '평점 없음 1' },
+      { id: 'r2', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: null, country: null, room_type: null, content: '평점 없음 2' },
+    ]
+    const got = buildChannelReviews(rows, [], { ...target, reviewCount: 2 })
+    expect(got.items.map(i => i.id).sort()).toEqual(['r1', 'r2'])
+  })
 })
