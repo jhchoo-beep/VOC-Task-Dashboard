@@ -98,8 +98,8 @@ function BelowCard({ r }: { r: WeeklyChannelRow }) {
         <span style={{ color: 'var(--text-3)' }}>└</span>
         {c?.hasCause ? (
           <span style={{ color: 'var(--text-1)' }}>
-            {c.memo}
-            {c.memo && c.badKeywords.length > 0 && <span style={{ color: 'var(--text-3)' }}> — </span>}
+            {c.detail}
+            {c.detail && c.badKeywords.length > 0 && <span style={{ color: 'var(--text-3)' }}> — </span>}
             {c.badKeywords.join(' · ')}
           </span>
         ) : (
@@ -118,7 +118,7 @@ export function deriveTasks(below: WeeklyChannelRow[]) {
     .filter(r => r.cause?.hasCause)
     .map(r => ({
       row: r,
-      cause: [r.cause!.memo, ...r.cause!.badKeywords].filter(Boolean).join(' · '),
+      cause: [r.cause!.detail, ...r.cause!.badKeywords].filter(Boolean).join(' · '),
     }))
 }
 
