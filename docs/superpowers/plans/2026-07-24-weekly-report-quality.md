@@ -33,7 +33,7 @@
 | `app/api/ota/complaints/route.ts` | 수기 입력 저장 — `headline` 통과 | 수정 |
 | `components/OtaScoresClient.tsx` | 데이터 입력 모달에 「한 줄 요약」 칸 | 수정 |
 | `scripts/derive-ota-detail.ts` | `TextResult.headline` 검증·저장 | 수정 |
-| `C:\Users\MGRV\.claude\skills\parse-reviews\SKILL.md` | Part B 산출 규칙에 `headline` 추가 | 수정 |
+| `C:\Users\MGRV\.claude\commands\parse-reviews.md` | Part B 산출 규칙에 `headline` 추가 | 수정 |
 | `lib/weeklyReport.ts` | `resolveHeadline` 폴백 + `WeeklyCause` 확장 | 수정 |
 | `lib/weeklyReport.test.ts` | 폴백·cause 테스트 | 수정 |
 | `lib/weeklyReviews.ts` | 드릴다운 순수 함수 — 버킷 리뷰 선별 + 번역 결합 | 신규 |
@@ -152,7 +152,7 @@ git commit -m "feat(ota): 불만 분석에 결론 한 줄(headline) 필드 추�
 
 **Files:**
 - Modify: `scripts/derive-ota-detail.ts:588-596`(`TextResult`) · `:640-670`(검증·매핑) · `:735-738`(upsert)
-- Modify: `C:\Users\MGRV\.claude\skills\parse-reviews\SKILL.md`
+- Modify: `C:\Users\MGRV\.claude\commands\parse-reviews.md`
 
 **Interfaces:**
 - Consumes: Task 1의 `ota_complaints.headline` 컬럼
@@ -215,7 +215,7 @@ Expected: `분석 대상 N개 버킷 · 리뷰 M건 → /tmp/emit.json` 출력. 
 
 - [ ] **Step 5: 스킬 Part B에 산출 규칙 추가**
 
-`C:\Users\MGRV\.claude\skills\parse-reviews\SKILL.md`의 Part B(불만 분석 결과 JSON 스키마를 설명하는 부분)에 `headline` 항목을 더한다. 다음 문구를 그대로 넣는다.
+`C:\Users\MGRV\.claude\commands\parse-reviews.md`의 Part B(불만 분석 결과 JSON 스키마를 설명하는 부분)에 `headline` 항목을 더한다. 다음 문구를 그대로 넣는다.
 
 ```markdown
 - `headline` (문자열, 필수) — 그 버킷의 **결론 한 줄**. 주간 리포트 회의 화면에
@@ -238,7 +238,7 @@ git add scripts/derive-ota-detail.ts
 git commit -m "feat(derive-ota-detail): 불만 분석에 결론 한 줄(headline) 산출·저장"
 ```
 
-`SKILL.md`는 볼트(`C:\Users\MGRV\.claude`) 쪽 파일이라 이 repo 커밋에 포함되지 않는다. 볼트는 자체 백업 스케줄러가 가져간다.
+`parse-reviews.md`는 볼트(`C:\Users\MGRV\.claude`) 쪽 파일이라 이 repo 커밋에 포함되지 않는다. 볼트는 자체 백업 스케줄러가 가져간다.
 
 ---
 
