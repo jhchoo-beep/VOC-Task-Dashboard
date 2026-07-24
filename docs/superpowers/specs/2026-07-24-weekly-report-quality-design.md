@@ -183,8 +183,10 @@ interface WeeklyCause {
 ### 알려진 한계 — 화면에 고지한다
 
 - `ota_site`는 한글명(`아고다`)이고 `ota_properties.ota_name`은 영문(`Agoda`)이다.
-  현재 `OTA_SITE_ALIAS`는 `components/OtaScoresClient.tsx` 안에 있어 서버에서 못 쓴다.
-  **`lib/otaSiteAlias.ts`로 분리**하고 양쪽이 같은 맵을 쓴다.
+  **`lib/otaDetail.ts`의 `OTA_SITE_BY_NAME`을 쓴다** — 파생 배치가 버킷을 만들 때 쓰는
+  바로 그 맵이므로 화면과 배치가 같은 행 집합을 본다. (`components/OtaScoresClient.tsx`의
+  `OTA_SITE_ALIAS`는 `NOL: ['NOL','야놀자']`처럼 표기가 갈리는 채널을 넓게 잡는 별개
+  용도라 그대로 둔다. 이쪽을 쓰면 배치가 세지 않은 행이 화면에만 뜬다.)
 - 아고다는 `raw_reviews` 커버리지가 31% 수준이라 **"3건 8.0"인데 원문이 1건만 잡히는
   경우가 생긴다.** 조용히 적게 보여주지 않고 「원문 확보 1/3건」으로 명시한다.
 - 트립닷컴은 같은 리뷰가 원문·번역본 두 행으로 적재돼 있다(미해결 이슈). 드릴다운에서
