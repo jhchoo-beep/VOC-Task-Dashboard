@@ -45,6 +45,7 @@ export interface ComplaintRow {
   property_id: number
   week_start: string
   granularity: Granularity
+  headline: string | null
   memo: string | null
 }
 
@@ -96,10 +97,59 @@ export function isThinSample(reviewCount: number): boolean {
 // 미달 주의 원인. 원인이 기록되지 않은 미달 주는 실재하는 상태다(신설 Trip.com
 // 2026-07-20: 6.00 vs 8.70인데 메모도 bad 키워드도 없다). null 로 접어 숨기지 않고
 // hasCause=false 로 내려보내 화면이 '원인 미기록'을 그대로 띄우게 한다.
+
+// 결론 한 줄이 어디서 왔는가. 화면이 근사도를 알 필요는 없지만, 폴백이 걸린 주를
+// 디버깅할 때 '저장된 값이 없어서 memo를 잘랐다'가 데이터로 남아 있어야 한다.
+export type HeadlineSource = 'headline' | 'memoHead' | 'keywords'
+
+// 한 줄이 이보다 길면 회의 화면에서 두 줄로 접히고, 그 순간 카드가 목록이 된다.
+export const HEADLINE_MAX = 60
+
 export interface WeeklyCause {
-  memo: string | null
-  badKeywords: string[]
+  headline: string | null              // 결론 자리에 그대로 출력
+  headlineSource: HeadlineSource | null
+  detail: string | null                // memo 전문 — 펼침 안
+  badKeywords: string[]                // 펼침 안 보조
   hasCause: boolean
+}
+
+/** 여러 줄·연속 공백을 한 칸으로 접고, max를 넘으면 잘라 '…'을 붙인다. */
+function oneLine(s: string, max: number): string {
+  const t = s.replace(/\s+/g, ' ').trim()
+  return t.length <= max ? t : t.substring(0, max) + '…'
+}
+
+/**
+ * 결론 한 줄을 고른다. 저장된 headline이 없는 과거 주를 깨뜨리지 않기 위한 폴백이다.
+ *
+ * 1) headline 이 있으면 그대로
+ * 2) memo 의 첫 '—'(em dash) 앞부분 — 파생 배치가 「원인 — 처방」으로 쓰므로 앞이 원인이다
+ * 3) bad 키워드 상위 2개
+ * 4) 없음 → 원인 미기록
+ *
+ * 🔴 2)를 정본으로 삼지 말 것. LLM이 memo 형식을 바꾸면 조용히 깨지고, 수기 memo는
+ *    애초에 '—' 구조가 아닌 리뷰어별 서술 문단이다. 그래서 headline 컬럼을 만들었다.
+ *    여기서는 잘라서라도 한 줄을 만들어 과거 주가 빈 카드로 뜨지 않게만 한다.
+ */
+export function resolveHeadline(
+  headline: string | null | undefined,
+  memo: string | null | undefined,
+  badKeywords: string[],
+): { headline: string | null; headlineSource: HeadlineSource | null } {
+  const h = (headline ?? '').trim()
+  if (h) return { headline: oneLine(h, HEADLINE_MAX), headlineSource: 'headline' }
+
+  const m = (memo ?? '').trim()
+  if (m) {
+    // '—'로 시작하는 memo면 앞부분이 빈 문자열이 된다 — 그때는 전문을 쓴다.
+    const head = m.split('—')[0].trim() || m
+    return { headline: oneLine(head, HEADLINE_MAX), headlineSource: 'memoHead' }
+  }
+
+  const k = badKeywords.map(s => s.trim()).filter(Boolean).slice(0, 2)
+  if (k.length > 0) return { headline: k.join(' · '), headlineSource: 'keywords' }
+
+  return { headline: null, headlineSource: null }
 }
 
 export interface WeeklyChannelRow {
@@ -270,14 +320,15 @@ function buildRow(
 
   let cause: WeeklyCause | null = null
   if (verdict === 'below') {
-    const memo = (complaint?.memo ?? '').trim() || null
+    const detail = (complaint?.memo ?? '').trim() || null
     const badKeywords = [...new Set(
       vocRows
         .filter(v => v.sentiment === 'bad')
         .map(v => (v.keyword ?? '').trim())
         .filter(Boolean)
     )]
-    cause = { memo, badKeywords, hasCause: memo !== null || badKeywords.length > 0 }
+    const { headline, headlineSource } = resolveHeadline(complaint?.headline, detail, badKeywords)
+    cause = { headline, headlineSource, detail, badKeywords, hasCause: headline !== null }
   }
 
   return {
