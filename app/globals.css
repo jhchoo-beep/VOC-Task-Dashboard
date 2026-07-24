@@ -1,8 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─── MGRV 브랜드 폰트 (자체 호스팅) ──────────────────────────────
+   영문·숫자 = Attila Sans Classic, 한글 = Pretendard.
+   외부 CDN을 쓰지 않는다 — 노션 임베드(iframe)에서 차단·지연 없이 뜨게.
+   Pretendard는 한글 전 음절 유지·한자/가나 제외(woff2 subset). CJK 리뷰 원문은
+   지금도 그렇듯 시스템 폰트로 글자별 폴백된다. */
+@font-face {
+  font-family: 'Attila Sans Classic'; font-style: normal; font-weight: 400;
+  font-display: swap; src: url('/fonts/AttilaSansClassic-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Attila Sans Classic'; font-style: normal; font-weight: 500;
+  font-display: swap; src: url('/fonts/AttilaSansClassic-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Attila Sans Classic'; font-style: normal; font-weight: 600;
+  font-display: swap; src: url('/fonts/AttilaSansClassic-Semibold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Attila Sans Classic'; font-style: normal; font-weight: 800;
+  font-display: swap; src: url('/fonts/AttilaSansClassic-Black.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard'; font-style: normal; font-weight: 400;
+  font-display: swap; src: url('/fonts/Pretendard-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard'; font-style: normal; font-weight: 500;
+  font-display: swap; src: url('/fonts/Pretendard-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard'; font-style: normal; font-weight: 600;
+  font-display: swap; src: url('/fonts/Pretendard-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard'; font-style: normal; font-weight: 700;
+  font-display: swap; src: url('/fonts/Pretendard-Bold.woff2') format('woff2');
+}
 
 /* ─── 라이트 모드 (기본) ──────────────────────────────────── */
 :root, [data-theme="light"] {
@@ -79,8 +115,9 @@ html, body {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
 
-.font-display { font-family: 'Syne', sans-serif; }
-.font-mono    { font-family: 'JetBrains Mono', monospace; }
+/* 숫자·영문 헤드라인 = Attila. 한글이 섞이면 글자별로 Pretendard가 받는다. */
+.font-display { font-family: 'Attila Sans Classic', 'Pretendard', -apple-system, 'Apple SD Gothic Neo', sans-serif; }
+.font-mono    { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
 /* 카드 */
 .card {
