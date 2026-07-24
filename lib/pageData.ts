@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { supabase, calcCLX } from '@/lib/supabase'
-import { distColumnsFor, isWeeklyGap } from '@/lib/otaDetail'
+import { distColumnsFor, isWeeklyGap, OTA_SITE_BY_NAME } from '@/lib/otaDetail'
 import { buildWeeklyReport, listReportWeeks } from '@/lib/weeklyReport'
 import type {
   PropertyRow, DistRow, ScoreSnapshotRow, ComplaintRow, VocRow, WeeklyReport,
@@ -501,17 +501,23 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
     const branches = [...new Set(drillTargets.map(r => r.branch))]
     // 주 버킷은 두 달에 걸칠 수 있다 — 시작월과 종료월을 모두 넣는다.
     const months = [...new Set(drillTargets.flatMap(r => [r.weekStart.substring(0, 7), r.bucketEnd.substring(0, 7)]))]
+    // 채널로도 좁힌다 — 미달이 "신설 Trip.com" 하나여도 신설의 전 채널 그 달치를
+    // 통째로 끌어오지 않는다. selectBucketReviews가 어차피 지점×채널로 거르므로
+    // 판정에는 영향이 없다(raw_reviews.ota_site 표기로 변환해야 한다).
+    const sites = [...new Set(
+      drillTargets.map(r => OTA_SITE_BY_NAME[r.otaName]).filter((s): s is string => Boolean(s))
+    )]
 
-    const [rawRows, transRows] = await Promise.all([
+    const [rawRows, transRows] = sites.length === 0 ? [[], []] : await Promise.all([
       fetchAllRows(
         'raw_reviews',
-        'id,branch,ota_site,review_month,raw_date,rating,country,room_type,content',
-        q => q.in('branch', branches).in('review_month', months),
+        'id,branch,ota_site,review_month,raw_date,rating,country,room_type,content,reviewer',
+        q => q.in('branch', branches).in('review_month', months).in('ota_site', sites),
       ),
       fetchAllRows(
         'reviews',
         'branch,ota_site,content,content_ko',
-        q => q.in('branch', branches).in('review_month', months),
+        q => q.in('branch', branches).in('review_month', months).in('ota_site', sites),
       ),
     ])
 
@@ -532,4 +538,4 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
   }
 
   return { report, week: target, weeks, reviews }
-}, ['weekly-report-props'], { revalidate: 300, tags: ['ota'] })
+}, ['weekly-report-props'], { revalidate: 300, tags: ['ota', 'raw-reviews', 'reviews'] })

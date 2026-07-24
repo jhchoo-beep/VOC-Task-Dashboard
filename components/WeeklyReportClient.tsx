@@ -194,6 +194,8 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
 function ReferenceFold({ report }: { report: WeeklyReport }) {
   const [open, setOpen] = useState(false)
   const s = report.summary
+  // 월 단위 미달은 위 논의 카드로 승격됐다 — 여기서 다시 세면 같은 건이 두 번 잡힌다.
+  const monthlyRest = report.monthly.filter(r => r.verdict !== 'below')
   return (
     <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
       <button
@@ -205,7 +207,7 @@ function ReferenceFold({ report }: { report: WeeklyReport }) {
         }}
       >
         <span>
-          통과 {s.onOrAboveCount} · 월 단위 {s.monthlyCount} · 리뷰 0건 {s.silentCount}
+          통과 {s.onOrAboveCount}{monthlyRest.length > 0 && ` · 월 단위 ${monthlyRest.length}`} · 리뷰 0건 {s.silentCount}
           {s.unknownCount > 0 && ` · 기준선 없음 ${s.unknownCount}`}
         </span>
         <ChevronDown size={14} style={{ marginLeft: 'auto', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
@@ -220,13 +222,13 @@ function ReferenceFold({ report }: { report: WeeklyReport }) {
               : report.onOrAbove.map(r => `${r.branch} ${r.otaName} ${fmt(r.weekAvg)}(${r.reviewCount}건)`).join(' · ')}
           </div>
 
-          {report.monthly.length > 0 && (
+          {monthlyRest.length > 0 && (
             <div style={{ color: 'var(--text-2)' }}>
-              <b>월 단위 {report.monthly.length}곳</b>
+              <b>월 단위 {monthlyRest.length}곳</b>
               <span style={{ color: 'var(--text-3)' }}> (원본이 일 단위 날짜를 주지 않아 그 주가 아니라 그 달의 값)</span>
               <div style={{ marginTop: 3 }}>
-                {report.monthly.map(r => (
-                  `${r.verdict === 'below' ? '⚠ ' : ''}${r.branch} ${r.otaName} ${fmt(r.weekAvg)}` +
+                {monthlyRest.map(r => (
+                  `${r.branch} ${r.otaName} ${fmt(r.weekAvg)}` +
                   ` (${r.reviewCount}건 · 누적 ${r.baseline != null ? fmt(r.baseline) : '—'}` +
                   `${r.gap != null ? ` · ${signed(r.gap)}` : ''} · ${r.weekStart.substring(0, 7)})`
                 )).join('  ·  ')}

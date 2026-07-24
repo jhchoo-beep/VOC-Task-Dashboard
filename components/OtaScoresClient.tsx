@@ -1347,6 +1347,7 @@ function InputModal({
                 placeholder="한 줄 요약 — 원인만, 예: 욕실 배수 불량 수리 요청 후 미조치"
                 value={headline}
                 onChange={e => setHeadline(e.target.value)}
+                maxLength={60}
               />
             </div>
             <div>
