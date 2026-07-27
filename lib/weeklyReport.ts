@@ -67,16 +67,6 @@ export const ESTIMATOR_LABEL: Record<AvgEstimator, string> = {
   approx: '밴드 근사(수기)',
 }
 
-// 표본이 얇다고 판정에서 빼지 않는다. 1건 4.4점은 진짜 나쁜 리뷰 한 건이고,
-// 그걸 감추면 리포트가 존재할 이유가 없다. 다만 그 -4.5 격차는 '추세'가 아니므로
-// 화면이 건수를 격차만큼 크게 보여 줄 수 있도록 플래그만 내려보낸다.
-// 🔴 이 값을 필터로 쓰지 말 것 — 최소 표본 컷을 두는 순간 진짜 악평이 조용히 사라진다.
-export const THIN_SAMPLE_MAX = 2
-
-export function isThinSample(reviewCount: number): boolean {
-  return reviewCount > 0 && reviewCount <= THIN_SAMPLE_MAX
-}
-
 // 🔴 미달 '원인'은 이 리포트가 만들지 않는다(2026-07-27 재헌 결정).
 // 이전에는 ota_complaints.headline → memo 앞부분 → bad 키워드 순으로 폴백해 결론 한 줄을
 // 지어냈다. 그 폴백이 밴드를 보지 않아, 신설 Trip.com 2026-07-27 주에서 기준선을 밀어올린
@@ -96,7 +86,6 @@ export interface WeeklyChannelRow {
   reviewCount: number        // 그 주에 쓰인 리뷰 수 (밴드 열 합)
   weekAvg: number            // 그 주 리뷰어들의 평균
   estimator: AvgEstimator
-  thinSample: boolean
 
   baseline: number | null    // 그 채널의 누적 종합 점수
   baselineRecordedAt: string | null
@@ -279,7 +268,6 @@ function buildRow(
     reviewCount,
     weekAvg,
     estimator: row.source === 'manual' ? 'approx' : 'exact',
-    thinSample: isThinSample(reviewCount),
     baseline: base.score,
     baselineRecordedAt: base.recordedAt,
     baselineIsFallback: base.isFallback,

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   judgeWeek, pickBaseline, reviewCountOf, listReportWeeks, weekLabel,
-  monthBucketOf, isThinSample, buildWeeklyReport,
+  monthBucketOf, buildWeeklyReport,
   type PropertyRow, type DistRow, type ScoreSnapshotRow,
 } from './weeklyReport'
 
@@ -92,12 +92,6 @@ describe('보조 함수', () => {
     ]
     expect(listReportWeeks(rows)).toEqual(['2026-07-20', '2026-07-13'])
   })
-  it('isThinSample 은 1~2건에만 참, 0건은 거짓(0건은 silent 로 따로 다룬다)', () => {
-    expect(isThinSample(0)).toBe(false)
-    expect(isThinSample(1)).toBe(true)
-    expect(isThinSample(2)).toBe(true)
-    expect(isThinSample(3)).toBe(false)
-  })
 })
 
 // ── buildWeeklyReport ──────────────────────────────────────────────
@@ -170,7 +164,6 @@ describe('buildWeeklyReport', () => {
     const trip = report.below.find(r => r.otaName === 'Trip.com')!
     expect('cause' in trip).toBe(false)
     expect(trip.reviewCount).toBe(1)
-    expect(trip.thinSample).toBe(true) // 1건 -2.70은 추세가 아니라는 표시
   })
 
   it('스냅샷이 없는 채널은 unknown 이고 기준선·격차가 null', () => {

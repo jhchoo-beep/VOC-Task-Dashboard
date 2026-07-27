@@ -37,11 +37,10 @@ function orderForMeeting(rows: WeeklyChannelRow[]): WeeklyChannelRow[] {
   })
 }
 
-function Chip({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'warn' }) {
-  const color = tone === 'warn' ? 'var(--medium)' : 'var(--text-3)'
+function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span style={{
-      fontSize: 11, color, border: `1px solid ${color}`, borderRadius: 10,
+      fontSize: 11, color: 'var(--text-3)', border: '1px solid var(--text-3)', borderRadius: 10,
       padding: '2px 8px', whiteSpace: 'nowrap', opacity: 0.9,
     }}>{children}</span>
   )
@@ -133,8 +132,8 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
   const unit = r.granularity === 'month' ? '직전 달' : '직전 주'
 
   return (
-    <div className="card" style={{ padding: '18px 20px', marginBottom: 12, borderLeft: '3px solid var(--critical)' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+    <div className="card" style={{ padding: '14px 20px', marginBottom: 10, borderLeft: '3px solid var(--critical)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 16, fontWeight: 700 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: branchColor(r.branch) }} />
           {r.branch} {r.otaName}
@@ -144,34 +143,33 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
             </span>
           )}
         </span>
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
-            {r.baseline != null ? fmt(r.baseline) : '—'} →
+        {/* 수치와 버튼을 한 줄에 둔다 — 원인 한 줄이 빠진 뒤 버튼만 남은 둘째 줄은 여백일 뿐이다 */}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
+              {r.baseline != null ? fmt(r.baseline) : '—'} →
+            </span>
+            <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--critical)', lineHeight: 1 }}>
+              {fmt(r.weekAvg)}
+            </span>
+            {/* 건수를 점수와 같은 크기로 — 1건짜리 격차를 붕괴로 읽지 않게 하는 장치다 */}
+            <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1 }}>
+              {r.reviewCount}건
+            </span>
           </span>
-          <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--critical)', lineHeight: 1 }}>
-            {fmt(r.weekAvg)}
-          </span>
-          {/* 건수를 점수와 같은 크기로 — 1건짜리 격차를 붕괴로 읽지 않게 하는 장치다 */}
-          <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1 }}>
-            {r.reviewCount}건
-          </span>
+          <button
+            onClick={() => setOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)',
+              background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12,
+              fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            {open ? '리뷰 닫기' : '리뷰 보기'}
+            <ChevronDown size={13} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+          </button>
         </span>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 }}>
-        {r.thinSample && <Chip tone="warn">소표본 {r.reviewCount}건 · 추세 아님</Chip>}
-        <button
-          onClick={() => setOpen(o => !o)}
-          style={{
-            marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4,
-            padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)',
-            background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12,
-            fontFamily: 'inherit', cursor: 'pointer',
-          }}
-        >
-          {open ? '리뷰 닫기' : '리뷰 보기'}
-          <ChevronDown size={13} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
-        </button>
       </div>
 
       {open && (
