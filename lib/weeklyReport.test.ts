@@ -336,3 +336,58 @@ describe('buildWeeklyReport — cause', () => {
     })
   })
 })
+
+// ── baselines — 화면 오른쪽 '기준 점수' 패널 ───────────────────────
+describe('buildWeeklyReport — baselines', () => {
+  it('리뷰 0건 채널까지 활성 전 채널을 담는다', () => {
+    // 기준 점수는 리뷰 유무와 무관한 채널의 속성이다. silent 를 빼면 표에 구멍이 생긴다.
+    expect(report.baselines.map(b => b.propertyId)).toEqual([1, 2, 3, 4, 5, 6])
+    const booking = report.baselines.find(b => b.otaName === 'Booking')!
+    expect(report.silent.some(s => s.otaName === 'Booking')).toBe(true)
+    expect(booking.score).toBe(8.6)
+  })
+
+  it('below 플래그가 report.below 와 정확히 일치한다', () => {
+    const flagged = report.baselines.filter(b => b.below).map(b => b.otaName).sort()
+    expect(flagged).toEqual(['NOL', 'Trip.com'])
+    expect(flagged).toEqual(report.below.map(r => r.otaName).sort())
+  })
+
+  it('스냅샷이 없는 채널은 score=null — 0으로 채우지 않는다', () => {
+    const expedia = report.baselines.find(b => b.otaName === 'Expedia')!
+    expect(expedia.score).toBe(null)
+    expect(expedia.recordedAt).toBe(null)
+  })
+
+  it('5점제 채널의 scoreMax 와 기준선을 그대로 싣는다', () => {
+    const nol = report.baselines.find(b => b.otaName === 'NOL')!
+    expect(nol.scoreMax).toBe(5)
+    expect(nol.score).toBe(4.0)
+  })
+
+  it('카드가 쓴 기준선과 같은 값이다 — 좌우 숫자가 어긋나면 안 된다', () => {
+    for (const row of [...report.below, ...report.onOrAbove, ...report.monthly]) {
+      const b = report.baselines.find(x => x.propertyId === row.propertyId)!
+      expect(b.score).toBe(row.baseline)
+      expect(b.recordedAt).toBe(row.baselineRecordedAt)
+    }
+  })
+
+  it('월 채널은 주 버킷이 아니라 자기 월 버킷 끝의 스냅샷을 쓴다', () => {
+    // 주 버킷 끝(07-26) 이후·월 버킷 끝(07-31) 이전에 찍힌 스냅샷이 있으면
+    // 월 채널은 그것을 써야 한다. 버킷 끝을 하나로 통일하면 이 케이스가 틀린다.
+    const r = buildWeeklyReport({
+      weekStart: '2026-07-20',
+      properties: [{ property_id: 9, branch: '신설', ota_name: 'Airbnb', score_max: 5 }],
+      dist: [{ property_id: 9, week_start: '2026-07-01', granularity: 'month', source: 'derived', weekly_avg_score: 4.8, score_5: 10 }],
+      scores: [
+        { property_id: 9, overall_score: 4.70, review_count: 100, recorded_at: '2026-07-20' },
+        { property_id: 9, overall_score: 4.73, review_count: 105, recorded_at: '2026-07-29' },
+      ],
+      complaints: [], voc: [],
+    })
+    expect(r.baselines[0].score).toBe(4.73)
+    expect(r.baselines[0].recordedAt).toBe('2026-07-29')
+    expect(r.monthly[0].baseline).toBe(4.73)
+  })
+})

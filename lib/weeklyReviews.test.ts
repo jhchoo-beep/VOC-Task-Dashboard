@@ -83,7 +83,9 @@ describe('buildChannelReviews', () => {
   const TRANS: TranslatedRow[] = [
     { branch: '동대문', ota_site: '아고다', content: '整體來說是個很不錯的住宿地方', content_ko: '전반적으로 아주 괜찮은 숙소였어요' },
   ]
-  const target = { propertyId: 3, branch: '동대문', otaName: 'Agoda', weekStart: '2026-07-20', granularity: 'week' as const, reviewCount: 3 }
+  // baseline: null = 기준선 필터를 끈 상태. 정렬·번역·건수는 필터와 독립이어야 하므로
+  // 이 블록은 필터를 끄고 검증하고, 필터 자체는 아래 별도 describe에서 다룬다.
+  const target = { propertyId: 3, branch: '동대문', otaName: 'Agoda', weekStart: '2026-07-20', granularity: 'week' as const, reviewCount: 3, baseline: null }
 
   it('저평점 순으로 정렬한다', () => {
     const got = buildChannelReviews(RAW, TRANS, target)
@@ -149,5 +151,78 @@ describe('buildChannelReviews', () => {
     ]
     const got = buildChannelReviews(rows, [], { ...target, reviewCount: 2 })
     expect(got.items.map(i => i.id).sort()).toEqual(['r1', 'r2'])
+  })
+})
+
+// ── 기준선 미달 필터 ────────────────────────────────────────────────
+// 카드가 '8.9 → 8.0'이라 써 놓고 펼치면 10.0짜리 호평이 함께 뜨던 문제.
+// 설계 정본: docs/superpowers/specs/2026-07-27-weekly-report-baseline-filter-design.md
+describe('buildChannelReviews — 기준선 미달 필터', () => {
+  const base = { propertyId: 3, branch: '동대문', otaName: 'Agoda', weekStart: '2026-07-20', granularity: 'week' as const, reviewCount: 3 }
+
+  it('기준선 미만만 남기고, 이상은 hiddenCount로 센다', () => {
+    // 실측: 동대문 Agoda 2026-07-20 — 누적 8.9, 그 주 4.0/10.0(→ 평균 8.0)
+    const got = buildChannelReviews(RAW, [], { ...base, baseline: 8.9 })
+    expect(got.items.map(i => i.id)).toEqual(['a'])
+    expect(got.hiddenCount).toBe(1)
+    expect(got.baseline).toBe(8.9)
+  })
+
+  it('기준선과 정확히 같은 점수는 남기지 않는다 — judgeWeek과 같은 부등호', () => {
+    const rows: RawReviewRow[] = [
+      { id: 'eq', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: 8.9, country: null, room_type: null, content: '경계값', reviewer: null },
+    ]
+    const got = buildChannelReviews(rows, [], { ...base, reviewCount: 1, baseline: 8.9 })
+    expect(got.items).toEqual([])
+    expect(got.hiddenCount).toBe(1)
+  })
+
+  it('5점제 채널도 환산 없이 자기 척도로 걸러진다', () => {
+    // 신설 NOL 누적 4.00. raw_reviews.rating이 채널 자기 척도(1~5)로 저장돼 있어
+    // 10점 환산을 끼우면 전부 미달로 뒤집힌다.
+    const rows: RawReviewRow[] = [
+      { id: 'n1', branch: '신설', ota_site: '야놀자', review_month: '2026-07', raw_date: '2026-07-20', rating: 3, country: null, room_type: null, content: '불만', reviewer: null },
+      { id: 'n2', branch: '신설', ota_site: '야놀자', review_month: '2026-07', raw_date: '2026-07-20', rating: 5, country: null, room_type: null, content: '만족', reviewer: null },
+    ]
+    const got = buildChannelReviews(rows, [], {
+      propertyId: 22, branch: '신설', otaName: 'NOL', weekStart: '2026-07-20',
+      granularity: 'week', reviewCount: 2, baseline: 4.0,
+    })
+    expect(got.items.map(i => i.id)).toEqual(['n1'])
+    expect(got.hiddenCount).toBe(1)
+  })
+
+  it('평점 없는 리뷰는 남긴다 — 판정 불가를 통과로 처리하지 않는다', () => {
+    const rows: RawReviewRow[] = [
+      { id: 'good', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: 10, country: null, room_type: null, content: '호평', reviewer: null },
+      { id: 'none', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: null, country: null, room_type: null, content: '평점 없음', reviewer: null },
+    ]
+    const got = buildChannelReviews(rows, [], { ...base, reviewCount: 2, baseline: 8.9 })
+    expect(got.items.map(i => i.id)).toEqual(['none'])
+    expect(got.hiddenCount).toBe(1)
+  })
+
+  it('기준선이 없으면 거르지 않는다 — 근거 없이 리뷰를 지우지 않는다', () => {
+    const got = buildChannelReviews(RAW, [], { ...base, baseline: null })
+    expect(got.items.map(i => i.id)).toEqual(['a', 'b'])
+    expect(got.hiddenCount).toBe(0)
+    expect(got.baseline).toBe(null)
+  })
+
+  it('필터가 걸려도 expectedCount는 판정이 준 값 그대로다', () => {
+    // 화면의 커버리지 경고 분자는 items.length가 아니라 items.length + hiddenCount다.
+    const got = buildChannelReviews(RAW, [], { ...base, baseline: 8.9 })
+    expect(got.expectedCount).toBe(3)
+    expect(got.items.length + got.hiddenCount).toBe(2)   // 확보한 원문 2건 / 판정 3건
+  })
+
+  it('부동소수 잔차로 판정이 뒤집히지 않는다', () => {
+    // 8.9 - 8.9 = -1.7e-15 같은 잔차. judgeWeek이 round2로 막는 것과 같은 함정이다.
+    const rows: RawReviewRow[] = [
+      { id: 'f', branch: '동대문', ota_site: '아고다', review_month: '2026-07', raw_date: '2026-07-20', rating: 0.1 + 0.2 + 8.6, country: null, room_type: null, content: '8.9 근사', reviewer: null },
+    ]
+    const got = buildChannelReviews(rows, [], { ...base, reviewCount: 1, baseline: 8.9 })
+    expect(got.items).toEqual([])
+    expect(got.hiddenCount).toBe(1)
   })
 })

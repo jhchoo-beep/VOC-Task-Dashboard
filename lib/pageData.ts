@@ -532,6 +532,9 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
           weekStart: row.weekStart,
           granularity: row.granularity,
           reviewCount: row.reviewCount,
+          // 카드가 판정에 쓴 바로 그 기준선. 드릴다운은 이보다 낮은 리뷰만 보여 준다 —
+          // 점수를 밀어올린 10.0짜리 호평이 '미달 주'의 근거 자리에 섞이지 않게 한다.
+          baseline: row.baseline,
         },
       )
     }

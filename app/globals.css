@@ -202,6 +202,24 @@ html, body {
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.7s linear infinite; }
 
+/* ─── 주간 리포트: 논의 카드 + 기준 점수 패널 2컬럼 ────────── */
+.weekly-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 900px) 280px;
+  gap: 24px;
+  align-items: start;
+}
+/* 회의에서 카드를 스크롤해도 기준 점수가 화면에 남아야 한다 */
+.weekly-aside { position: sticky; top: 24px; }
+
+/* 노션 임베드·좁은 창: 1컬럼으로 접고 패널은 카드 '아래'로.
+   위로 올리면 논의 카드가 첫 화면 밖으로 밀린다. */
+@media (max-width: 1180px) {
+  .weekly-grid  { grid-template-columns: minmax(0, 1fr); }
+  /* 폭을 묶지 않으면 채널명과 점수가 화면 양끝으로 벌어져 표가 아니라 여백이 된다 */
+  .weekly-aside { position: static; max-width: 420px; }
+}
+
 /* ─── 반응형 레이아웃 ─────────────────────────────────────── */
 .main-content { margin-left: 220px; }
 

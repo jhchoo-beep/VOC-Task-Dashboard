@@ -190,6 +190,23 @@ export interface SilentChannel {
   granularity: Granularity
 }
 
+// 화면 오른쪽 '기준 점수' 패널이 쓰는 행. 활성 채널 전부를 담는다 —
+// 그 주 리뷰가 0건인 채널도 뺀다. 기준 점수는 리뷰 유무와 무관한 채널의 속성이고,
+// 빠지면 표에 구멍이 생겨 '이 채널은 왜 없지'를 회의에서 묻게 된다.
+//
+// 🔴 값은 카드와 같은 pickBaseline(snapshots, 그 채널 자기 bucketEnd)으로 뽑는다.
+//    주 채널과 월 채널은 버킷 끝이 다르므로 하나로 통일하면 좌우 숫자가 어긋난다.
+export interface BaselineRow {
+  propertyId: number
+  branch: string
+  otaName: string
+  scoreMax: number
+  score: number | null
+  recordedAt: string | null
+  isFallback: boolean
+  below: boolean             // 이번 버킷 판정이 'below'인 채널
+}
+
 export interface WeeklyReportSummary {
   belowCount: number
   onOrAboveCount: number
@@ -208,6 +225,7 @@ export interface WeeklyReport {
   unknown: WeeklyChannelRow[]    // 기준선 없음
   monthly: WeeklyChannelRow[]    // 월 단위 채널(주간 분해 불가) — 참고용
   silent: SilentChannel[]        // 리뷰 0건
+  baselines: BaselineRow[]       // 활성 전 채널의 기준 점수 — 화면 오른쪽 패널
   summary: WeeklyReportSummary
 }
 
@@ -400,12 +418,29 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReport {
   const weekly: WeeklyChannelRow[] = []
   const monthly: WeeklyChannelRow[] = []
   const silent: SilentChannel[] = []
+  const baselines: BaselineRow[] = []
 
   for (const p of input.properties) {
     const granularity = granularityForOtaName(p.ota_name)
     const bucket = granularity === 'month' ? monthBucket : weekStart
     const key = `${p.property_id}|${bucket}|${granularity}`
     const row = distByKey.get(key)
+
+    // 기준 점수는 리뷰가 있었는지와 무관한 채널의 속성이므로 silent 로 빠지기 전에 담는다.
+    // below 는 아래에서 판정이 나온 뒤 되돌아와 채운다.
+    const snaps = snapsByProp.get(p.property_id) ?? []
+    const baseAll = pickBaseline(snaps, bucketPeriodEnd(bucket, granularity))
+    const baselineRow: BaselineRow = {
+      propertyId: p.property_id,
+      branch: p.branch,
+      otaName: p.ota_name,
+      scoreMax: p.score_max === 5 ? 5 : 10,
+      score: baseAll.score,
+      recordedAt: baseAll.recordedAt,
+      isFallback: baseAll.isFallback,
+      below: false,
+    }
+    baselines.push(baselineRow)
 
     // 분포 행이 없거나 밴드 합이 0이면 그 버킷에 리뷰가 없었다는 뜻이다.
     if (!row || reviewCountOf(row, p.score_max === 5 ? 5 : 10) === 0) {
@@ -418,11 +453,12 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReport {
 
     const built = buildRow(
       p, row, granularity, bucket,
-      snapsByProp.get(p.property_id) ?? [],
+      snaps,
       prevRow,
       complaintByKey.get(key),
       vocByKey.get(key) ?? [],
     )
+    baselineRow.below = built.verdict === 'below'
     ;(granularity === 'month' ? monthly : weekly).push(built)
   }
 
@@ -444,6 +480,7 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReport {
     unknown,
     monthly: monthly.sort(byGapAsc),
     silent,
+    baselines,
     summary: {
       belowCount:     below.length,
       onOrAboveCount: onOrAbove.length,

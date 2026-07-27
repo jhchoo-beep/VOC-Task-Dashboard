@@ -3,7 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
-import { ESTIMATOR_LABEL, type WeeklyReport, type WeeklyChannelRow } from '@/lib/weeklyReport'
+import { ESTIMATOR_LABEL, type WeeklyReport, type WeeklyChannelRow, type BaselineRow } from '@/lib/weeklyReport'
 import type { ChannelReviews } from '@/lib/weeklyReviews'
 
 // FO Weekly 회의 중 노션 임베드로 화면 공유하며 읽는 보고서다. 설계 정본은
@@ -56,21 +56,39 @@ function ratingColor(r: number | null) {
 }
 
 // ─── 리뷰 원문 ────────────────────────────────────────────────────────────────
+// 기준선 미만 리뷰만 나온다(필터는 lib/weeklyReviews.ts). 카드가 '8.9 → 8.0'이라 써 놓고
+// 펼치면 10.0짜리 호평이 함께 뜨던 문제를 없앤 것이다.
 function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
-  if (!cr || cr.items.length === 0) {
+  // 확보한 원문 총수 = 보여 주는 것 + 기준선 이상이라 뺀 것. 커버리지 경고의 분자다 —
+  // items.length 를 쓰면 3건을 다 확보하고도 '원문 확보 1/3건'이 뜬다.
+  const secured = cr ? cr.items.length + cr.hiddenCount : 0
+  const baseTxt = cr?.baseline != null ? `기준 ${fmt(cr.baseline)}` : '기준선 없음'
+
+  if (!cr || secured === 0) {
     return (
       <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>
         원문을 찾지 못했습니다 — 수집 커버리지 밖의 리뷰입니다
       </div>
     )
   }
+
+  // 원문은 확보했는데 전부 기준선 이상인 상태. 위 문구와 합치면 '수집이 안 됐다'와
+  // '나쁜 리뷰만 수집에서 빠졌다'가 구분되지 않는다 — 후자는 수집 쪽 결함 신호다.
+  if (cr.items.length === 0) {
+    return (
+      <div style={{ fontSize: 12, color: 'var(--medium)', marginTop: 8, lineHeight: 1.7 }}>
+        확보한 원문 {secured}건이 모두 {baseTxt} 이상입니다 — 점수를 끌어내린 리뷰는 수집 범위 밖입니다
+      </div>
+    )
+  }
+
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>
-        리뷰 원문
+        리뷰 원문 · {baseTxt} 미달 {cr.items.length}건
         {/* 조용히 적게 보여주지 않는다 — 아고다는 raw 커버리지가 31% 수준이다 */}
-        {cr.items.length < cr.expectedCount && (
-          <span style={{ color: 'var(--medium)' }}> (원문 확보 {cr.items.length}/{cr.expectedCount}건)</span>
+        {secured < cr.expectedCount && (
+          <span style={{ color: 'var(--medium)' }}> (원문 확보 {secured}/{cr.expectedCount}건)</span>
         )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -94,6 +112,13 @@ function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
           </div>
         ))}
       </div>
+
+      {/* 숨긴 사실을 남긴다 — 없으면 남은 목록이 '그 주 전부'로 읽힌다 */}
+      {cr.hiddenCount > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>
+          {baseTxt} 이상 {cr.hiddenCount}건은 표시하지 않았습니다
+        </div>
+      )}
     </div>
   )
 }
@@ -186,6 +211,81 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
           <ReviewList cr={cr} />
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── 기준 점수 패널 ───────────────────────────────────────────────────────────
+// 왜 있나: 카드 오른쪽 작은 '8.9'가 기준선이라는 사실도, 채널마다 4.00~9.30으로 흩어져
+// 있다는 사실도 화면에 없었다. 그래서 '왜 8.0이 미달인가'를 매번 말로 설명해야 했다.
+//
+// 값은 카드와 같은 pickBaseline 산출이다(lib/weeklyReport.ts). 여기서 다시 계산하지 말 것.
+const OTA_ORDER = ['Agoda', 'Booking', 'Trip.com', 'Expedia', 'Airbnb', 'NOL', '여기어때']
+
+function BaselinePanel({ baselines }: { baselines: BaselineRow[] }) {
+  if (baselines.length === 0) return null
+
+  const otaRank = (n: string) => {
+    const i = OTA_ORDER.indexOf(n)
+    return i === -1 ? OTA_ORDER.length : i
+  }
+  const branchRank = (b: string) => {
+    const i = BRANCH_ORDER.indexOf(b)
+    return i === -1 ? BRANCH_ORDER.length : i
+  }
+
+  const branches = [...new Set(baselines.map(b => b.branch))].sort((a, b) => branchRank(a) - branchRank(b))
+
+  // 스냅샷 날짜는 전 채널이 같을 때만 한 번 쓴다. 갈리는데 대표값 하나를 찍으면
+  // 그 순간 화면이 거짓을 말한다.
+  const dates = [...new Set(baselines.map(b => b.recordedAt).filter(Boolean))]
+  const dateTxt = dates.length === 1 ? `${dates[0]} 스냅샷` : '채널별 스냅샷'
+
+  return (
+    <div className="card" style={{ padding: '16px 18px' }}>
+      <div className="font-display" style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>기준 점수</div>
+      <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 12 }}>
+        채널 누적 점수 · {dateTxt}
+        <br />이보다 낮은 리뷰만 논의 카드에 펼쳐집니다
+      </div>
+
+      {branches.map(br => (
+        <div key={br} style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: branchColor(br) }} />
+            {br}
+          </div>
+          {baselines
+            .filter(b => b.branch === br)
+            .sort((a, b) => otaRank(a.otaName) - otaRank(b.otaName))
+            .map(b => (
+              <div key={b.propertyId} style={{
+                display: 'flex', alignItems: 'baseline', gap: 6,
+                padding: '2px 0 2px 12px', fontSize: 12,
+              }}>
+                {/* 미달 채널만 점 — 왼쪽 논의 카드와 눈으로 잇는 장치다 */}
+                <span style={{
+                  width: 4, height: 4, borderRadius: '50%', marginLeft: -8, marginRight: 2,
+                  background: b.below ? 'var(--critical)' : 'transparent', alignSelf: 'center',
+                }} />
+                <span style={{ color: b.below ? 'var(--text-1)' : 'var(--text-2)' }}>{b.otaName}</span>
+                <span className="font-display" style={{
+                  marginLeft: 'auto', fontWeight: b.below ? 800 : 600,
+                  color: b.score == null ? 'var(--text-3)' : b.below ? 'var(--critical)' : 'var(--text-1)',
+                }}>
+                  {b.score == null ? '—' : fmt(b.score)}
+                </span>
+                {b.isFallback && <span style={{ fontSize: 10, color: 'var(--medium)' }}>*</span>}
+              </div>
+            ))}
+        </div>
+      ))}
+
+      <div style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.6, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+        에어비앤비·야놀자는 5점 만점입니다
+        {baselines.some(b => b.isFallback) && <><br />* 이 버킷 이전 스냅샷이 없어 이후 값을 빌려 썼습니다</>}
+        {baselines.some(b => b.score == null) && <><br />— 는 스냅샷이 없어 판정할 수 없는 채널입니다</>}
+      </div>
     </div>
   )
 }
@@ -297,8 +397,8 @@ export default function WeeklyReportClient({
   }
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 900 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, marginBottom: 20 }}>
+    <div style={{ padding: '28px 32px', maxWidth: 1220 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, marginBottom: 20, maxWidth: 900 }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>주간 OTA 리포트</div>
           <h1 className="font-display" style={{ fontSize: 26, fontWeight: 800 }}>
@@ -333,33 +433,42 @@ export default function WeeklyReportClient({
           </div>
         </div>
       ) : (
-        <>
-          <div style={{
-            display: 'flex', alignItems: 'baseline', gap: 10,
-            fontSize: 14, color: 'var(--text-2)', marginBottom: 16,
-          }}>
-            <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>
-              논의 {cards.length}건
-            </b>
-            <span style={{ color: 'var(--text-3)' }}>· 주간 리뷰 {report.summary.reviewTotal}건</span>
+        // 논의 카드(주) + 기준 점수 패널(부). 폭이 좁아지면 1컬럼으로 접히고 패널이
+        // 카드 '아래'로 간다 — 위로 올리면 노션 임베드에서 논의 카드가 첫 화면 밖으로 밀린다.
+        // 미디어쿼리는 인라인 스타일로 쓸 수 없어 globals.css의 .weekly-grid 를 쓴다.
+        <div className="weekly-grid">
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              display: 'flex', alignItems: 'baseline', gap: 10,
+              fontSize: 14, color: 'var(--text-2)', marginBottom: 16,
+            }}>
+              <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>
+                논의 {cards.length}건
+              </b>
+              <span style={{ color: 'var(--text-3)' }}>· 주간 리뷰 {report.summary.reviewTotal}건</span>
+            </div>
+
+            {cards.length === 0 ? (
+              <div className="card" style={{ padding: '18px 20px', fontSize: 14, color: 'var(--text-2)' }}>
+                이번 주 기준선을 끌어내린 채널이 없습니다.
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
+                  아래 참고를 펼치면 리뷰 0건 채널을 확인할 수 있습니다 — 목소리가 없었던 것은 통과가 아닙니다
+                </div>
+              </div>
+            ) : (
+              // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은
+              //    인스턴스로 재사용돼 펼침 상태가 따라온다 — 회의에서 주를 넘기면 지난 주에 열어
+              //    둔 카드가 펼쳐진 채로 시작해 '논의 카드 한 벌이 한 화면'이 깨진다.
+              cards.map(r => <DiscussionCard key={`${week}-${r.propertyId}`} r={r} cr={reviews[r.propertyId]} />)
+            )}
+
+            <ReferenceFold report={report} />
           </div>
 
-          {cards.length === 0 ? (
-            <div className="card" style={{ padding: '18px 20px', fontSize: 14, color: 'var(--text-2)' }}>
-              이번 주 기준선을 끌어내린 채널이 없습니다.
-              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
-                아래 참고를 펼치면 리뷰 0건 채널을 확인할 수 있습니다 — 목소리가 없었던 것은 통과가 아닙니다
-              </div>
-            </div>
-          ) : (
-            // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은
-            //    인스턴스로 재사용돼 펼침 상태가 따라온다 — 회의에서 주를 넘기면 지난 주에 열어
-            //    둔 카드가 펼쳐진 채로 시작해 '논의 카드 한 벌이 한 화면'이 깨진다.
-            cards.map(r => <DiscussionCard key={`${week}-${r.propertyId}`} r={r} cr={reviews[r.propertyId]} />)
-          )}
-
-          <ReferenceFold report={report} />
-        </>
+          <div className="weekly-aside">
+            <BaselinePanel baselines={report.baselines} />
+          </div>
+        </div>
       )}
     </div>
   )
