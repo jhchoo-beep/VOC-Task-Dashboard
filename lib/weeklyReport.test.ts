@@ -80,7 +80,7 @@ describe('reviewCountOf — 채널 만점에 맞는 밴드 열만 합산', () =>
 
 describe('보조 함수', () => {
   it('weekLabel 은 한국어 주차 + 기간', () => {
-    expect(weekLabel('2026-07-20')).toBe('7월 3주차 (07/20~07/26)')
+    expect(weekLabel('2026-07-20')).toBe('7월 3주차 (07/14~07/20)')
   })
   it('monthBucketOf 는 그 달 1일', () => {
     expect(monthBucketOf('2026-07-20')).toBe('2026-07-01')
@@ -233,8 +233,8 @@ describe('buildWeeklyReport', () => {
 
   it('주 라벨·기간을 함께 낸다', () => {
     expect(report.weekStart).toBe('2026-07-20')
-    expect(report.weekEnd).toBe('2026-07-26')
-    expect(report.label).toBe('7월 3주차 (07/20~07/26)')
+    expect(report.weekEnd).toBe('2026-07-20')
+    expect(report.label).toBe('7월 3주차 (07/14~07/20)')
   })
 
   it('분포 행 자체가 없는 채널도 silent 다(행 없음 = 리뷰 없음)', () => {

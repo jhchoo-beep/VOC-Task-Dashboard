@@ -14,7 +14,7 @@
 // 상대 경로로 가져온다 — vitest 는 '@/' 별칭을 풀지 않아, 별칭으로 쓰면
 // 이 모듈을 import 하는 순간 테스트 파일 전체가 로드조차 되지 않는다.
 import type { Granularity } from './otaDetail'
-import { distColumnsFor, bucketPeriodEnd, monthStartOf, addDaysIso, granularityForOtaName } from './otaDetail'
+import { distColumnsFor, bucketPeriodStart, bucketPeriodEnd, monthStartOf, addDaysIso, granularityForOtaName } from './otaDetail'
 
 // ── 입력 행 (DB 표 모양 그대로) ────────────────────────────────────
 
@@ -228,12 +228,18 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0
 }
 
-/** 'YYYY-MM-DD' → '7월 3주차 (07/20~07/26)' */
+/**
+ * 'YYYY-MM-DD' → '7월 3주차 (07/14~07/20)'
+ *
+ * 🔴 인자는 버킷 라벨이고, 라벨은 구간의 **끝**(월요일)이다 — `weekLabelOf()` 참조.
+ * 구간의 시작은 라벨-6일(화요일)이므로 표기도 `시작~라벨` 순이다.
+ * 라벨에 +6일을 더해 끝으로 쓰면 화면에만 한 주 뒤 기간이 찍힌다.
+ */
 export function weekLabel(weekStart: string): string {
   const [, m, d] = weekStart.split('-').map(Number)
-  const end = addDaysIso(weekStart, 6)
+  const start = bucketPeriodStart(weekStart, 'week')
   const md = (iso: string) => iso.substring(5).replace('-', '/')
-  return `${m}월 ${Math.ceil(d / 7)}주차 (${md(weekStart)}~${md(end)})`
+  return `${m}월 ${Math.ceil(d / 7)}주차 (${md(start)}~${md(weekStart)})`
 }
 
 /** 그 주가 속한 달의 버킷 키(그 달 1일). 월 단위 채널이 쓰는 버킷이다. */
@@ -430,7 +436,8 @@ export function buildWeeklyReport(input: WeeklyReportInput): WeeklyReport {
 
   return {
     weekStart,
-    weekEnd: addDaysIso(weekStart, 6),
+    // 라벨이 곧 구간의 끝이다(화~월). 여기에 +6일을 더하면 한 주 뒤가 된다.
+    weekEnd: bucketPeriodEnd(weekStart, 'week'),
     label: weekLabel(weekStart),
     below,
     onOrAbove,
