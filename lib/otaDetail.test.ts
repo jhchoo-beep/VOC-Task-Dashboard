@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseRawDate, weekStartOf, monthStartOf } from './otaDetail'
+import { parseRawDate, weekLabelOf, monthStartOf } from './otaDetail'
 
 describe('parseRawDate', () => {
   it('ISO 형식(아고다·익스피디아)을 일 단위로 파싱한다', () => {
@@ -55,15 +55,24 @@ describe('parseRawDate', () => {
   })
 })
 
-describe('weekStartOf', () => {
-  it('월요일 시작 주로 내린다', () => {
-    expect(weekStartOf('2026-07-22')).toBe('2026-07-20') // 수 → 월
-    expect(weekStartOf('2026-07-20')).toBe('2026-07-20') // 월 → 그대로
-    expect(weekStartOf('2026-07-26')).toBe('2026-07-20') // 일 → 그 주 월
+describe('weekLabelOf', () => {
+  // 라벨은 구간의 '끝'이다 — 화요일에 시작해 월요일에 끝나는 7일을 그 월요일로 부른다.
+  // 수기 입력이 매주 월요일 아침에 '지난 7일'을 넣어 온 방식이 정본이고, 파생도 여기에 맞춘다.
+  it('그 날짜가 속한 화~월 구간의 월요일(구간 끝)을 준다', () => {
+    expect(weekLabelOf('2026-07-21')).toBe('2026-07-27') // 화 = 구간 첫날
+    expect(weekLabelOf('2026-07-22')).toBe('2026-07-27') // 수
+    expect(weekLabelOf('2026-07-26')).toBe('2026-07-27') // 일
+    expect(weekLabelOf('2026-07-27')).toBe('2026-07-27') // 월 = 구간 끝, 그대로
+  })
+
+  it('직전 구간은 앞 월요일로 떨어진다', () => {
+    expect(weekLabelOf('2026-07-14')).toBe('2026-07-20') // 7/14~7/20 구간
+    expect(weekLabelOf('2026-07-20')).toBe('2026-07-20')
   })
 
   it('월 경계를 넘어가도 맞는 월요일을 찾는다', () => {
-    expect(weekStartOf('2026-07-01')).toBe('2026-06-29')
+    expect(weekLabelOf('2026-07-01')).toBe('2026-07-06')
+    expect(weekLabelOf('2026-07-28')).toBe('2026-08-03')
   })
 })
 
@@ -89,23 +98,25 @@ describe('addDaysIso', () => {
 })
 
 describe('recentWeekStarts', () => {
-  it('기준일이 속한 주부터 n개 주의 월요일을 오름차순으로 준다', () => {
+  it('기준일이 속한 주부터 n개 주의 라벨(월요일)을 오름차순으로 준다', () => {
+    // 7/22(수)가 속한 구간은 7/21~7/27이므로 최신 라벨은 7/27이다
     expect(recentWeekStarts('2026-07-22', 4)).toEqual([
-      '2026-06-29', '2026-07-06', '2026-07-13', '2026-07-20',
+      '2026-07-06', '2026-07-13', '2026-07-20', '2026-07-27',
     ])
   })
 
-  it('기준일이 월요일이면 그 주가 포함된다', () => {
-    // 기준일을 인자로 받는 이유 — 로컬/UTC 혼용으로 이번 주가 빠지는 것을 막는다
+  it('기준일이 월요일이면 그 날이 최신 라벨이다', () => {
+    // 기준일을 인자로 받는 이유 — 로컬/UTC 혼용으로 이번 주가 빠지는 것을 막는다.
+    // 월요일 아침 실행이 '그날로 끝나는 지난 7일'을 최신 버킷으로 잡아야 한다.
     expect(recentWeekStarts('2026-07-20', 2)).toEqual(['2026-07-13', '2026-07-20'])
   })
 })
 
 describe('monthsCovering', () => {
-  it('주 시작일의 달만이 아니라 주 구간(월~일)이 걸치는 달을 모두 준다', () => {
-    // 8/1 실행 시 마지막 주는 7/27~8/2 — 8월이 빠지면 그 주가 통째로 잘린다
+  it('라벨의 달만이 아니라 구간(화~월)이 걸치는 달을 모두 준다', () => {
+    // 8/1 실행 시 최신 라벨은 8/3이고 그 구간은 7/28~8/3 — 7월이 빠지면 그 며칠이 잘린다
     const weeks = recentWeekStarts('2026-08-01', 4)
-    expect(weeks[weeks.length - 1]).toBe('2026-07-27')
+    expect(weeks[weeks.length - 1]).toBe('2026-08-03')
     expect(monthsCovering(weeks)).toEqual(['2026-07', '2026-08'])
   })
 
@@ -115,8 +126,10 @@ describe('monthsCovering', () => {
   })
 
   it('연 경계를 넘어도 사이의 달을 빠뜨리지 않는다', () => {
-    expect(monthsCovering(['2025-12-29'])).toEqual(['2025-12', '2026-01'])
-    expect(monthsCovering(['2026-01-05', '2026-03-30'])).toEqual(['2026-01', '2026-02', '2026-03', '2026-04'])
+    // 라벨 2025-12-29의 구간은 12/23~12/29 — 이듬해로 넘어가지 않는다
+    expect(monthsCovering(['2025-12-29'])).toEqual(['2025-12'])
+    // 라벨 2026-01-05의 구간은 2025-12-30부터다 — 첫 달은 12월이어야 한다
+    expect(monthsCovering(['2026-01-05', '2026-03-30'])).toEqual(['2025-12', '2026-01', '2026-02', '2026-03'])
   })
 
   it('빈 입력은 빈 배열이다', () => {
@@ -132,8 +145,8 @@ describe('monthWindow', () => {
   // 테스트까지 같이 틀린다. 그래서 양 끝을 별도 함수로 다시 검산한다.
   const coversFirstAndLast = (month: string) => {
     const w = monthWindow(month)
-    expect(w.weeks[0]).toBe(weekStartOf(w.firstDay))
-    expect(w.weeks[w.weeks.length - 1]).toBe(weekStartOf(w.lastDay))
+    expect(w.weeks[0]).toBe(weekLabelOf(w.firstDay))
+    expect(w.weeks[w.weeks.length - 1]).toBe(weekLabelOf(w.lastDay))
     // 주 목록에 구멍이 없다(정확히 7일 간격, 오름차순)
     for (let i = 1; i < w.weeks.length; i++) {
       expect(addDaysIso(w.weeks[i - 1], 7)).toBe(w.weeks[i])
@@ -141,45 +154,45 @@ describe('monthWindow', () => {
     return w
   }
 
-  it('달 중간에서 시작하는 달은 앞 주(이웃 달 걸침)까지 포함한다', () => {
-    // 2026-01-01은 목요일 — 그 주 월요일은 2025-12-29다. 이 주를 빼면 1/1~1/4이 사라진다
+  it('달 중간에서 시작하는 달은 앞 구간을 덮는 라벨까지 포함한다', () => {
+    // 2026-01-01은 목요일 — 그 날이 든 구간은 12/30~1/5이므로 라벨은 2026-01-05다
     const w = coversFirstAndLast('2026-01')
-    expect(w.weeks).toEqual(['2025-12-29', '2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26'])
+    expect(w.weeks).toEqual(['2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26', '2026-02-02'])
   })
 
-  it('1일이 정확히 월요일이면 그 날이 첫 주의 시작이다', () => {
-    // 2026-06-01은 월요일 — 앞 달을 걸치지 않는다
+  it('1일이 월요일이면 그 날이 첫 라벨이다(구간은 앞 달을 걸친다)', () => {
+    // 2026-06-01은 월요일 = 구간 5/26~6/1의 끝. 6/1이 이 라벨에 들어간다
     const w = coversFirstAndLast('2026-06')
-    expect(w.weeks).toEqual(['2026-06-01', '2026-06-08', '2026-06-15', '2026-06-22', '2026-06-29'])
+    expect(w.weeks).toEqual(['2026-06-01', '2026-06-08', '2026-06-15', '2026-06-22', '2026-06-29', '2026-07-06'])
     expect(w.firstDay).toBe('2026-06-01')
     expect(w.lastDay).toBe('2026-06-30')
   })
 
-  it('말일이 정확히 일요일이면 마지막 주가 다음 달을 걸치지 않는다', () => {
-    // 2026-05-31은 일요일 — 마지막 주는 05-25~05-31로 딱 떨어진다
+  it('말일이 일요일이면 마지막 라벨은 다음 달 월요일이다', () => {
+    // 2026-05-31은 일요일 — 그 날이 든 구간은 5/26~6/1이므로 라벨은 06-01이다
     const w = coversFirstAndLast('2026-05')
-    expect(w.weeks).toEqual(['2026-04-27', '2026-05-04', '2026-05-11', '2026-05-18', '2026-05-25'])
-    expect(addDaysIso(w.weeks[w.weeks.length - 1], 6)).toBe('2026-05-31')
+    expect(w.weeks).toEqual(['2026-05-04', '2026-05-11', '2026-05-18', '2026-05-25', '2026-06-01'])
+    expect(addDaysIso(w.weeks[w.weeks.length - 1], -6)).toBe('2026-05-26')
   })
 
   it('윤년 2월은 29일까지 덮는다', () => {
     const w = coversFirstAndLast('2024-02')
     expect(w.lastDay).toBe('2024-02-29')
-    expect(w.weeks).toEqual(['2024-01-29', '2024-02-05', '2024-02-12', '2024-02-19', '2024-02-26'])
+    expect(w.weeks).toEqual(['2024-02-05', '2024-02-12', '2024-02-19', '2024-02-26', '2024-03-04'])
   })
 
   it('평년 2월은 28일까지 덮는다', () => {
     const w = coversFirstAndLast('2026-02')
     expect(w.lastDay).toBe('2026-02-28')
-    expect(w.weeks).toEqual(['2026-01-26', '2026-02-02', '2026-02-09', '2026-02-16', '2026-02-23'])
+    expect(w.weeks).toEqual(['2026-02-02', '2026-02-09', '2026-02-16', '2026-02-23', '2026-03-02'])
   })
 
-  it('12월은 다음 해 1월을 걸치는 주까지 간다(연 경계)', () => {
+  it('12월은 다음 해 1월 라벨까지 간다(연 경계)', () => {
     const w = coversFirstAndLast('2025-12')
     expect(w.lastDay).toBe('2025-12-31')
-    // 2025-12-31은 수요일 — 마지막 주 12-29~01-04는 다음 해로 넘어간다
-    expect(w.weeks[w.weeks.length - 1]).toBe('2025-12-29')
-    expect(addDaysIso(w.weeks[w.weeks.length - 1], 6)).toBe('2026-01-04')
+    // 2025-12-31은 수요일 — 그 날이 든 구간은 12/30~1/5, 라벨은 2026-01-05다
+    expect(w.weeks[w.weeks.length - 1]).toBe('2026-01-05')
+    expect(addDaysIso(w.weeks[w.weeks.length - 1], -6)).toBe('2025-12-30')
   })
 
   it('월간 채널 버킷은 물어본 달 하나뿐이다(이웃 달을 넘기지 않는다)', () => {
@@ -193,7 +206,8 @@ describe('monthWindow', () => {
     for (const m of ['2026-01', '2026-02', '2024-02', '2026-05', '2026-06', '2025-12', '2026-03']) {
       const w = monthWindow(m)
       const covered = new Set<string>()
-      w.weeks.forEach(ws => { for (let i = 0; i < 7; i++) covered.add(addDaysIso(ws, i)) })
+      // 라벨은 구간의 끝이므로 뒤로 6일을 펼친다
+      w.weeks.forEach(ws => { for (let i = 0; i < 7; i++) covered.add(addDaysIso(ws, -i)) })
       for (let d = w.firstDay; d <= w.lastDay; d = addDaysIso(d, 1)) {
         expect(covered.has(d)).toBe(true)
       }
@@ -257,12 +271,12 @@ describe('isWeeklyGap', () => {
   })
 })
 
-import { bucketPeriodEnd, isUnsettledBucket, SETTLE_GRACE_DAYS } from './otaDetail'
+import { bucketPeriodStart, bucketPeriodEnd, isUnsettledBucket, SETTLE_GRACE_DAYS } from './otaDetail'
 
 describe('bucketPeriodEnd', () => {
-  it('주 버킷은 시작일(월)+6일인 일요일이다', () => {
-    expect(bucketPeriodEnd('2026-07-20', 'week')).toBe('2026-07-26')
-    expect(bucketPeriodEnd('2026-07-27', 'week')).toBe('2026-08-02') // 월 경계
+  it('주 버킷의 끝은 라벨 그 날(월요일)이다', () => {
+    expect(bucketPeriodEnd('2026-07-20', 'week')).toBe('2026-07-20')
+    expect(bucketPeriodEnd('2026-07-27', 'week')).toBe('2026-07-27')
   })
 
   it('월 버킷은 그 달의 말일이다', () => {
@@ -274,26 +288,45 @@ describe('bucketPeriodEnd', () => {
   })
 })
 
+describe('bucketPeriodStart', () => {
+  it('주 버킷의 시작은 라벨-6일인 화요일이다', () => {
+    expect(bucketPeriodStart('2026-07-27', 'week')).toBe('2026-07-21')
+    expect(bucketPeriodStart('2026-07-20', 'week')).toBe('2026-07-14')
+    expect(bucketPeriodStart('2026-08-03', 'week')).toBe('2026-07-28') // 월 경계
+  })
+
+  it('월 버킷의 시작은 그 달 1일이다', () => {
+    expect(bucketPeriodStart('2026-07-01', 'month')).toBe('2026-07-01')
+  })
+
+  it('시작~끝은 정확히 7일이다', () => {
+    for (const label of ['2026-07-27', '2026-01-05', '2025-12-29']) {
+      const s = bucketPeriodStart(label, 'week')
+      const e = bucketPeriodEnd(label, 'week')
+      expect(addDaysIso(s, 6)).toBe(e)
+    }
+  })
+})
+
 describe('isUnsettledBucket', () => {
   it('유예 일수는 7일이다', () => {
     expect(SETTLE_GRACE_DAYS).toBe(7)
   })
 
   it('아직 끝나지 않은 주는 미확정이다', () => {
-    // 7/22(수)에 보는 7/20 주는 7/26에나 끝난다 — 이번 주가 굳어 버리는 것이 이 규칙의 발단
-    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-22')).toBe(true)
-    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-20')).toBe(true)
-    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-26')).toBe(true)
+    // 7/22(수)에 보는 7/27 라벨(7/21~7/27)은 7/27에나 끝난다
+    expect(isUnsettledBucket('2026-07-27', 'week', '2026-07-22')).toBe(true)
+    expect(isUnsettledBucket('2026-07-27', 'week', '2026-07-27')).toBe(true)
   })
 
   it('끝난 지 7일 이내인 주는 여전히 미확정이다', () => {
-    // 구간 종료 7/26 + 유예 7일 = 8/2까지 미확정
+    // 구간 종료 7/20 + 유예 7일 = 7/27까지 미확정
+    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-21')).toBe(true)
     expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-27')).toBe(true)
-    expect(isUnsettledBucket('2026-07-20', 'week', '2026-08-02')).toBe(true)
   })
 
   it('끝난 지 7일을 넘긴 주는 확정이다', () => {
-    expect(isUnsettledBucket('2026-07-20', 'week', '2026-08-03')).toBe(false)
+    expect(isUnsettledBucket('2026-07-20', 'week', '2026-07-28')).toBe(false)
     expect(isUnsettledBucket('2026-06-29', 'week', '2026-07-22')).toBe(false)
   })
 

@@ -63,11 +63,26 @@ export function parseRawDate(
   return { date: null, month: fallbackMonth }
 }
 
-export function weekStartOf(isoDate: string): string {
+// ── 주 버킷의 라벨 ────────────────────────────────────────────────
+// 🔴 라벨(week_start 컬럼값)은 구간의 '끝'이다. 이름이 week_start지만 시작이 아니다.
+//
+// 한 버킷이 덮는 구간은 화요일에 시작해 월요일에 끝나는 7일이고, 그 마지막 월요일이 라벨이다.
+//   라벨 2026-07-27  =  2026-07-21(화) ~ 2026-07-27(월)
+//
+// 왜 끝인가: 이 표의 정본은 수기 입력이다. 운영자가 매주 월요일 아침에 「데이터 입력」으로
+// '지난 7일'을 넣어 왔고, week_start에는 그날(월요일) 날짜가 들어갔다(2026-05-25 이후 수기
+// 15행 전부 그렇다 — 예: 라벨 2026-07-20 행은 07-20 08:56 입력). 그날 아침에 넣은 값에
+// 그날 이후 리뷰가 들어 있을 수는 없으므로, 라벨은 구간의 끝으로 읽어야 한다.
+//
+// 2026-07-27 이전의 파생 배치는 이것을 시작(월~일)으로 잡았다. 그래서 같은 '07-20' 라벨이
+// 수기 행에서는 7/14~7/20, 파생 행에서는 7/20~7/26을 뜻했다 — 한 차트 안에서 6일 어긋난
+// 두 산식이 나란히 그려졌고, 월요일에 돌린 그 주 데이터가 '다음 주' 라벨로 찍혔다.
+// 🔴 이 함수를 '월요일로 내리는' 옛 동작으로 되돌리지 말 것. 수기 15행과 다시 어긋난다.
+export function weekLabelOf(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00Z`)
-  const dow = d.getUTCDay()            // 0=일 … 6=토
-  const back = dow === 0 ? 6 : dow - 1 // 월요일까지 되돌릴 일수
-  d.setUTCDate(d.getUTCDate() - back)
+  const dow = d.getUTCDay()             // 0=일 … 6=토
+  const fwd = (1 - dow + 7) % 7         // 그 날이 든 구간의 끝(월요일)까지 전진할 일수
+  d.setUTCDate(d.getUTCDate() + fwd)
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
 }
 
@@ -105,14 +120,14 @@ export function isWeeklyGap(prevIso: string, currIso: string): boolean {
   return daysBetweenIso(prevIso, currIso) <= MAX_WEEKLY_GAP_DAYS
 }
 
-// 기준일(오늘)이 속한 주부터 거슬러 n개 주의 월요일 목록(오름차순).
+// 기준일(오늘)이 속한 주부터 거슬러 n개 주의 라벨 목록(오름차순).
 // 기준일을 인자로 받는 이유: new Date()(로컬)와 toISOString()(UTC)을 섞으면
 // KST 09시 이전 실행에서 '오늘'이 전날로 밀려 월요일 오전 실행 시 이번 주가 통째로 빠진다.
 // 호출자가 로컬 달력으로 'YYYY-MM-DD'를 정해 넘기고, 이후 계산은 전부 UTC로만 한다.
 export function recentWeekStarts(todayIso: string, n: number): string[] {
   const out: string[] = []
   for (let i = 0; i < n; i++) {
-    out.push(weekStartOf(addDaysIso(todayIso, -i * 7)))
+    out.push(weekLabelOf(addDaysIso(todayIso, -i * 7)))
   }
   return [...new Set(out)].sort()
 }
@@ -123,14 +138,14 @@ function nextMonth(month: string): string {
 }
 
 // 주 목록이 실제로 걸치는 모든 달('YYYY-MM', 오름차순).
-// 주 시작일의 달만 모으면, 최신 주의 월요일이 전월이면 그 주의 이번 달 날짜가
+// 라벨의 달만 모으면, 가장 이른 라벨의 구간이 전월에서 시작할 때 그 며칠이
 // review_month 필터에서 통째로 빠진다 — 경고도 에러도 없이 조용히 잘린다.
-// 각 주는 월~일 7일이므로 마지막 주는 시작일 +6일까지 포함해 범위를 잡는다.
+// 각 구간은 라벨-6일(화)에서 라벨(월)까지 7일이므로 앞쪽으로 6일을 펼쳐 범위를 잡는다.
 export function monthsCovering(weekStarts: string[]): string[] {
   if (weekStarts.length === 0) return []
   const sorted = [...weekStarts].sort()
-  const firstMonth = sorted[0].substring(0, 7)
-  const lastMonth  = addDaysIso(sorted[sorted.length - 1], 6).substring(0, 7)
+  const firstMonth = addDaysIso(sorted[0], -6).substring(0, 7)
+  const lastMonth  = sorted[sorted.length - 1].substring(0, 7)
 
   const out: string[] = []
   for (let m = firstMonth; m <= lastMonth; m = nextMonth(m)) out.push(m)
@@ -170,10 +185,10 @@ export function monthWindow(month: string | null | undefined): MonthWindow {
   // 말일은 '다음 달 1일 - 1일'로 구한다 — 윤년·30/31일을 표로 들고 있지 않기 위해서다.
   const lastDay = addDaysIso(monthStartOf(nextMonth(m)), -1)
 
-  const lastWeek = weekStartOf(lastDay)
+  const lastWeek = weekLabelOf(lastDay)
   const weeks: string[] = []
   // ISO 'YYYY-MM-DD'는 사전순 비교가 곧 날짜 비교다.
-  for (let w = weekStartOf(firstDay); w <= lastWeek; w = addDaysIso(w, 7)) weeks.push(w)
+  for (let w = weekLabelOf(firstDay); w <= lastWeek; w = addDaysIso(w, 7)) weeks.push(w)
 
   // 월간 채널(에어비앤비·여기어때)은 애초에 달로 버킷을 만든다 — 주 창이 이웃 달을
   // 걸친다고 해서 이웃 달 버킷까지 파생 대상에 넣으면, '6월을 돌렸는데 5·7월 버킷이
@@ -182,12 +197,19 @@ export function monthWindow(month: string | null | undefined): MonthWindow {
 }
 
 // 버킷이 덮는 구간의 마지막 날('YYYY-MM-DD').
-// 주 버킷은 시작일(월)+6일(일), 월 버킷은 그 달의 말일이다.
+// 주 버킷은 라벨 그 날(월요일 = 구간의 끝), 월 버킷은 그 달의 말일이다.
 export function bucketPeriodEnd(weekStart: string, granularity: Granularity): string {
   if (granularity === 'month') {
     return addDaysIso(monthStartOf(nextMonth(weekStart.substring(0, 7))), -1)
   }
-  return addDaysIso(weekStart, 6)
+  return weekStart
+}
+
+// 버킷이 덮는 구간의 첫날('YYYY-MM-DD').
+// 주 버킷은 라벨-6일(화요일), 월 버킷은 그 달 1일이다.
+export function bucketPeriodStart(weekStart: string, granularity: Granularity): string {
+  if (granularity === 'month') return monthStartOf(weekStart.substring(0, 7))
+  return addDaysIso(weekStart, -6)
 }
 
 // 구간이 끝난 뒤에도 뒤늦은 리뷰를 기다려 주는 유예 일수.

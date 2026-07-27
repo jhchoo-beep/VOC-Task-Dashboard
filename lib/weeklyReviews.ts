@@ -2,14 +2,14 @@
 //
 // 🔴 버킷 매칭은 반드시 파생 배치와 같은 파서·같은 채널명 맵을 쓴다.
 //    화면이 자기만의 매칭 규칙을 만들면 "3건 8.0"이라고 써 놓고 다른 3건을 띄운다.
-//    weekly_avg_score를 만든 코드가 쓰는 것: parseRawDate · weekStartOf · OTA_SITE_BY_NAME.
+//    weekly_avg_score를 만든 코드가 쓰는 것: parseRawDate · weekLabelOf · OTA_SITE_BY_NAME.
 //
 // 🔴 OtaScoresClient의 OTA_SITE_ALIAS(NOL: ['NOL','야놀자'])를 쓰지 말 것 — 그건 표기가
 //    갈리는 채널을 넓게 잡는 별개 용도라, 이쪽을 쓰면 배치가 세지 않은 행이 화면에만 뜬다.
 
 // 상대 경로로 가져온다 — vitest는 '@/' 별칭을 풀지 않는다.
 import type { Granularity } from './otaDetail'
-import { parseRawDate, weekStartOf, OTA_SITE_BY_NAME, eligibleRawRows } from './otaDetail'
+import { parseRawDate, weekLabelOf, OTA_SITE_BY_NAME, eligibleRawRows } from './otaDetail'
 
 export interface RawReviewRow {
   id: string
@@ -88,7 +88,7 @@ export function selectBucketReviews(
     const { date, month } = parseRawDate(r.raw_date, r.review_month)
     if (granularity === 'month') return month === bucketMonth
     // 주 버킷은 일 단위가 있어야 어느 주인지 정해진다
-    return date != null && weekStartOf(date) === bucket
+    return date != null && weekLabelOf(date) === bucket
   })
 }
 

@@ -68,7 +68,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import {
-  parseRawDate, weekStartOf, monthStartOf, distFromRatings, distColumnsFor,
+  parseRawDate, weekLabelOf, monthStartOf, distFromRatings, distColumnsFor,
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
   monthWindow, mergeSource, planDetailWrite, isForcedReanalysis, isWriteAction, WRITE_ACTION_LABEL,
   OTA_SITE_BY_NAME, granularityForSite,
@@ -361,7 +361,7 @@ async function buildBuckets(): Promise<Bucket[]> {
         continue
       }
 
-      const weekStart = granularity === 'month' ? monthStartOf(month!) : weekStartOf(date!)
+      const weekStart = granularity === 'month' ? monthStartOf(month!) : weekLabelOf(date!)
       if (granularity === 'week' && !targetWeeks.includes(weekStart)) continue
       if (granularity === 'month' && !targetMonthBuckets.includes(month!)) continue
 
