@@ -159,6 +159,11 @@ interface BaselineRow {
 | `WeeklyCause` · `HeadlineSource` · `HEADLINE_MAX` · `resolveHeadline` · `WeeklyChannelRow.cause` | 삭제 |
 | `WeeklyReportInput.complaints` · `.voc`, `ComplaintRow` · `VocRow` | 삭제 |
 | `pageData`의 `ota_complaints` · `ota_voc` 조회 | 삭제 (5분마다 두 표를 통째로 읽던 것이 사라진다) |
+| `소표본 N건 · 추세 아님` 배지 (`isThinSample` · `THIN_SAMPLE_MAX` · `row.thinSample`) | 삭제 — 원인 한 줄이 사라진 뒤 카드에 남은 유일한 문구였고, 건수는 이미 헤더에 점수와 같은 크기로 찍혀 있어 중복이었다 |
+
+배지까지 빠지자 버튼만 남은 둘째 줄은 여백일 뿐이라 **수치·버튼을 헤더 한 줄로 합쳤다**
+(헤더 정렬 `baseline`→`center`, 카드 패딩 18→14px). 카드 하나가 한 줄이 되어 논의 5건이
+스크롤 없이 한 화면에 들어온다.
 
 펼침에 남는 것: 직전 주 대비·추정 방식·기준선 스냅샷(출처 표기)과 **리뷰 원문**뿐이다.
 출처 표기는 리포트가 지어낸 문장이 아니라 값이 어디서 왔는지의 기록이므로 남긴다.
