@@ -3,7 +3,7 @@ import { supabase, calcCLX } from '@/lib/supabase'
 import { distColumnsFor, isWeeklyGap, OTA_SITE_BY_NAME } from '@/lib/otaDetail'
 import { buildWeeklyReport, listReportWeeks } from '@/lib/weeklyReport'
 import type {
-  PropertyRow, DistRow, ScoreSnapshotRow, ComplaintRow, VocRow, WeeklyReport,
+  PropertyRow, DistRow, ScoreSnapshotRow, WeeklyReport,
 } from '@/lib/weeklyReport'
 import { buildChannelReviews } from '@/lib/weeklyReviews'
 import type { ChannelReviews, RawReviewRow, TranslatedRow } from '@/lib/weeklyReviews'
@@ -458,16 +458,12 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
   weeks: string[]
   reviews: Record<number, ChannelReviews>   // propertyId → 그 버킷 리뷰. 미달 채널만
 }> => {
-  const [propsRaw, distRaw, scoresRaw, complaintsRaw, vocRaw] = await Promise.all([
-    // 잘림 사고의 전말은 파일 상단 fetchAllRows 주석 참조. 실측(2026-07-23) —
-    // ota_voc count=1,016인데 range(0,9999)가 1,000행만 돌려줬고, 잘려 나간 16행이 하필
-    // 최신 주(week_start 오름차순의 꼬리)라 동대문 Agoda 07-20의 bad 키워드 2개가
-    // 통째로 사라진 채 '원인 미기록'으로 표시됐다.
+  // ota_complaints·ota_voc는 더 이상 읽지 않는다 — 카드가 원인을 쓰지 않기로 했다(2026-07-27).
+  // 잘림 사고의 전말은 파일 상단 fetchAllRows 주석 참조.
+  const [propsRaw, distRaw, scoresRaw] = await Promise.all([
     fetchAllRows('ota_properties', 'property_id,branch,ota_name,score_max', q => q.eq('active', true), 'property_id'),
     fetchAllRows('ota_score_dist', '*', q => q.order('week_start', { ascending: true })),
     fetchAllRows('ota_scores', 'property_id,overall_score,review_count,recorded_at', q => q.order('recorded_at', { ascending: true })),
-    fetchAllRows('ota_complaints', 'property_id,week_start,granularity,headline,memo', q => q.order('week_start', { ascending: true })),
-    fetchAllRows('ota_voc', 'property_id,week_start,granularity,band,sentiment,keyword', q => q.order('week_start', { ascending: true })),
   ])
 
   const dist  = (distRaw ?? []) as DistRow[]
@@ -485,8 +481,6 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
     properties: (propsRaw ?? []) as PropertyRow[],
     dist,
     scores:     (scoresRaw ?? []) as ScoreSnapshotRow[],
-    complaints: (complaintsRaw ?? []) as ComplaintRow[],
-    voc:        (vocRaw ?? []) as VocRow[],
   })
 
   // 리뷰 원문은 미달 채널에만 붙인다. 통과 채널까지 끌어오면 raw_reviews 1.2만 행에서

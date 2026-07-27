@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   judgeWeek, pickBaseline, reviewCountOf, listReportWeeks, weekLabel,
-  monthBucketOf, isThinSample, buildWeeklyReport, resolveHeadline,
-  type PropertyRow, type DistRow, type ScoreSnapshotRow, type ComplaintRow, type VocRow,
+  monthBucketOf, isThinSample, buildWeeklyReport,
+  type PropertyRow, type DistRow, type ScoreSnapshotRow,
 } from './weeklyReport'
 
 // 밴드 열을 채운 분포 행을 간단히 만든다. counts 는 score_1 부터 순서대로.
@@ -137,21 +137,8 @@ const DISTS: DistRow[] = [
   dist(6, '2026-07-20', 8.0, [0,0,0,0,0,0,0,1,0,0]),
 ]
 
-const COMPLAINTS: ComplaintRow[] = [
-  { property_id: 3, week_start: '2026-07-20', granularity: 'week', headline: null, memo: '온수 지연 반복' },
-  { property_id: 2, week_start: '2026-07-20', granularity: 'week', headline: null, memo: '   ' }, // 공백뿐 → 원인 없음
-]
-
-const VOC: VocRow[] = [
-  { property_id: 3, week_start: '2026-07-20', granularity: 'week', sentiment: 'bad',  keyword: '온수', band: '3점' },
-  { property_id: 3, week_start: '2026-07-20', granularity: 'week', sentiment: 'bad',  keyword: '온수', band: '4점' }, // 중복 제거
-  { property_id: 3, week_start: '2026-07-20', granularity: 'week', sentiment: 'good', keyword: '위치', band: '4점' },
-  { property_id: 2, week_start: '2026-07-20', granularity: 'week', sentiment: 'good', keyword: '욕조', band: '6점대 이하' },
-]
-
 const report = buildWeeklyReport({
-  weekStart: '2026-07-20', properties: PROPS, dist: DISTS,
-  scores: SNAPS, complaints: COMPLAINTS, voc: VOC,
+  weekStart: '2026-07-20', properties: PROPS, dist: DISTS, scores: SNAPS,
 })
 
 describe('buildWeeklyReport', () => {
@@ -177,26 +164,13 @@ describe('buildWeeklyReport', () => {
     expect(nol.gap).toBe(-0.5)
   })
 
-  it('원인이 기록된 미달 주는 메모와 bad 키워드를 싣는다(중복 제거, good 제외)', () => {
-    const nol = report.below.find(r => r.otaName === 'NOL')!
-    expect(nol.cause).toEqual({
-      headline: '온수 지연 반복', headlineSource: 'memoHead',
-      detail: '온수 지연 반복', badKeywords: ['온수'], hasCause: true,
-    })
-  })
-
-  it('원인이 기록되지 않은 미달 주도 상태로 남긴다(숨기지 않는다)', () => {
+  // 🔴 카드는 원인을 쓰지 않는다(2026-07-27). 원인 한 줄을 짓던 폴백이 밴드를 보지 않아
+  //    기준선 위 리뷰의 팁을 미달 원인으로 내보냈다. 이 리포트가 내는 것은 판정과 수치뿐이다.
+  it('리포트는 원인 문구를 만들지 않는다 — 판정 대상 채널도 수치만 싣는다', () => {
     const trip = report.below.find(r => r.otaName === 'Trip.com')!
-    expect(trip.cause).toEqual({
-      headline: null, headlineSource: null,
-      detail: null, badKeywords: [], hasCause: false,
-    })
+    expect('cause' in trip).toBe(false)
     expect(trip.reviewCount).toBe(1)
     expect(trip.thinSample).toBe(true) // 1건 -2.70은 추세가 아니라는 표시
-  })
-
-  it('기준선 이상인 주는 원인을 조회하지 않는다', () => {
-    expect(report.onOrAbove[0].cause).toBeNull()
   })
 
   it('스냅샷이 없는 채널은 unknown 이고 기준선·격차가 null', () => {
@@ -239,7 +213,7 @@ describe('buildWeeklyReport', () => {
 
   it('분포 행 자체가 없는 채널도 silent 다(행 없음 = 리뷰 없음)', () => {
     const r = buildWeeklyReport({
-      weekStart: '2026-07-20', properties: PROPS, dist: [], scores: SNAPS, complaints: [], voc: [],
+      weekStart: '2026-07-20', properties: PROPS, dist: [], scores: SNAPS,
     })
     expect(r.silent).toHaveLength(PROPS.length)
     expect(r.summary.reviewTotal).toBe(0)
@@ -249,91 +223,11 @@ describe('buildWeeklyReport', () => {
     const r = buildWeeklyReport({
       weekStart: '2026-07-13', properties: PROPS,
       dist: DISTS, scores: [...SNAPS, snap(1, '2026-07-13', 9.9)],
-      complaints: [], voc: [],
     })
     const agoda = [...r.below, ...r.onOrAbove].find(x => x.otaName === 'Agoda')!
     expect(agoda.baselineRecordedAt).toBe('2026-07-13')
     expect(agoda.baseline).toBe(9.9)   // 07-20 의 8.6 이 아니다
     expect(agoda.verdict).toBe('below')
-  })
-})
-
-describe('resolveHeadline — 저장된 한 줄이 없으면 순서대로 내려간다', () => {
-  it('headline이 있으면 그대로 쓴다', () => {
-    expect(resolveHeadline('주차비 사전 고지 부재', '아주 긴 memo 전문 — 처방', ['키워드']))
-      .toEqual({ headline: '주차비 사전 고지 부재', headlineSource: 'headline' })
-  })
-
-  it('headline이 없으면 memo의 첫 em dash 앞부분을 쓴다', () => {
-    // 실측(제주시티 Agoda 2026-07-20). 뒤쪽 '— … 정비 필요'는 처방이라 결론에서 뺀다.
-    const memo = '투숙객 주차 유료(1박 15,000원) 예약 단계 사전 고지 부재 — 현장 응대·사후 CS 통화까지 이어진 저평점 컴플레인 1건, 고지 문구 및 응대 스크립트 정비 필요'
-    expect(resolveHeadline(null, memo, ['주차비 유료 정책'])).toEqual({
-      headline: '투숙객 주차 유료(1박 15,000원) 예약 단계 사전 고지 부재',
-      headlineSource: 'memoHead',
-    })
-  })
-
-  it('em dash가 없는 memo는 전문을 60자로 자른다', () => {
-    // 실측(신설 Agoda 2026-07-06 수기). 리뷰어별 서술 문단이라 자르지 않으면 결론 줄이 무너진다.
-    const memo = '[객실] Jiaqi(중): 배수구 냄새 다소 있으나 환풍 켜면 해결, 냉장고 간헐 소음. Wu(대만): 선반 먼지, 소파 얼룩 심해 앉기 꺼려짐. [욕실] 真吾(일): 변기 간헐 막힘 반복(재방문 고객).'
-    const r = resolveHeadline(null, memo, [])
-    expect(r.headlineSource).toBe('memoHead')
-    expect(r.headline!.length).toBeLessThanOrEqual(61)   // 60자 + '…'
-    expect(r.headline!.endsWith('…')).toBe(true)
-  })
-
-  it('em dash가 섞인 수기 문단 memo는 그 앞부분이 한 줄이 된다', () => {
-    // 수기 memo는 「원인 — 처방」 구조가 아니라 리뷰어별 서술이라, em dash가 있어도
-    // 앞부분이 곧 원인은 아니다. 그래도 읽히는 한 줄이 나오면 폴백의 목적(과거 주가
-    // 빈 카드로 뜨지 않게)은 달성된다 — 최선의 한 줄은 headline 필드가 담당한다.
-    const memo = 'YURI(일본, 3박, 8.0): 이른 아침 도착 시 체크인 에러 발생 — 상주 스태프가 현장 대응해 해결.'
-    expect(resolveHeadline(null, memo, [])).toEqual({
-      headline: 'YURI(일본, 3박, 8.0): 이른 아침 도착 시 체크인 에러 발생',
-      headlineSource: 'memoHead',
-    })
-  })
-
-  it('memo 전문에 줄바꿈이 있어도 한 줄로 접는다', () => {
-    const r = resolveHeadline(null, '첫 줄\n둘째 줄', [])
-    expect(r.headline).toBe('첫 줄 둘째 줄')
-  })
-
-  it('memo가 비면 bad 키워드 상위 2개를 쓴다', () => {
-    // 실측(동대문 Expedia 2026-07-20)은 memo가 빈 문자열이다.
-    expect(resolveHeadline(null, '', ['욕실 협소', '침대 불편', '베개 납작함'])).toEqual({
-      headline: '욕실 협소 · 침대 불편',
-      headlineSource: 'keywords',
-    })
-  })
-
-  it('셋 다 없으면 null — 원인 미기록이 실재 상태다', () => {
-    // 실측(신설 Trip.com 2026-07-20): 6.00 vs 8.70인데 메모도 bad 키워드도 없다.
-    expect(resolveHeadline(null, null, [])).toEqual({ headline: null, headlineSource: null })
-  })
-
-  it('공백만 있는 headline은 값이 없는 것으로 본다', () => {
-    expect(resolveHeadline('   ', '', ['욕실 협소']).headlineSource).toBe('keywords')
-  })
-})
-
-describe('buildWeeklyReport — cause', () => {
-  it('미달 행의 cause가 headline·detail·키워드를 모두 싣는다', () => {
-    const report = buildWeeklyReport({
-      weekStart: '2026-07-20',
-      properties: [{ property_id: 1, branch: '동대문', ota_name: 'Agoda', score_max: 10 }],
-      dist: [{ property_id: 1, week_start: '2026-07-20', granularity: 'week', source: 'derived', weekly_avg_score: 8.0, score_8: 3 }],
-      scores: [{ property_id: 1, overall_score: 8.9, review_count: 100, recorded_at: '2026-07-20' }],
-      complaints: [{ property_id: 1, week_start: '2026-07-20', granularity: 'week', headline: '욕실 배수 불량 수리 요청 후 미조치', memo: '샤워 시 물이 차오르는 객실 배수 불량 — 대상 호실 특정 필요' }],
-      voc: [{ property_id: 1, week_start: '2026-07-20', granularity: 'week', sentiment: 'bad', keyword: '욕실 배수 불량', band: '6점대 이하' }],
-    })
-    const row = report.below[0]
-    expect(row.cause).toEqual({
-      headline: '욕실 배수 불량 수리 요청 후 미조치',
-      headlineSource: 'headline',
-      detail: '샤워 시 물이 차오르는 객실 배수 불량 — 대상 호실 특정 필요',
-      badKeywords: ['욕실 배수 불량'],
-      hasCause: true,
-    })
   })
 })
 
@@ -384,7 +278,6 @@ describe('buildWeeklyReport — baselines', () => {
         { property_id: 9, overall_score: 4.70, review_count: 100, recorded_at: '2026-07-20' },
         { property_id: 9, overall_score: 4.73, review_count: 105, recorded_at: '2026-07-29' },
       ],
-      complaints: [], voc: [],
     })
     expect(r.baselines[0].score).toBe(4.73)
     expect(r.baselines[0].recordedAt).toBe('2026-07-29')

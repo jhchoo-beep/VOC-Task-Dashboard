@@ -124,9 +124,12 @@ function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
 }
 
 // ─── 논의 카드 ────────────────────────────────────────────────────────────────
+// 🔴 카드는 원인을 쓰지 않는다(2026-07-27 재헌 결정). 말하는 것은 '기준 점수보다 낮은
+//    리뷰가 났다'까지이고, 왜 그랬는지는 펼침의 리뷰 원문을 사람이 읽어 판단한다.
+//    이전에는 ota_complaints.headline → memo → bad 키워드로 폴백해 결론 한 줄을 지어냈는데,
+//    그 폴백이 밴드를 보지 않아 기준선을 밀어올린 9.5점 리뷰의 팁이 미달 원인 자리에 앉았다.
 function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | undefined }) {
   const [open, setOpen] = useState(false)
-  const c = r.cause
   const unit = r.granularity === 'month' ? '직전 달' : '직전 주'
 
   return (
@@ -153,15 +156,6 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
             {r.reviewCount}건
           </span>
         </span>
-      </div>
-
-      <div style={{
-        fontSize: 16, lineHeight: 1.6, marginTop: 10,
-        color: c?.hasCause ? 'var(--text-1)' : 'var(--medium)',
-      }}>
-        {c?.hasCause
-          ? c.headline
-          : '⚠ 원인 미기록 — 불만 메모도 키워드도 없습니다. 리뷰 원문 확인이 먼저입니다'}
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 }}>
@@ -196,17 +190,6 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
             {r.baselineRecordedAt && ` · 기준선 ${r.baselineRecordedAt} 스냅샷`}
             {r.baselineIsFallback && ' · 기준선 대체(이후 스냅샷)'}
           </div>
-
-          {c?.detail && (
-            <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-2)', marginTop: 8 }}>
-              <span style={{ color: 'var(--text-3)' }}>상세 </span>{c.detail}
-            </div>
-          )}
-          {c && c.badKeywords.length > 0 && (
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
-              키워드 {c.badKeywords.join(' · ')}
-            </div>
-          )}
 
           <ReviewList cr={cr} />
         </div>
