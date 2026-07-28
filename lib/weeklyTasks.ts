@@ -119,3 +119,31 @@ export function buildTaskPrompt(items: CandidateReview[], week: string): string 
     ...lines,
   ].join('\n')
 }
+
+/**
+ * 이 주 리포트에 보일 과제를 가른다.
+ *
+ *   current — 그 주에 만든 과제 전부(완료된 것도 남긴다. 그 주에 무엇을 했는지가 기록이다)
+ *   carried — 지난 주 이전에 만들었는데 아직 안 끝났고 채택도 안 된 과제
+ *
+ * 채택(escalated)된 과제는 이월하지 않는다 — 다음 달 정식 수행과제로 넘어갔으므로
+ * 주간 층에서 계속 들고 있을 이유가 없다.
+ *
+ * week_start 는 'YYYY-MM-DD' 문자열이라 사전순 비교가 곧 날짜 비교다.
+ */
+export function selectVisibleTasks(
+  rows: WeeklyTaskRow[],
+  week: string,
+): { current: WeeklyTaskRow[]; carried: WeeklyTaskRow[] } {
+  const current: WeeklyTaskRow[] = []
+  const carried: WeeklyTaskRow[] = []
+
+  for (const r of rows) {
+    if (r.week_start === week) current.push(r)
+    else if (r.week_start < week && r.status !== '완료' && !r.escalated) carried.push(r)
+    // 미래 주는 버린다 — 지난 주를 보고 있을 때 아직 오지 않은 주의 과제가 뜨면 안 된다
+  }
+
+  carried.sort((a, b) => (a.week_start < b.week_start ? 1 : a.week_start > b.week_start ? -1 : 0))
+  return { current, carried }
+}

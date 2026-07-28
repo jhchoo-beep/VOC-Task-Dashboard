@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { flattenCandidates, branchesOf, buildTaskPrompt } from './weeklyTasks'
+import { flattenCandidates, branchesOf, buildTaskPrompt, selectVisibleTasks } from './weeklyTasks'
 import type { WeeklyChannelRow } from './weeklyReport'
 import type { ChannelReviews } from './weeklyReviews'
+import type { WeeklyTaskRow } from './weeklyTasks'
 
 // 카드는 판정에 쓰인 필드만 채운다. 나머지는 평탄화가 보지 않는다.
 const card = (propertyId: number, branch: string, otaName: string): WeeklyChannelRow => ({
@@ -107,5 +108,54 @@ describe('buildTaskPrompt', () => {
   it('주 라벨과 건수를 머리말에 쓴다', () => {
     expect(buildTaskPrompt(items, '2026-07-27')).toContain('2026-07-27 주간 OTA 리포트')
     expect(buildTaskPrompt(items, '2026-07-27')).toContain('미달한 리뷰 2건')
+  })
+})
+
+const task = (o: Partial<WeeklyTaskRow> & { id: string; week_start: string }): WeeklyTaskRow => ({
+  branches: ['신설'], title: '제목', problem_definition: null, solution: null,
+  assignee: null, due_date: null, status: '시작전', escalated: false, escalated_at: null,
+  source_reviews: [], created_at: '2026-07-27T00:00:00Z', ...o,
+})
+
+describe('selectVisibleTasks', () => {
+  it('그 주에 만든 과제는 완료된 것도 남긴다', () => {
+    const rows = [task({ id: 'x', week_start: '2026-07-27', status: '완료' })]
+    const { current, carried } = selectVisibleTasks(rows, '2026-07-27')
+    expect(current.map(r => r.id)).toEqual(['x'])
+    expect(carried).toEqual([])
+  })
+
+  it('지난 주의 미완 과제는 이월된다', () => {
+    const rows = [task({ id: 'old', week_start: '2026-07-20', status: '진행중' })]
+    const { carried } = selectVisibleTasks(rows, '2026-07-27')
+    expect(carried.map(r => r.id)).toEqual(['old'])
+  })
+
+  it('지난 주라도 완료됐으면 이월하지 않는다', () => {
+    const rows = [task({ id: 'done', week_start: '2026-07-20', status: '완료' })]
+    const { current, carried } = selectVisibleTasks(rows, '2026-07-27')
+    expect(current).toEqual([])
+    expect(carried).toEqual([])
+  })
+
+  it('다음달 채택된 과제는 미완이어도 이월하지 않는다', () => {
+    const rows = [task({ id: 'esc', week_start: '2026-07-20', status: '진행중', escalated: true })]
+    expect(selectVisibleTasks(rows, '2026-07-27').carried).toEqual([])
+  })
+
+  it('미래 주의 과제는 어느 쪽에도 넣지 않는다', () => {
+    const rows = [task({ id: 'future', week_start: '2026-08-03', status: '진행중' })]
+    const { current, carried } = selectVisibleTasks(rows, '2026-07-27')
+    expect(current).toEqual([])
+    expect(carried).toEqual([])
+  })
+
+  it('이월은 최신 주부터 나열한다', () => {
+    const rows = [
+      task({ id: 'a', week_start: '2026-07-06', status: '진행중' }),
+      task({ id: 'b', week_start: '2026-07-20', status: '진행중' }),
+      task({ id: 'c', week_start: '2026-07-13', status: '진행중' }),
+    ]
+    expect(selectVisibleTasks(rows, '2026-07-27').carried.map(r => r.id)).toEqual(['b', 'c', 'a'])
   })
 })
