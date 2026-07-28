@@ -114,7 +114,7 @@ describe('buildTaskPrompt', () => {
 const task = (o: Partial<WeeklyTaskRow> & { id: string; week_start: string }): WeeklyTaskRow => ({
   branches: ['신설'], title: '제목', problem_definition: null, solution: null,
   assignee: null, due_date: null, status: '시작전', escalated: false, escalated_at: null,
-  source_reviews: [], created_at: '2026-07-27T00:00:00Z', ...o,
+  source_reviews: [], created_at: '2026-07-27T00:00:00Z', updated_at: '2026-07-27T00:00:00Z', ...o,
 })
 
 describe('selectVisibleTasks', () => {

@@ -43,6 +43,7 @@ export interface WeeklyTaskRow {
   escalated_at: string | null
   source_reviews: CandidateReview[]
   created_at: string
+  updated_at: string         // PATCH가 갱신한다(DB 트리거 없음)
 }
 
 /**
