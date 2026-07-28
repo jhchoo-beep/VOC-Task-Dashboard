@@ -235,6 +235,7 @@ function TaskCard({
   }
 
   const remove = async () => {
+    if (!confirm(`"${task.title}" 과제를 삭제할까요?`)) return
     setBusy(true); setErr('')
     try {
       const res = await fetch(`/api/weekly-tasks?id=${task.id}`, { method: 'DELETE' })
