@@ -6,12 +6,13 @@ import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { ESTIMATOR_LABEL, BRANCH_ORDER, type WeeklyReport, type WeeklyChannelRow, type BaselineRow } from '@/lib/weeklyReport'
 import type { ChannelReviews } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
+import WeeklyTaskSection from './WeeklyTaskSection'
 
 // FO Weekly 회의 중 노션 임베드로 화면 공유하며 읽는 보고서다. 설계 정본은
 // docs/superpowers/specs/2026-07-24-weekly-report-quality-design.md.
 //
-//   · 논의 카드 한 벌이 화면의 전부다. 통과·월단위·리뷰0건은 맨 아래 한 줄로 접는다.
-//     (숨기는 게 아니라 접는다 — '리뷰 0건은 통과가 아니다'가 숫자로 남아야 한다.)
+//   · 논의 카드 아래에는 주간 수행과제 섹션이 온다. 리포트가 관측에서 끝나지 않게 하는 층이다.
+//     (2026-07-28에 '통과·월단위·리뷰0건' 접힌 참고를 걷어내고 그 자리를 내줬다 — 안 읽혔다.)
 //   · 접힌 카드의 숫자는 셋뿐이다: 누적 → 그 주, 건수. 나머지는 펼침 안으로.
 //   · 지점 순서는 고정한다. 격차 순으로 정렬하면 매주 자리가 바뀌어 회의에서 찾게 된다.
 //   · 타이포는 프로젝터 기준이다. 11~13px은 회의실 화면에서 읽히지 않는다.
@@ -271,73 +272,6 @@ function BaselinePanel({ baselines }: { baselines: BaselineRow[] }) {
   )
 }
 
-// ─── 접힌 참고 영역 ───────────────────────────────────────────────────────────
-function ReferenceFold({ report }: { report: WeeklyReport }) {
-  const [open, setOpen] = useState(false)
-  const s = report.summary
-  // 월 단위 미달은 위 논의 카드로 승격됐다 — 여기서 다시 세면 같은 건이 두 번 잡힌다.
-  const monthlyRest = report.monthly.filter(r => r.verdict !== 'below')
-  return (
-    <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-          color: 'var(--text-2)', fontSize: 13, fontFamily: 'inherit', textAlign: 'left',
-        }}
-      >
-        <span>
-          통과 {s.onOrAboveCount}{monthlyRest.length > 0 && ` · 월 단위 ${monthlyRest.length}`} · 리뷰 0건 {s.silentCount}
-          {s.unknownCount > 0 && ` · 기준선 없음 ${s.unknownCount}`}
-        </span>
-        <ChevronDown size={14} style={{ marginLeft: 'auto', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
-      </button>
-
-      {open && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12, lineHeight: 1.7 }}>
-          <div style={{ color: 'var(--text-2)' }}>
-            <b style={{ color: 'var(--done)' }}>통과 {s.onOrAboveCount}곳</b>{' '}
-            {report.onOrAbove.length === 0
-              ? <span style={{ color: 'var(--text-3)' }}>없음</span>
-              : report.onOrAbove.map(r => `${r.branch} ${r.otaName} ${fmt(r.weekAvg)}(${r.reviewCount}건)`).join(' · ')}
-          </div>
-
-          {monthlyRest.length > 0 && (
-            <div style={{ color: 'var(--text-2)' }}>
-              <b>월 단위 {monthlyRest.length}곳</b>
-              <span style={{ color: 'var(--text-3)' }}> (원본이 일 단위 날짜를 주지 않아 그 주가 아니라 그 달의 값)</span>
-              <div style={{ marginTop: 3 }}>
-                {monthlyRest.map(r => (
-                  `${r.branch} ${r.otaName} ${fmt(r.weekAvg)}` +
-                  ` (${r.reviewCount}건 · 누적 ${r.baseline != null ? fmt(r.baseline) : '—'}` +
-                  `${r.gap != null ? ` · ${signed(r.gap)}` : ''} · ${r.weekStart.substring(0, 7)})`
-                )).join('  ·  ')}
-              </div>
-            </div>
-          )}
-
-          {report.unknown.length > 0 && (
-            <div style={{ color: 'var(--medium)' }}>
-              기준선 없음 {report.unknown.length}곳 — 스냅샷이 없어 판정 불가:{' '}
-              <span style={{ color: 'var(--text-2)' }}>
-                {report.unknown.map(r => `${r.branch} ${r.otaName}(${r.reviewCount}건 ${fmt(r.weekAvg)})`).join(' · ')}
-              </span>
-            </div>
-          )}
-
-          {report.silent.length > 0 && (
-            <div style={{ color: 'var(--text-3)' }}>
-              리뷰 0건 {report.silent.length}곳 — 통과가 아니라 이번 주 목소리가 없었던 채널:{' '}
-              {report.silent.map(s2 => `${s2.branch} ${s2.otaName}`).join(' · ')}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── 본체 ─────────────────────────────────────────────────────────────────────
 export default function WeeklyReportClient({
   report, week, weeks, reviews, weeklyTasks, basePath, extraQuery = '', embed = false,
@@ -445,7 +379,13 @@ export default function WeeklyReportClient({
               cards.map(r => <DiscussionCard key={`${week}-${r.propertyId}`} r={r} cr={reviews[r.propertyId]} />)
             )}
 
-            <ReferenceFold report={report} />
+            <WeeklyTaskSection
+              week={week}
+              cards={cards}
+              reviews={reviews}
+              tasks={weeklyTasks}
+              embed={embed}
+            />
           </div>
 
           <div className="weekly-aside">
