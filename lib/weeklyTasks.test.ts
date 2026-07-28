@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flattenCandidates, branchesOf } from './weeklyTasks'
+import { flattenCandidates, branchesOf, buildTaskPrompt } from './weeklyTasks'
 import type { WeeklyChannelRow } from './weeklyReport'
 import type { ChannelReviews } from './weeklyReviews'
 
@@ -75,5 +75,37 @@ describe('branchesOf', () => {
       { id: 'c', branch: '동대문', otaName: 'Booking', rating: 7, date: null, body: '', translated: true },
     ]
     expect(branchesOf(items)).toEqual(['신설', '동대문'])
+  })
+})
+
+describe('buildTaskPrompt', () => {
+  const items = [
+    { id: 'a', branch: '신설', otaName: 'Agoda', rating: 6.0, date: '2026-07-24', body: '체크인이 오래 걸렸다', translated: true },
+    { id: 'b', branch: '동대문', otaName: 'Trip.com', rating: null, date: null, body: '', translated: false },
+  ]
+
+  it('리뷰마다 지점·채널·점수·날짜를 붙인다', () => {
+    const got = buildTaskPrompt(items, '2026-07-27')
+    expect(got).toContain('1. 신설 · Agoda · 6.0점 · 2026-07-24')
+    expect(got).toContain('체크인이 오래 걸렸다')
+  })
+
+  it('점수·날짜·본문이 없어도 자리를 비워 두지 않는다', () => {
+    const got = buildTaskPrompt(items, '2026-07-27')
+    expect(got).toContain('2. 동대문 · Trip.com · 점수 없음')
+    expect(got).toContain('(본문 없음)')
+  })
+
+  it('없는 원인을 지어내지 말라는 규칙과 출력 형식을 포함한다', () => {
+    const got = buildTaskPrompt(items, '2026-07-27')
+    expect(got).toContain('쓰여 있지 않은 원인을 추정하지 않습니다')
+    expect(got).toContain('제목:')
+    expect(got).toContain('문제 정의:')
+    expect(got).toContain('해결안:')
+  })
+
+  it('주 라벨과 건수를 머리말에 쓴다', () => {
+    expect(buildTaskPrompt(items, '2026-07-27')).toContain('2026-07-27 주간 OTA 리포트')
+    expect(buildTaskPrompt(items, '2026-07-27')).toContain('미달한 리뷰 2건')
   })
 })
