@@ -7,6 +7,7 @@ import type {
 } from '@/lib/weeklyReport'
 import { buildChannelReviews } from '@/lib/weeklyReviews'
 import type { ChannelReviews, RawReviewRow, TranslatedRow } from '@/lib/weeklyReviews'
+import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
 
 // 모든 페이지가 auth()로 인해 동적 렌더링되므로 revalidate만으로는 캐시가 작동하지 않는다.
 // unstable_cache로 데이터 레이어를 직접 캐시하고, 쓰기 API에서 revalidateTag로 즉시 무효화한다.
@@ -536,3 +537,23 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
 
   return { report, week: target, weeks, reviews }
 }, ['weekly-report-props'], { revalidate: 300, tags: ['ota', 'raw-reviews', 'reviews'] })
+
+// 주간 수행과제. 리포트 본문과 캐시 태그를 분리한다 — 과제 하나 저장할 때마다
+// ota·raw-reviews·reviews 를 통째로 무효화하면 무거운 리포트가 매번 다시 계산된다.
+//
+// 이월 과제를 보여야 하므로 그 주 이하를 전부 끌어온다. 가르는 일은 순수 함수
+// selectVisibleTasks(lib/weeklyTasks.ts)가 한다.
+export const getWeeklyTasks = unstable_cache(async (week: string): Promise<WeeklyTaskRow[]> => {
+  if (!week) return []
+  const { data, error } = await supabase
+    .from('weekly_tasks')
+    .select('*')
+    .lte('week_start', week)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[weekly-tasks] 조회 실패:', error.message)
+    return []
+  }
+  return (data ?? []) as WeeklyTaskRow[]
+}, ['weekly-tasks'], { revalidate: 60, tags: ['weekly-tasks'] })

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { ESTIMATOR_LABEL, BRANCH_ORDER, type WeeklyReport, type WeeklyChannelRow, type BaselineRow } from '@/lib/weeklyReport'
 import type { ChannelReviews } from '@/lib/weeklyReviews'
+import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
 
 // FO Weekly 회의 중 노션 임베드로 화면 공유하며 읽는 보고서다. 설계 정본은
 // docs/superpowers/specs/2026-07-24-weekly-report-quality-design.md.
@@ -339,14 +340,16 @@ function ReferenceFold({ report }: { report: WeeklyReport }) {
 
 // ─── 본체 ─────────────────────────────────────────────────────────────────────
 export default function WeeklyReportClient({
-  report, week, weeks, reviews, basePath, extraQuery = '',
+  report, week, weeks, reviews, weeklyTasks, basePath, extraQuery = '', embed = false,
 }: {
   report: WeeklyReport | null
   week: string
   weeks: string[]
   reviews: Record<number, ChannelReviews>
+  weeklyTasks: WeeklyTaskRow[]
   basePath: string
   extraQuery?: string   // 임베드의 ?key= 처럼 주 이동 시에도 유지해야 하는 쿼리
+  embed?: boolean       // 임베드는 읽기 전용 — 쓰기 컨트롤을 아예 렌더하지 않는다
 }) {
   const router = useRouter()
   const hrefFor = (w: string) => `${basePath}?week=${w}${extraQuery ? `&${extraQuery}` : ''}`

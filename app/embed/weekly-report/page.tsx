@@ -1,6 +1,6 @@
 export const revalidate = 300
 
-import { getWeeklyReportProps } from '@/lib/pageData'
+import { getWeeklyReportProps, getWeeklyTasks } from '@/lib/pageData'
 import WeeklyReportClient from '@/components/WeeklyReportClient'
 
 // 임베드는 사이드바·인증이 없는 레이아웃(app/embed/layout.tsx)에서 렌더된다.
@@ -13,9 +13,12 @@ export default async function EmbedWeeklyReportPage({
 }) {
   const { week, key } = await searchParams
   const props = await getWeeklyReportProps(week)
+  const weeklyTasks = await getWeeklyTasks(props.week)
   return (
     <WeeklyReportClient
       {...props}
+      weeklyTasks={weeklyTasks}
+      embed
       basePath="/embed/weekly-report"
       extraQuery={key ? `key=${encodeURIComponent(key)}` : ''}
     />
