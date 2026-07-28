@@ -67,6 +67,15 @@ export const ESTIMATOR_LABEL: Record<AvgEstimator, string> = {
   approx: '밴드 근사(수기)',
 }
 
+/** 회의에서 매주 같은 자리를 찾게 하려고 지점 순서를 고정한다. 격차 순으로 정렬하지 않는다. */
+export const BRANCH_ORDER = ['신설', '동대문', '제주시티', '고성']
+
+/** 모르는 지점은 맨 뒤로 보낸다. */
+export function branchRank(branch: string): number {
+  const i = BRANCH_ORDER.indexOf(branch)
+  return i === -1 ? BRANCH_ORDER.length : i
+}
+
 // 🔴 미달 '원인'은 이 리포트가 만들지 않는다(2026-07-27 재헌 결정).
 // 이전에는 ota_complaints.headline → memo 앞부분 → bad 키워드 순으로 폴백해 결론 한 줄을
 // 지어냈다. 그 폴백이 밴드를 보지 않아, 신설 Trip.com 2026-07-27 주에서 기준선을 밀어올린

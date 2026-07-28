@@ -3,7 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
-import { ESTIMATOR_LABEL, type WeeklyReport, type WeeklyChannelRow, type BaselineRow } from '@/lib/weeklyReport'
+import { ESTIMATOR_LABEL, BRANCH_ORDER, type WeeklyReport, type WeeklyChannelRow, type BaselineRow } from '@/lib/weeklyReport'
 import type { ChannelReviews } from '@/lib/weeklyReviews'
 
 // FO Weekly 회의 중 노션 임베드로 화면 공유하며 읽는 보고서다. 설계 정본은
@@ -15,7 +15,6 @@ import type { ChannelReviews } from '@/lib/weeklyReviews'
 //   · 지점 순서는 고정한다. 격차 순으로 정렬하면 매주 자리가 바뀌어 회의에서 찾게 된다.
 //   · 타이포는 프로젝터 기준이다. 11~13px은 회의실 화면에서 읽히지 않는다.
 
-const BRANCH_ORDER = ['신설', '동대문', '제주시티', '고성']
 const BRANCH_COLOR: Record<string, string> = {
   신설: 'var(--sinseol)', 동대문: 'var(--ddm)', 제주시티: 'var(--jeju)', 고성: 'var(--goseong)',
 }
