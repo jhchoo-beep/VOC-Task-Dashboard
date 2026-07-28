@@ -368,9 +368,6 @@ export default function WeeklyReportClient({
             {cards.length === 0 ? (
               <div className="card" style={{ padding: '18px 20px', fontSize: 14, color: 'var(--text-2)' }}>
                 이번 주 기준선을 끌어내린 채널이 없습니다.
-                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
-                  아래 참고를 펼치면 리뷰 0건 채널을 확인할 수 있습니다 — 목소리가 없었던 것은 통과가 아닙니다
-                </div>
               </div>
             ) : (
               // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은

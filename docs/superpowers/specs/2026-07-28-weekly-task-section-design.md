@@ -131,16 +131,33 @@ create index weekly_tasks_week_idx on weekly_tasks (week_start desc);
 
 ### 4. API · 캐시
 
-`app/api/weekly-tasks/route.ts` — `GET` · `POST` · `PATCH` · `DELETE`. 기존 `tasks` 라우트 패턴을 따른다
-(`auth()` 세션 검사 → Supabase → `revalidateTag`).
+`app/api/weekly-tasks/route.ts` — `POST` · `PATCH` · `DELETE`. 기존 `tasks` 라우트 패턴을 따른다
+(`auth()` 세션 검사 → Supabase). **`GET`은 만들지 않는다** — 읽기는 클라이언트 fetch가 아니라
+서버 컴포넌트(`app/(app)/report/weekly/...`)가 `lib/pageData.ts`의 `getWeeklyTasks(week)`를 직접
+호출해서 한다. API 라우트를 거칠 이유가 없다.
 
-- 캐시 태그는 **`weekly-tasks` 로 분리한다.** `getWeeklyReportProps`(태그 `ota`·`raw-reviews`·`reviews`,
-  revalidate 300)에 얹으면 과제 하나 저장할 때마다 무거운 리포트 전체가 다시 계산된다.
-- `lib/pageData.ts`에 `getWeeklyTasks(week)`를 별도 `unstable_cache`로 추가한다
-  (`tags: ['weekly-tasks']`, revalidate 60).
+**캐시하지 않는다.** 설계 당시엔 `getWeeklyTasks`를 별도 태그(`weekly-tasks`)로 `unstable_cache`
+감싸고 API가 `revalidateTag('weekly-tasks', 'max')`를 부르는 안을 세웠다 — `getWeeklyReportProps`
+(태그 `ota`·`raw-reviews`·`reviews`, revalidate 300)에 얹으면 과제 하나 저장할 때마다 무거운 리포트
+전체가 다시 계산되니, 캐시를 분리해 그 계산을 피하자는 취지였다.
+
+구현하고 보니 이 조합이 **같은 URL에서 `router.refresh()`가 화면을 갱신하지 못하는** 문제를 냈다
+(Next 16.2.2, 2026-07-28 SDD 격리 재현으로 확인). `revalidateTag`는 Data Cache는 즉시 비우지만,
+같은 라우트에 대한 `router.refresh()`의 RSC 재요청은 그 무효화를 타지 않고 캐시된 값을 계속
+돌려줬다 — 저장·상태 변경·채택 버튼을 눌러도 화면이 10초가 지나도 옛 값이었다(하드 네비게이션이나
+다른 URL로 가면 최신값이 나와, 겉으로는 "서버는 멀쩡한데 화면만 안 바뀐다"로 보인다).
+대안으로 `revalidatePath`를 써 봤지만 같은 라우트의 다른 `unstable_cache`인
+`getWeeklyReportProps`까지 통째로 재계산시켜, 애초 캐시를 분리해서 막으려던 문제(과제 하나
+저장할 때마다 무거운 리포트가 다시 계산됨)를 그대로 되살렸다.
+
+그래서 **`getWeeklyTasks`의 캐시 자체를 제거**하고 API의 `revalidateTag` 호출도 전부 지웠다.
+- 캐시 무효화 문제가 원천적으로 사라진다(캐시가 없으니 무효화할 것도 없다).
+- 원래 의도(과제 저장이 무거운 리포트 캐시를 매번 날리지 않게 하는 것)는 그대로 지켜진다 —
+  `getWeeklyReportProps`를 건드리지 않기 때문이다.
+- 비용은 주간 리포트 렌더당 `weekly_tasks` select 1회. `week_start`에 인덱스가 있고
+  (`weekly_tasks_week_idx`) 지점당 한 주 몇 건뿐인 가벼운 조회라 매번 직접 읽어도 부담이 없다.
 - 조회 범위: `week_start <= week` 인 행 중 (a) `week_start = week` 전부, (b) 이월 조건에 맞는 과거 행.
   판정은 순수 함수 `selectVisibleTasks(rows, week)`가 한다.
-- 🔴 `revalidateTag('weekly-tasks', 'max')` — Next 16은 2-인자다.
 
 ### 5. 임베드
 
