@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
 import {
   flattenCandidates, buildTaskPrompt, selectVisibleTasks, branchesOf,
@@ -77,6 +78,120 @@ function CandidateList({
   )
 }
 
+// ─── 과제 폼 ──────────────────────────────────────────────────────────────────
+// 붙여넣기가 주 입력 수단이다 — AI가 낸 '제목/문제 정의/해결안'을 옮겨 담는 자리다.
+function TaskForm({
+  week, sources, onDone, onCancel,
+}: {
+  week: string
+  sources: CandidateReview[]
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const [title, setTitle] = useState('')
+  const [problem, setProblem] = useState('')
+  const [solution, setSolution] = useState('')
+  const [assignee, setAssignee] = useState('')
+  const [due, setDue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  const save = async () => {
+    if (!title.trim()) { setErr('제목을 입력해 주세요'); return }
+    setSaving(true); setErr('')
+    try {
+      const res = await fetch('/api/weekly-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          week_start: week,
+          branches: branchesOf(sources),
+          title,
+          problem_definition: problem,
+          solution,
+          assignee,
+          due_date: due,
+          source_reviews: sources,
+        }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setErr(j.error ?? '저장에 실패했습니다')
+        return
+      }
+      onDone()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const field: React.CSSProperties = {
+    width: '100%', padding: '8px 10px', borderRadius: 8,
+    border: '1px solid var(--border)', background: 'var(--bg-input)',
+    color: 'var(--text-1)', fontSize: 13, fontFamily: 'inherit', lineHeight: 1.7,
+  }
+  const label: React.CSSProperties = { fontSize: 12, color: 'var(--text-3)', marginBottom: 4, display: 'block' }
+
+  return (
+    <div className="card" style={{ padding: '16px 18px', marginBottom: 14 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>새 주간 수행과제</div>
+      <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 12 }}>
+        근거 리뷰 {sources.length}건 · {branchesOf(sources).join(' · ') || '지점 없음'}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div>
+          <label style={label}>제목</label>
+          <input style={field} value={title} onChange={e => setTitle(e.target.value)} placeholder="AI가 낸 제목을 붙여넣으세요" />
+        </div>
+        <div>
+          <label style={label}>문제 정의</label>
+          <textarea style={{ ...field, minHeight: 72, resize: 'vertical' }} value={problem} onChange={e => setProblem(e.target.value)} />
+        </div>
+        <div>
+          <label style={label}>해결안</label>
+          <textarea style={{ ...field, minHeight: 72, resize: 'vertical' }} value={solution} onChange={e => setSolution(e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={label}>담당</label>
+            <input style={field} value={assignee} onChange={e => setAssignee(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={label}>기한</label>
+            <input style={field} type="date" value={due} onChange={e => setDue(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      {err && <div style={{ fontSize: 12, color: 'var(--critical)', marginTop: 10 }}>{err}</div>}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+        <button
+          onClick={save} disabled={saving}
+          style={{
+            padding: '7px 14px', borderRadius: 8, border: '1px solid var(--critical)',
+            background: 'var(--critical)', color: '#fff', fontSize: 12,
+            fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1,
+          }}
+        >
+          {saving ? '저장 중…' : '저장'}
+        </button>
+        <button
+          onClick={onCancel} disabled={saving}
+          style={{
+            padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
+            background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12,
+            fontFamily: 'inherit', cursor: 'pointer',
+          }}
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── 본체 ─────────────────────────────────────────────────────────────────────
 export default function WeeklyTaskSection({
   week, cards, reviews, tasks, embed = false,
@@ -90,6 +205,8 @@ export default function WeeklyTaskSection({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openCandidates, setOpenCandidates] = useState(false)
   const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle')
+  const [formOpen, setFormOpen] = useState(false)
+  const router = useRouter()
 
   const candidates = flattenCandidates(cards, reviews)
   const { current, carried } = selectVisibleTasks(tasks, week)
@@ -166,12 +283,37 @@ export default function WeeklyTaskSection({
                     </button>
                     {copied === 'ok' && <span style={{ fontSize: 12, color: 'var(--done)' }}>복사했습니다 — Claude에 붙여넣고 받은 문안을 아래 폼에 옮기세요</span>}
                     {copied === 'fail' && <span style={{ fontSize: 12, color: 'var(--critical)' }}>복사에 실패했습니다 — 브라우저 클립보드 권한을 확인해 주세요</span>}
+                    <button
+                      onClick={() => setFormOpen(true)}
+                      disabled={chosen.length === 0}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                        background: 'var(--bg-card)', color: chosen.length === 0 ? 'var(--text-3)' : 'var(--text-1)',
+                        fontSize: 12, fontFamily: 'inherit', cursor: chosen.length === 0 ? 'default' : 'pointer',
+                        opacity: chosen.length === 0 ? 0.5 : 1,
+                      }}
+                    >
+                      선택 {chosen.length}건으로 과제 만들기
+                    </button>
                   </div>
                 </>
               )}
             </div>
           )}
         </div>
+      )}
+
+      {!embed && formOpen && (
+        <TaskForm
+          week={week}
+          sources={chosen}
+          onCancel={() => setFormOpen(false)}
+          onDone={() => {
+            setFormOpen(false)
+            setSelected(new Set())
+            router.refresh()
+          }}
+        />
       )}
     </div>
   )
