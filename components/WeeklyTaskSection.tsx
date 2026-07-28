@@ -120,6 +120,9 @@ function TaskForm({
         return
       }
       onDone()
+    } catch {
+      // fetch 자체가 throw 하는 경우(네트워크 단절·타임아웃) — 폼은 그대로 두고 사유만 보여준다
+      setErr('네트워크 오류로 저장에 실패했습니다')
     } finally {
       setSaving(false)
     }
@@ -206,6 +209,9 @@ export default function WeeklyTaskSection({
   const [openCandidates, setOpenCandidates] = useState(false)
   const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [formOpen, setFormOpen] = useState(false)
+  // 폼에 넘길 근거는 여는 순간 스냅샷으로 고정한다 — chosen을 그대로 넘기면
+  // 폼이 열린 채로 체크박스를 만질 때마다 저장될 근거가 실시간으로 바뀐다
+  const [formSources, setFormSources] = useState<CandidateReview[]>([])
   const router = useRouter()
 
   const candidates = flattenCandidates(cards, reviews)
@@ -284,7 +290,7 @@ export default function WeeklyTaskSection({
                     {copied === 'ok' && <span style={{ fontSize: 12, color: 'var(--done)' }}>복사했습니다 — Claude에 붙여넣고 받은 문안을 아래 폼에 옮기세요</span>}
                     {copied === 'fail' && <span style={{ fontSize: 12, color: 'var(--critical)' }}>복사에 실패했습니다 — 브라우저 클립보드 권한을 확인해 주세요</span>}
                     <button
-                      onClick={() => setFormOpen(true)}
+                      onClick={() => { setFormSources(chosen); setFormOpen(true) }}
                       disabled={chosen.length === 0}
                       style={{
                         padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
@@ -306,10 +312,11 @@ export default function WeeklyTaskSection({
       {!embed && formOpen && (
         <TaskForm
           week={week}
-          sources={chosen}
-          onCancel={() => setFormOpen(false)}
+          sources={formSources}
+          onCancel={() => { setFormOpen(false); setFormSources([]) }}
           onDone={() => {
             setFormOpen(false)
+            setFormSources([])
             setSelected(new Set())
             router.refresh()
           }}
