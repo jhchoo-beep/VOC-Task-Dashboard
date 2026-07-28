@@ -133,7 +133,8 @@ create index weekly_tasks_week_idx on weekly_tasks (week_start desc);
 
 `app/api/weekly-tasks/route.ts` — `POST` · `PATCH` · `DELETE`. 기존 `tasks` 라우트 패턴을 따른다
 (`auth()` 세션 검사 → Supabase). **`GET`은 만들지 않는다** — 읽기는 클라이언트 fetch가 아니라
-서버 컴포넌트(`app/(app)/report/weekly/...`)가 `lib/pageData.ts`의 `getWeeklyTasks(week)`를 직접
+서버 컴포넌트(`app/(app)/weekly-report/page.tsx`·`app/embed/weekly-report/page.tsx`)가
+`lib/pageData.ts`의 `getWeeklyTasks(week)`를 직접
 호출해서 한다. API 라우트를 거칠 이유가 없다.
 
 **캐시하지 않는다.** 설계 당시엔 `getWeeklyTasks`를 별도 태그(`weekly-tasks`)로 `unstable_cache`
