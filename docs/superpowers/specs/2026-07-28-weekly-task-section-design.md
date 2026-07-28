@@ -169,7 +169,9 @@ create index weekly_tasks_week_idx on weekly_tasks (week_start desc);
   - `flattenCandidates(cards, reviews)` — 후보 리뷰 평탄화·정렬
   - `buildTaskPrompt(items)` — 프롬프트 조립
   - `selectVisibleTasks(rows, week)` — 그 주 + 이월 판정
-  - `snapshotOf(items)` — `source_reviews` 스냅샷 생성
+  - `branchesOf(items)` — 근거 리뷰에서 지점 목록 도출
+  - (별도 스냅샷 함수는 두지 않는다 — `flattenCandidates`가 내는 `CandidateReview`가 곧
+    `source_reviews`에 저장할 모양이다)
 - `lib/weeklyTasks.test.ts` — vitest. 상대 경로 import(`@/` 별칭을 vitest가 풀지 않는다).
 
 ## 비범위
