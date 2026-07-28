@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
 import {
   flattenCandidates, buildTaskPrompt, selectVisibleTasks, branchesOf,
-  type CandidateReview, type WeeklyTaskRow,
+  WEEKLY_TASK_STATUSES,
+  type CandidateReview, type WeeklyTaskRow, type WeeklyTaskStatus,
 } from '@/lib/weeklyTasks'
 import type { WeeklyChannelRow } from '@/lib/weeklyReport'
 import type { ChannelReviews } from '@/lib/weeklyReviews'
@@ -195,6 +196,182 @@ function TaskForm({
   )
 }
 
+// ─── 과제 카드 ────────────────────────────────────────────────────────────────
+const STATUS_COLOR: Record<WeeklyTaskStatus, string> = {
+  시작전: 'var(--text-3)', 진행중: 'var(--progress)', 완료: 'var(--done)',
+}
+
+function TaskCard({
+  task, carried, embed, onChanged,
+}: {
+  task: WeeklyTaskRow
+  carried: boolean
+  embed: boolean
+  onChanged: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const patch = async (body: Record<string, unknown>) => {
+    setBusy(true); setErr('')
+    try {
+      const res = await fetch('/api/weekly-tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: task.id, ...body }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setErr(j.error ?? '저장에 실패했습니다')
+        return
+      }
+      onChanged()
+    } catch {
+      setErr('네트워크 오류로 저장에 실패했습니다')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const remove = async () => {
+    setBusy(true); setErr('')
+    try {
+      const res = await fetch(`/api/weekly-tasks?id=${task.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setErr(j.error ?? '삭제에 실패했습니다')
+        return
+      }
+      onChanged()
+    } catch {
+      setErr('네트워크 오류로 삭제에 실패했습니다')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card" style={{
+      padding: '12px 18px', marginBottom: 8,
+      borderLeft: `3px solid ${task.escalated ? 'var(--medium)' : STATUS_COLOR[task.status]}`,
+    }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <span style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 15, fontWeight: 700, minWidth: 0 }}>
+          {task.branches.map(b => (
+            <span key={b} style={{ width: 7, height: 7, borderRadius: '50%', background: branchColor(b), flexShrink: 0 }} />
+          ))}
+          {task.title}
+          {carried && <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}>[이월 {task.week_start}]</span>}
+          {task.escalated && <span style={{ fontSize: 11, color: 'var(--medium)', fontWeight: 400 }}>다음달 채택</span>}
+        </span>
+
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, color: STATUS_COLOR[task.status], fontWeight: 700 }}>{task.status}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-3)' }}>근거 {task.source_reviews.length}건</span>
+          <button
+            onClick={() => setOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 8,
+              border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)',
+              fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            {open ? '닫기' : '자세히'}
+            <ChevronDown size={13} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+          </button>
+        </span>
+      </div>
+
+      {open && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 13, lineHeight: 1.75 }}>
+          {task.problem_definition && (
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>문제 정의</span>
+              <div style={{ whiteSpace: 'pre-wrap' }}>{task.problem_definition}</div>
+            </div>
+          )}
+          {task.solution && (
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>해결안</span>
+              <div style={{ whiteSpace: 'pre-wrap' }}>{task.solution}</div>
+            </div>
+          )}
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 10 }}>
+            {[task.assignee && `담당 ${task.assignee}`, task.due_date && `기한 ${task.due_date}`, `생성 ${task.week_start}`]
+              .filter(Boolean).join(' · ')}
+          </div>
+
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6 }}>근거 리뷰 {task.source_reviews.length}건</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {task.source_reviews.map(s => (
+              <div key={s.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 11px', background: 'var(--bg-input)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center', marginBottom: 3, fontSize: 11, color: 'var(--text-3)' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-2)' }}>{s.branch} {s.otaName}</span>
+                  <span className="font-display" style={{ fontSize: 13, fontWeight: 800, color: ratingColor(s.rating) }}>
+                    {s.rating == null ? '—' : fmt(s.rating)}
+                  </span>
+                  {s.date && <span>{s.date}</span>}
+                </div>
+                <div style={{ fontSize: 12, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{s.body || '(본문 없음)'}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 쓰기 컨트롤 — 임베드에는 렌더하지 않는다 */}
+          {!embed && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14, alignItems: 'center' }}>
+              {WEEKLY_TASK_STATUSES.map(s => (
+                <button
+                  key={s} onClick={() => patch({ status: s })} disabled={busy || s === task.status}
+                  style={{
+                    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontFamily: 'inherit',
+                    cursor: s === task.status ? 'default' : 'pointer',
+                    border: `1px solid ${s === task.status ? STATUS_COLOR[s] : 'var(--border)'}`,
+                    background: s === task.status ? 'var(--bg-input)' : 'var(--bg-card)',
+                    color: s === task.status ? STATUS_COLOR[s] : 'var(--text-2)',
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+              <button
+                onClick={() => patch({ escalated: !task.escalated })} disabled={busy}
+                style={{
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
+                  border: `1px solid ${task.escalated ? 'var(--medium)' : 'var(--border)'}`,
+                  background: 'var(--bg-card)', color: task.escalated ? 'var(--medium)' : 'var(--text-2)',
+                  marginLeft: 8,
+                }}
+              >
+                {task.escalated ? '채택 해제' : '다음달 정식 과제로 채택'}
+              </button>
+              <button
+                onClick={remove} disabled={busy}
+                style={{
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
+                  border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-3)',
+                  marginLeft: 'auto',
+                }}
+              >
+                삭제
+              </button>
+            </div>
+          )}
+          {!embed && err && (
+            <div style={{ fontSize: 11, color: 'var(--critical)', marginTop: 8 }}>{err}</div>
+          )}
+          {!embed && task.escalated && (
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.6 }}>
+              다음 달 VOC 분석(/voc-analysis)이 이 과제를 변심 트리거·수행과제 도출의 후보로 읽습니다 — 지금 tasks에 등록되지는 않습니다
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── 본체 ─────────────────────────────────────────────────────────────────────
 export default function WeeklyTaskSection({
   week, cards, reviews, tasks, embed = false,
@@ -321,6 +498,26 @@ export default function WeeklyTaskSection({
             router.refresh()
           }}
         />
+      )}
+
+      {total === 0 ? (
+        <div className="card" style={{ padding: '14px 18px', fontSize: 13, color: 'var(--text-2)' }}>
+          이번 주 수행과제가 아직 없습니다.
+          {!embed && (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 5 }}>
+              위 후보 리뷰에서 근거를 고르고 프롬프트를 복사해 과제를 만드세요
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {current.map(t => (
+            <TaskCard key={`${week}-${t.id}`} task={t} carried={false} embed={embed} onChanged={() => router.refresh()} />
+          ))}
+          {carried.map(t => (
+            <TaskCard key={`${week}-${t.id}`} task={t} carried embed={embed} onChanged={() => router.refresh()} />
+          ))}
+        </>
       )}
     </div>
   )
