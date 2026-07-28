@@ -379,7 +379,10 @@ export default function WeeklyReportClient({
               cards.map(r => <DiscussionCard key={`${week}-${r.propertyId}`} r={r} cr={reviews[r.propertyId]} />)
             )}
 
+            {/* key에 week를 줘야 한다 — 안 주면 주가 바뀌어도 리마운트되지 않아
+                selected·openCandidates·copied 가 지난 주 값 그대로 남는다(DiscussionCard와 같은 이유). */}
             <WeeklyTaskSection
+              key={week}
               week={week}
               cards={cards}
               reviews={reviews}
