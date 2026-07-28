@@ -1,14 +1,13 @@
 import { auth } from '@/auth'
 import { supabase } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidateTag } from 'next/cache'
 import { WEEKLY_TASK_STATUSES } from '@/lib/weeklyTasks'
 
 // 주간 수행과제 쓰기 API. tasks 라우트와 같은 골격이되 슬랙 알림은 붙이지 않는다 —
 // 주간 과제는 회의에서 재헌님이 직접 만들고 닫는 층이라 스쿼드 채널로 나갈 것이 없다.
 //
-// 🔴 revalidateTag 는 'weekly-tasks' 하나만 친다. getWeeklyReportProps(ota·raw-reviews·reviews,
-//    revalidate 300)까지 무효화하면 과제 하나 저장할 때마다 무거운 리포트가 통째로 다시 계산된다.
+// 🔴 revalidateTag를 호출하지 않는다. lib/pageData.ts의 getWeeklyTasks는 unstable_cache로
+//    감싸지 않는다 — 캐시가 없으니 무효화할 것도 없다(2026-07-28 수정, 이유는 그쪽 주석 참조).
 
 function bad(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status })
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest) {
 
   if (error) return bad(error.message, 500)
 
-  revalidateTag('weekly-tasks', 'max')
   return NextResponse.json(data)
 }
 
@@ -73,7 +71,6 @@ export async function PATCH(req: NextRequest) {
 
   if (error) return bad(error.message, 500)
 
-  revalidateTag('weekly-tasks', 'max')
   return NextResponse.json(data)
 }
 
@@ -87,6 +84,5 @@ export async function DELETE(req: NextRequest) {
   const { error } = await supabase.from('weekly_tasks').delete().eq('id', id)
   if (error) return bad(error.message, 500)
 
-  revalidateTag('weekly-tasks', 'max')
   return NextResponse.json({ ok: true })
 }

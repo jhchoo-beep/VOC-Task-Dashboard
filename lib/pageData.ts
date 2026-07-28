@@ -538,12 +538,21 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
   return { report, week: target, weeks, reviews }
 }, ['weekly-report-props'], { revalidate: 300, tags: ['ota', 'raw-reviews', 'reviews'] })
 
-// 주간 수행과제. 리포트 본문과 캐시 태그를 분리한다 — 과제 하나 저장할 때마다
+// 주간 수행과제. 리포트 본문과 캐시를 분리한다 — 과제 하나 저장할 때마다
 // ota·raw-reviews·reviews 를 통째로 무효화하면 무거운 리포트가 매번 다시 계산된다.
+//
+// 🔴 unstable_cache로 감싸지 않는다(과거엔 revalidate:60·tags:['weekly-tasks']였다).
+//    PATCH/POST/DELETE 직후 revalidateTag는 Data Cache는 즉시 비우지만, 같은 URL에 대한
+//    router.refresh()의 RSC 재요청은 그 무효화를 타지 않고 계속 캐시된 값을 반환했다
+//    (하드 네비게이션·다른 URL은 항상 최신값 — Data Cache 자체는 정상). 이 표는 지점당
+//    한 주 몇 건뿐인 가벼운 조회라 캐시할 이유가 없다 — 그냥 매번 직접 읽는다.
+//    (2026-07-28, SDD 격리 재현으로 확인: revalidatePath로 고치면 되긴 하지만 같은 라우트의
+//    다른 unstable_cache — 여기선 getWeeklyReportProps — 까지 통째로 재계산시켜 위 주석이
+//    막으려던 문제를 그대로 재현한다.)
 //
 // 이월 과제를 보여야 하므로 그 주 이하를 전부 끌어온다. 가르는 일은 순수 함수
 // selectVisibleTasks(lib/weeklyTasks.ts)가 한다.
-export const getWeeklyTasks = unstable_cache(async (week: string): Promise<WeeklyTaskRow[]> => {
+export async function getWeeklyTasks(week: string): Promise<WeeklyTaskRow[]> {
   if (!week) return []
   const { data, error } = await supabase
     .from('weekly_tasks')
@@ -556,4 +565,4 @@ export const getWeeklyTasks = unstable_cache(async (week: string): Promise<Weekl
     return []
   }
   return (data ?? []) as WeeklyTaskRow[]
-}, ['weekly-tasks'], { revalidate: 60, tags: ['weekly-tasks'] })
+}
