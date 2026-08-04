@@ -9,7 +9,10 @@
 
 // 상대 경로로 가져온다 — vitest는 '@/' 별칭을 풀지 않는다.
 import type { Granularity } from './otaDetail'
-import { parseRawDate, weekLabelOf, OTA_SITE_BY_NAME, eligibleRawRows } from './otaDetail'
+import {
+  parseRawDate, weekLabelOf, OTA_SITE_BY_NAME, eligibleRawRows,
+  bucketPeriodStart, bucketPeriodEnd,
+} from './otaDetail'
 
 export interface RawReviewRow {
   id: string
@@ -66,6 +69,25 @@ const numOrNull = (v: unknown): number | null => {
   if (v == null || v === '') return null
   const n = Number(v)
   return Number.isFinite(n) ? n : null
+}
+
+/**
+ * 드릴다운 대상 버킷들을 덮으려면 raw_reviews.review_month를 어느 달까지 읽어야 하는가.
+ *
+ * 🔴 `weekStart`는 이름과 달리 구간의 '끝'이다(2026-07-27 라벨 규약). 그래서 이 값의 월과
+ *    bucketEnd의 월을 넣으면 둘이 같은 달이라 월을 걸치는 주에서 조회 범위가 한 달로
+ *    쪼그라든다 — 라벨 2026-08-03(07-28~08-03)에서 7월분 리뷰가 통째로 빠져 화면이
+ *    '수집 커버리지 밖의 리뷰입니다'를 띄웠다(2026-08-04 실발생). 구간의 첫날은 반드시
+ *    bucketPeriodStart로 구한다.
+ */
+export function drilldownMonths(
+  targets: { weekStart: string; granularity: Granularity }[],
+): string[] {
+  const months = targets.flatMap(t => [
+    bucketPeriodStart(t.weekStart, t.granularity).substring(0, 7),
+    bucketPeriodEnd(t.weekStart, t.granularity).substring(0, 7),
+  ])
+  return [...new Set(months)].sort()
 }
 
 /** 그 버킷·그 채널의 raw 리뷰만 고른다. */

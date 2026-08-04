@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { translationKey, selectBucketReviews, buildChannelReviews } from './weeklyReviews'
+import { translationKey, selectBucketReviews, buildChannelReviews, drilldownMonths } from './weeklyReviews'
 import type { RawReviewRow, TranslatedRow } from './weeklyReviews'
 
 // 실측(2026-07-20 주차). ota_site는 한글명이고 ota_properties.ota_name은 영문이다.
@@ -224,5 +224,33 @@ describe('buildChannelReviews — 기준선 미달 필터', () => {
     const got = buildChannelReviews(rows, [], { ...base, reviewCount: 1, baseline: 8.9 })
     expect(got.items).toEqual([])
     expect(got.hiddenCount).toBe(1)
+  })
+})
+
+describe('drilldownMonths', () => {
+  it('주 버킷이 월을 걸치면 두 달을 모두 조회한다', () => {
+    // 라벨 2026-08-03이 덮는 구간은 07-28(화)~08-03(월)이다. 07-28~07-31에 쓰인 리뷰는
+    // review_month='2026-07'로 저장되므로 8월만 조회하면 화면이 원문을 못 찾는다
+    // ('수집 커버리지 밖의 리뷰입니다' 오표시 — 2026-08-04 실발생).
+    expect(drilldownMonths([{ weekStart: '2026-08-03', granularity: 'week' }]))
+      .toEqual(['2026-07', '2026-08'])
+  })
+
+  it('월을 걸치지 않는 주는 한 달만 조회한다', () => {
+    expect(drilldownMonths([{ weekStart: '2026-07-27', granularity: 'week' }]))
+      .toEqual(['2026-07'])
+  })
+
+  it('월 버킷은 그 달 하나다', () => {
+    expect(drilldownMonths([{ weekStart: '2026-07-01', granularity: 'month' }]))
+      .toEqual(['2026-07'])
+  })
+
+  it('여러 채널의 달을 중복 없이 합친다', () => {
+    expect(drilldownMonths([
+      { weekStart: '2026-08-03', granularity: 'week' },
+      { weekStart: '2026-08-03', granularity: 'week' },
+      { weekStart: '2026-07-01', granularity: 'month' },
+    ])).toEqual(['2026-07', '2026-08'])
   })
 })
