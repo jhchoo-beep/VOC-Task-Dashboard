@@ -174,6 +174,16 @@ describe('buildWeeklyReport', () => {
     expect(u.reviewCount).toBe(1)
   })
 
+  // 점수 보드의 재료 — '이번 주에 몇 점짜리가 몇 건'을 상세 탭 분포도 없이 보여 준다.
+  it('버킷의 밴드별 건수를 싣는다 — 건수 0인 밴드는 담지 않는다', () => {
+    const agoda = report.onOrAbove[0]
+    expect(agoda.bands).toEqual([{ band: 8, count: 2 }, { band: 10, count: 3 }])
+    const nol = report.below.find(r => r.otaName === 'NOL')!
+    expect(nol.bands).toEqual([{ band: 3, count: 1 }, { band: 4, count: 1 }])
+    const airbnb = report.monthly[0]
+    expect(airbnb.bands).toEqual([{ band: 4, count: 2 }, { band: 5, count: 8 }])
+  })
+
   it('전주 대비 이동(wow)을 낸다. 전주 행이 없으면 null', () => {
     const agoda = report.onOrAbove[0]
     expect(agoda.prevWeekStart).toBe('2026-07-13')

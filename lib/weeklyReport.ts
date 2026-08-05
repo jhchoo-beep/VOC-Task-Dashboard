@@ -83,6 +83,13 @@ export function branchRank(branch: string): number {
 // 카드가 말하는 것은 '기준 점수보다 낮은 리뷰가 났다'까지이고, 원인은 펼침의 리뷰 원문으로
 // 사람이 읽는다. ota_complaints·ota_voc는 이 리포트가 더 이상 읽지 않는다.
 
+// 그 버킷에 실제로 쓰인 리뷰의 점수 밴드(건수 있는 밴드만). band 는 1~scoreMax.
+// 점수 보드가 '이번 주에 몇 점짜리가 몇 건 왔는가'를 상세 탭 분포도 없이 보여 주는 재료다.
+export interface BandCount {
+  band: number
+  count: number
+}
+
 export interface WeeklyChannelRow {
   propertyId: number
   branch: string
@@ -94,6 +101,7 @@ export interface WeeklyChannelRow {
 
   reviewCount: number        // 그 주에 쓰인 리뷰 수 (밴드 열 합)
   weekAvg: number            // 그 주 리뷰어들의 평균
+  bands: BandCount[]         // 밴드별 건수 — 건수 0인 밴드는 담지 않는다
   estimator: AvgEstimator
 
   baseline: number | null    // 그 채널의 누적 종합 점수
@@ -260,6 +268,9 @@ function buildRow(
   const bucketEnd = bucketPeriodEnd(bucket, granularity)
   const reviewCount = reviewCountOf(row, scoreMax)
   const weekAvg = round2(num(row.weekly_avg_score))
+  const bands = distColumnsFor(scoreMax)
+    .map((c, i) => ({ band: i + 1, count: num(row[c]) }))
+    .filter(b => b.count > 0)
 
   const base = pickBaseline(snapshots, bucketEnd)
   const verdict = judgeWeek(weekAvg, base.score)
@@ -276,6 +287,7 @@ function buildRow(
     bucketEnd,
     reviewCount,
     weekAvg,
+    bands,
     estimator: row.source === 'manual' ? 'approx' : 'exact',
     baseline: base.score,
     baselineRecordedAt: base.recordedAt,

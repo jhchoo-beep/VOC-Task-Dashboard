@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { ESTIMATOR_LABEL, BRANCH_ORDER, type WeeklyReport, type WeeklyChannelRow, type BaselineRow } from '@/lib/weeklyReport'
+import { bandsFor } from '@/lib/otaDetail'
 import type { ChannelReviews } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
 import WeeklyTaskSection from './WeeklyTaskSection'
@@ -197,76 +198,142 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
   )
 }
 
-// ─── 기준 점수 패널 ───────────────────────────────────────────────────────────
-// 왜 있나: 카드 오른쪽 작은 '8.9'가 기준선이라는 사실도, 채널마다 4.00~9.30으로 흩어져
-// 있다는 사실도 화면에 없었다. 그래서 '왜 8.0이 미달인가'를 매번 말로 설명해야 했다.
+// ─── 점수 보드 ────────────────────────────────────────────────────────────────
+// 첫 화면은 이 보드다(2026-08-04 FO Weekly 재헌 지시). 이전에는 기준 점수가 우측 보조
+// 패널이었고 '이번 주에 몇 점짜리 리뷰가 몇 건 왔는가'는 상세 탭 분포도까지 들어가야
+// 보였다 — 회의가 리포트↔점수 현황↔분포도를 오가며 끊겼다. 보드가 지점×채널마다
+// '기준 → 이번 주 평균 + 수집 점수 밴드'를 한 벌로 펴고, 미달만 붉게 띄운다.
 //
-// 값은 카드와 같은 pickBaseline 산출이다(lib/weeklyReport.ts). 여기서 다시 계산하지 말 것.
+// 값은 카드와 같은 산출이다(lib/weeklyReport.ts). 여기서 다시 계산하지 말 것.
 const OTA_ORDER = ['Agoda', 'Booking', 'Trip.com', 'Expedia', 'Airbnb', 'NOL', '여기어때']
+const otaRank = (n: string) => {
+  const i = OTA_ORDER.indexOf(n)
+  return i === -1 ? OTA_ORDER.length : i
+}
+const brRank = (b: string) => {
+  const i = BRANCH_ORDER.indexOf(b)
+  return i === -1 ? BRANCH_ORDER.length : i
+}
 
-function BaselinePanel({ baselines }: { baselines: BaselineRow[] }) {
+// 밴드 칩은 밴드 '전체'가 기준선 아래일 때만 붉게 칠한다. 밴드는 폭이 1점이라
+// (8점대 = 8.0~8.9) 기준선이 밴드 안에 걸리면 그 칩의 리뷰가 미달인지 단정할 수 없다 —
+// 단정은 카드 판정(weekAvg)과 펼침의 원문 목록이 한다.
+function bandWhollyBelow(band: number, scoreMax: number, baseline: number | null): boolean {
+  if (baseline == null) return false
+  const top = band === scoreMax ? scoreMax : band + 0.99
+  return top < baseline
+}
+
+function BandChips({ r }: { r: WeeklyChannelRow }) {
+  const labels = bandsFor(r.scoreMax)
+  return (
+    <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
+      {r.bands.map(b => {
+        const below = bandWhollyBelow(b.band, r.scoreMax, r.baseline)
+        return (
+          <span key={b.band} style={{
+            fontSize: 12, padding: '1px 7px', borderRadius: 6, whiteSpace: 'nowrap',
+            border: `1px solid ${below ? 'var(--critical)' : 'var(--border-2)'}`,
+            color: below ? 'var(--critical)' : 'var(--text-2)',
+            fontWeight: below ? 700 : 400,
+          }}>
+            {labels[b.band - 1]}{b.count > 1 && ` ×${b.count}`}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+function BoardRow({ base, row }: { base: BaselineRow; row: WeeklyChannelRow | undefined }) {
+  const below = row?.verdict === 'below'
+  const avgColor = row == null ? 'var(--text-3)'
+    : below ? 'var(--critical)'
+    : row.verdict === 'onOrAbove' ? 'var(--done)' : 'var(--text-1)'
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 8,
+      background: below ? 'color-mix(in srgb, var(--critical) 8%, transparent)' : 'transparent',
+      boxShadow: below ? 'inset 3px 0 0 var(--critical)' : 'none',
+      opacity: row == null ? 0.55 : 1,
+    }}>
+      <span style={{ fontSize: 13, fontWeight: below ? 700 : 500, color: 'var(--text-1)', whiteSpace: 'nowrap' }}>
+        {base.otaName}
+        {row?.granularity === 'month' && (
+          <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 400 }}> 월</span>
+        )}
+      </span>
+
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: 5, whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+          {base.score == null ? '—' : fmt(base.score)}{base.isFallback && '*'} →
+        </span>
+        <span className="font-display" style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: avgColor }}>
+          {row == null ? '—' : fmt(row.weekAvg)}
+        </span>
+        {row != null && (
+          <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{row.reviewCount}건</span>
+        )}
+      </span>
+
+      <span style={{ marginLeft: 'auto', minWidth: 0 }}>
+        {row != null && <BandChips r={row} />}
+      </span>
+    </div>
+  )
+}
+
+function ScoreBoard({ report }: { report: WeeklyReport }) {
+  const { baselines } = report
   if (baselines.length === 0) return null
 
-  const otaRank = (n: string) => {
-    const i = OTA_ORDER.indexOf(n)
-    return i === -1 ? OTA_ORDER.length : i
-  }
-  const branchRank = (b: string) => {
-    const i = BRANCH_ORDER.indexOf(b)
-    return i === -1 ? BRANCH_ORDER.length : i
-  }
+  // 판정·평균·밴드는 리포트 본체가 이미 채널별로 갖고 있다 — propertyId 로 잇기만 한다.
+  const rowByProp = new Map<number, WeeklyChannelRow>(
+    [...report.below, ...report.onOrAbove, ...report.unknown, ...report.monthly].map(r => [r.propertyId, r]),
+  )
 
-  const branches = [...new Set(baselines.map(b => b.branch))].sort((a, b) => branchRank(a) - branchRank(b))
+  const branches = [...new Set(baselines.map(b => b.branch))].sort((a, b) => brRank(a) - brRank(b))
 
   // 스냅샷 날짜는 전 채널이 같을 때만 한 번 쓴다. 갈리는데 대표값 하나를 찍으면
   // 그 순간 화면이 거짓을 말한다.
   const dates = [...new Set(baselines.map(b => b.recordedAt).filter(Boolean))]
-  const dateTxt = dates.length === 1 ? `${dates[0]} 스냅샷` : '채널별 스냅샷'
+  const dateTxt = dates.length === 1 ? `기준 = ${dates[0]} 누적 점수` : '기준 = 채널별 누적 점수'
 
   return (
-    <div className="card" style={{ padding: '16px 18px' }}>
-      <div className="font-display" style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>기준 점수</div>
-      <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 12 }}>
-        채널 누적 점수 · {dateTxt}
-        <br />이보다 낮은 리뷰만 논의 카드에 펼쳐집니다
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+        <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>이번 주 점수</b>
+        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{dateTxt}</span>
       </div>
 
-      {branches.map(br => (
-        <div key={br} style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: branchColor(br) }} />
-            {br}
-          </div>
-          {baselines
+      <div className="score-board">
+        {branches.map(br => {
+          const rows = baselines
             .filter(b => b.branch === br)
             .sort((a, b) => otaRank(a.otaName) - otaRank(b.otaName))
-            .map(b => (
-              <div key={b.propertyId} style={{
-                display: 'flex', alignItems: 'baseline', gap: 6,
-                padding: '2px 0 2px 12px', fontSize: 12,
-              }}>
-                {/* 미달 채널만 점 — 왼쪽 논의 카드와 눈으로 잇는 장치다 */}
-                <span style={{
-                  width: 4, height: 4, borderRadius: '50%', marginLeft: -8, marginRight: 2,
-                  background: b.below ? 'var(--critical)' : 'transparent', alignSelf: 'center',
-                }} />
-                <span style={{ color: b.below ? 'var(--text-1)' : 'var(--text-2)' }}>{b.otaName}</span>
-                <span className="font-display" style={{
-                  marginLeft: 'auto', fontWeight: b.below ? 800 : 600,
-                  color: b.score == null ? 'var(--text-3)' : b.below ? 'var(--critical)' : 'var(--text-1)',
-                }}>
-                  {b.score == null ? '—' : fmt(b.score)}
-                </span>
-                {b.isFallback && <span style={{ fontSize: 10, color: 'var(--medium)' }}>*</span>}
+          const belowCount = rows.filter(b => b.below).length
+          return (
+            <div key={br} className="card" style={{ padding: '12px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 10px', marginBottom: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: branchColor(br) }} />
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{br}</span>
+                {belowCount > 0 && (
+                  <span style={{
+                    marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--critical)',
+                    border: '1px solid var(--critical)', borderRadius: 10, padding: '1px 8px',
+                  }}>미달 {belowCount}</span>
+                )}
               </div>
-            ))}
-        </div>
-      ))}
+              {rows.map(b => <BoardRow key={b.propertyId} base={b} row={rowByProp.get(b.propertyId)} />)}
+            </div>
+          )
+        })}
+      </div>
 
-      <div style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1.6, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-        에어비앤비·야놀자는 5점 만점입니다
-        {baselines.some(b => b.isFallback) && <><br />* 이 버킷 이전 스냅샷이 없어 이후 값을 빌려 썼습니다</>}
-        {baselines.some(b => b.score == null) && <><br />— 는 스냅샷이 없어 판정할 수 없는 채널입니다</>}
+      <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.7, marginTop: 8 }}>
+        에어비앤비·야놀자는 5점 만점 · — 는 이번 주 리뷰 0건
+        {baselines.some(b => b.isFallback) && ' · * 이 주 이전 스냅샷이 없어 이후 값을 빌려 씀'}
       </div>
     </div>
   )
@@ -350,47 +417,42 @@ export default function WeeklyReportClient({
           </div>
         </div>
       ) : (
-        // 논의 카드(주) + 기준 점수 패널(부). 폭이 좁아지면 1컬럼으로 접히고 패널이
-        // 카드 '아래'로 간다 — 위로 올리면 노션 임베드에서 논의 카드가 첫 화면 밖으로 밀린다.
-        // 미디어쿼리는 인라인 스타일로 쓸 수 없어 globals.css의 .weekly-grid 를 쓴다.
-        <div className="weekly-grid">
-          <div style={{ minWidth: 0 }}>
-            <div style={{
-              display: 'flex', alignItems: 'baseline', gap: 10,
-              fontSize: 14, color: 'var(--text-2)', marginBottom: 16,
-            }}>
-              <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>
-                논의 {cards.length}건
-              </b>
-              <span style={{ color: 'var(--text-3)' }}>· 주간 리뷰 {report.summary.reviewTotal}건</span>
+        // 흐름은 점수 보드 → 논의 → 주간 수행과제 한 컬럼이다(2026-08-04 재헌 지시).
+        // 보드에서 미달을 눈으로 잡고, 논의에서 원문을 읽고, 수행과제로 넘길지 정한다.
+        <div style={{ maxWidth: 900, minWidth: 0 }}>
+          <ScoreBoard report={report} />
+
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 10,
+            fontSize: 14, color: 'var(--text-2)', marginBottom: 16,
+          }}>
+            <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>
+              논의 {cards.length}건
+            </b>
+            <span style={{ color: 'var(--text-3)' }}>· 주간 리뷰 {report.summary.reviewTotal}건</span>
+          </div>
+
+          {cards.length === 0 ? (
+            <div className="card" style={{ padding: '18px 20px', fontSize: 14, color: 'var(--text-2)' }}>
+              이번 주 기준선을 끌어내린 채널이 없습니다.
             </div>
+          ) : (
+            // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은
+            //    인스턴스로 재사용돼 펼침 상태가 따라온다 — 회의에서 주를 넘기면 지난 주에 열어
+            //    둔 카드가 펼쳐진 채로 시작해 '논의 카드 한 벌이 한 화면'이 깨진다.
+            cards.map(r => <DiscussionCard key={`${week}-${r.propertyId}`} r={r} cr={reviews[r.propertyId]} />)
+          )}
 
-            {cards.length === 0 ? (
-              <div className="card" style={{ padding: '18px 20px', fontSize: 14, color: 'var(--text-2)' }}>
-                이번 주 기준선을 끌어내린 채널이 없습니다.
-              </div>
-            ) : (
-              // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은
-              //    인스턴스로 재사용돼 펼침 상태가 따라온다 — 회의에서 주를 넘기면 지난 주에 열어
-              //    둔 카드가 펼쳐진 채로 시작해 '논의 카드 한 벌이 한 화면'이 깨진다.
-              cards.map(r => <DiscussionCard key={`${week}-${r.propertyId}`} r={r} cr={reviews[r.propertyId]} />)
-            )}
-
-            {/* key에 week를 줘야 한다 — 안 주면 주가 바뀌어도 리마운트되지 않아
-                selected·openCandidates·copied 가 지난 주 값 그대로 남는다(DiscussionCard와 같은 이유). */}
-            <WeeklyTaskSection
-              key={week}
-              week={week}
-              cards={cards}
-              reviews={reviews}
-              tasks={weeklyTasks}
-              embed={embed}
-            />
-          </div>
-
-          <div className="weekly-aside">
-            <BaselinePanel baselines={report.baselines} />
-          </div>
+          {/* key에 week를 줘야 한다 — 안 주면 주가 바뀌어도 리마운트되지 않아
+              selected·openCandidates·copied 가 지난 주 값 그대로 남는다(DiscussionCard와 같은 이유). */}
+          <WeeklyTaskSection
+            key={week}
+            week={week}
+            cards={cards}
+            reviews={reviews}
+            tasks={weeklyTasks}
+            embed={embed}
+          />
         </div>
       )}
     </div>
