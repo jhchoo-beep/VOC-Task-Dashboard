@@ -1,4 +1,7 @@
-export const revalidate = 300
+// 🔴 revalidate(=라우트 캐시)를 걸지 않는다. 이 화면은 FO Weekly 회의에서 실시간으로 읽는다 —
+//    낡은 주가 뜨면 회의가 한 주 전을 논의한다(2026-08-08 실측). 근거는 lib/pageData.ts의
+//    getWeeklyReportProps 주석 참조.
+export const dynamic = 'force-dynamic'
 
 import { getWeeklyReportProps, getWeeklyTasks } from '@/lib/pageData'
 import WeeklyReportClient from '@/components/WeeklyReportClient'

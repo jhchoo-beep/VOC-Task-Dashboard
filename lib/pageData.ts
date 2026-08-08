@@ -453,12 +453,22 @@ export const getAnalyticsProps = unstable_cache(async () => {
 // FO Weekly 260721 결정: '그 주에 리뷰를 쓴 사람들'이 채널 누적 점수보다 낮게 줬는가로
 // 확인 대상을 가른다. 판정 규칙 자체는 lib/weeklyReport.ts(순수 함수)에 있고,
 // 여기서는 조회와 조립만 한다 — DB 없이 판정을 전수 검증할 수 있게 하기 위해서다.
-export const getWeeklyReportProps = unstable_cache(async (week?: string): Promise<{
+// 🔴 unstable_cache로 감싸지 않는다(과거엔 revalidate:300·tags:['ota','raw-reviews','reviews']였다).
+//    태그 무효화 설계는 "쓰기가 앱을 통과한다"를 전제로 하는데, 이 표들의 실제 기록자는
+//    앱이 아니라 **다른 PC에서 도는 수집 스크래퍼**다. 스크래퍼는 Supabase에 직접 INSERT하므로
+//    revalidateTag가 영원히 호출되지 않는다. 그러면 TTL만 남는데, unstable_cache의 TTL은
+//    stale-while-revalidate라 **만료 후 첫 요청은 낡은 값을 받고** 재검증은 그 뒤에 일어난다.
+//    사내 저트래픽 앱에서는 화면을 여는 사람이 늘 그 '첫 요청'이라, 열 때마다 한 박자 늦은
+//    값을 본다. 2026-08-08 실측: /weekly-report 첫 방문은 8월 1주차(논의 2건), 재방문은
+//    8월 2주차(논의 5건)였다. 이 화면의 소비 맥락이 FO Weekly 회의 화면 공유·노션 임베드라
+//    "한 주 전 리포트를 보고 논의한다"가 되므로 캐시 이득보다 대가가 크다.
+//    (같은 이유로 getWeeklyTasks도 캐시하지 않는다 — 아래 주석 참조.)
+export async function getWeeklyReportProps(week?: string): Promise<{
   report: WeeklyReport | null
   week: string
   weeks: string[]
   reviews: Record<number, ChannelReviews>   // propertyId → 그 버킷 리뷰. 미달 채널만
-}> => {
+}> {
   // ota_complaints·ota_voc는 더 이상 읽지 않는다 — 카드가 원인을 쓰지 않기로 했다(2026-07-27).
   // 잘림 사고의 전말은 파일 상단 fetchAllRows 주석 참조.
   const [propsRaw, distRaw, scoresRaw] = await Promise.all([
@@ -537,7 +547,7 @@ export const getWeeklyReportProps = unstable_cache(async (week?: string): Promis
   }
 
   return { report, week: target, weeks, reviews }
-}, ['weekly-report-props'], { revalidate: 300, tags: ['ota', 'raw-reviews', 'reviews'] })
+}
 
 // 주간 수행과제. 리포트 본문과 캐시를 분리한다 — 과제 하나 저장할 때마다
 // ota·raw-reviews·reviews 를 통째로 무효화하면 무거운 리포트가 매번 다시 계산된다.

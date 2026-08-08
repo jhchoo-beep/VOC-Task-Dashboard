@@ -1,4 +1,7 @@
-export const revalidate = 300
+// 🔴 revalidate(=라우트 캐시)를 걸지 않는다. 노션 임베드는 항상 같은 URL로 열리므로
+//    라우트 캐시가 붙으면 회의 참석자 전원이 같은 낡은 화면을 본다. 실페이지보다 더 나쁘다.
+//    근거는 lib/pageData.ts의 getWeeklyReportProps 주석 참조.
+export const dynamic = 'force-dynamic'
 
 import { getWeeklyReportProps, getWeeklyTasks } from '@/lib/pageData'
 import WeeklyReportClient from '@/components/WeeklyReportClient'

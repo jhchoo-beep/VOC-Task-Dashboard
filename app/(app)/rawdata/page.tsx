@@ -1,10 +1,15 @@
-import { unstable_cache } from 'next/cache'
 import { supabase } from '@/lib/supabase'
 import RawDataClient from '@/components/RawDataClient'
 
-// 페이지가 auth()로 동적 렌더링되므로 데이터 레이어를 unstable_cache로 캐시.
-// 쓰기 API(/api/rawdata*)의 revalidateTag('raw-reviews')로 즉시 무효화된다.
-const getRawDataPageData = unstable_cache(async (month?: string) => {
+// 🔴 unstable_cache로 감싸지 않는다(과거엔 revalidate:60·tags:['raw-reviews']였다).
+//    raw_reviews의 실제 기록자는 앱의 쓰기 API가 아니라 **다른 PC에서 도는 수집 스크래퍼**이고,
+//    스크래퍼는 Supabase에 직접 INSERT하므로 revalidateTag('raw-reviews')가 호출되지 않는다.
+//    남는 TTL은 stale-while-revalidate라 만료 후 첫 요청이 낡은 값을 받는다 — 사내 저트래픽
+//    앱에서는 화면을 여는 사람이 늘 그 첫 요청이다. 2026-08-08 실측: 첫 방문은 7월 167건,
+//    재방문은 8월 53건이었다(8월 데이터가 08-06에 들어왔는데 화면은 07-30 스냅샷이었다).
+//    한 달치 조회라 캐시 없이도 요청 두 번이면 끝난다. 자세한 논거는 lib/pageData.ts의
+//    getWeeklyReportProps 주석 참조.
+const getRawDataPageData = async (month?: string) => {
   // 월 목록만 컬럼 한정 조회 — 행 수가 range를 넘어도 최신 월이 누락되지 않도록 반드시 최신순 정렬
   const { data: monthRows } = await supabase
     .from('raw_reviews')
@@ -21,7 +26,7 @@ const getRawDataPageData = unstable_cache(async (month?: string) => {
     : { data: [] }
 
   return { rawReviews: rawReviews ?? [], months, currentMonth }
-}, ['rawdata-page-data'], { revalidate: 60, tags: ['raw-reviews'] })
+}
 
 export default async function RawDataPage({
   searchParams,
