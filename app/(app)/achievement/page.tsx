@@ -1,10 +1,8 @@
-import { unstable_cache } from 'next/cache'
 import { supabase } from '@/lib/supabase'
 import AchievementClient from '@/components/AchievementClient'
 
-// 페이지가 auth()로 동적 렌더링되므로 데이터 레이어를 unstable_cache로 캐시.
-// 쓰기 API(/api/tasks*)의 revalidateTag('tasks')로 즉시 무효화된다.
-const getAchievementPageData = unstable_cache(async (month?: string, branch?: string) => {
+// 🔴 unstable_cache로 감싸지 않는다 — 근거는 lib/pageData.ts 상단 주석 참조.
+const getAchievementPageData = async (month?: string, branch?: string) => {
   // 완료된 수행과제 전체 조회 (최근 12개월)
   let query = supabase
     .from('tasks')
@@ -76,7 +74,7 @@ const getAchievementPageData = unstable_cache(async (month?: string, branch?: st
   const totalBranches = new Set(tasks.map((t: any) => t.branch).filter(Boolean)).size
 
   return { tasks, triggerGroups, monthSummaryList, months, branches, stats: { totalDone, totalTriggers, totalBranches } }
-}, ['achievement-page-data'], { revalidate: 60, tags: ['tasks'] })
+}
 
 export default async function AchievementPage({
   searchParams,

@@ -1,4 +1,3 @@
-import { unstable_cache } from 'next/cache'
 import { supabase, calcCLX } from '@/lib/supabase'
 import { distColumnsFor, isWeeklyGap, OTA_SITE_BY_NAME } from '@/lib/otaDetail'
 import { buildWeeklyReport, listReportWeeks } from '@/lib/weeklyReport'
@@ -9,9 +8,23 @@ import { buildChannelReviews, drilldownMonths } from '@/lib/weeklyReviews'
 import type { ChannelReviews, RawReviewRow, TranslatedRow } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
 
-// 모든 페이지가 auth()로 인해 동적 렌더링되므로 revalidate만으로는 캐시가 작동하지 않는다.
-// unstable_cache로 데이터 레이어를 직접 캐시하고, 쓰기 API에서 revalidateTag로 즉시 무효화한다.
-// 태그: reviews / tasks / raw-reviews / ota (테이블 단위)
+// 🔴🔴 이 파일의 조회 함수는 어느 것도 캐시하지 않는다. 2026-08-08 이전에는 전부
+//    unstable_cache(revalidate N, tags:[테이블]) 였고, 쓰기 API의 revalidateTag로 무효화하는
+//    설계였다. 그 설계는 **"쓰기가 앱을 통과한다"를 전제**하는데 전제가 틀렸다 —
+//    raw_reviews·ota_* 의 실제 기록자는 앱이 아니라 다른 PC에서 도는 수집 스크래퍼이고,
+//    스크래퍼는 Supabase에 직접 INSERT하므로 revalidateTag가 영원히 호출되지 않는다.
+//    그러면 TTL만 남는데 unstable_cache의 TTL은 stale-while-revalidate라 **만료 후 첫 요청이
+//    낡은 값을 받고** 재검증은 그 뒤에 일어난다. 사내 저트래픽 앱에서는 화면을 여는 사람이
+//    늘 그 '첫 요청'이라, 열 때마다 한 박자 늦은 값을 보고 갱신된 값은 아무도 안 본다.
+//    브라우저 캐시가 아니라 서버(Vercel) 캐시라 **보는 사람 전원**이 같은 낡은 값을 본다.
+//
+//    실측(2026-08-08): /rawdata 첫 방문 7월 167건 / 재방문 8월 53건, /weekly-report 첫 방문
+//    8월 1주차(논의 2건) / 재방문 8월 2주차(논의 5건). 소비 맥락이 FO Weekly 회의 화면
+//    공유·노션 임베드라 "한 주 전 리포트를 보고 논의한다"가 되므로 캐시 이득보다 대가가 크다.
+//
+//    ⚠️ 다시 캐시를 넣고 싶다면 먼저 **스크래퍼가 앱의 무효화 경로를 타게** 만들 것.
+//       그 전에 unstable_cache를 되살리면 같은 증상이 그대로 돌아온다.
+//    ⚠️ 쓰기 API의 revalidateTag 호출은 남아 있지만 소비처가 없어 no-op다.
 
 // ─── 전량 조회 헬퍼 ──────────────────────────────────────────
 // 🔴 PostgREST는 한 응답에 최대 1000행만 준다(서버 설정 db-max-rows).
@@ -46,7 +59,7 @@ async function fetchAllRows(
 }
 
 // ─── 점수 현황 (OTA Scores) ─────────────────────────────────
-export const getOtaScoresProps = unstable_cache(async () => {
+export async function getOtaScoresProps() {
   const [
     scoresRaw, propsRaw, distRaw, complaintsRaw, vocRaw, checkoutsRaw,
   ] = await Promise.all([
@@ -234,10 +247,10 @@ export const getOtaScoresProps = unstable_cache(async () => {
     scoreMaxByBranchOta,
     branchOtaToId,
   }
-}, ['ota-scores-props'], { revalidate: 300, tags: ['ota'] })
+}
 
 // ─── 대시보드 (Dashboard) ───────────────────────────────────
-export const getDashboardProps = unstable_cache(async (month?: string) => {
+export async function getDashboardProps(month?: string) {
   // 1) 월 목록만 컬럼 한정 조회 (리뷰 원문 등 무거운 컬럼 제외)
   //    컬럼을 줄여도 행 수는 그대로다 — 리뷰 한 건이 한 행이라 상한을 넘는다(2026-07-23 927행).
   //    월 목록이 잘리면 드롭다운에서 월이 사라지고, 그 월은 아예 조회할 수 없게 된다.
@@ -329,11 +342,10 @@ export const getDashboardProps = unstable_cache(async (month?: string) => {
     : null
 
   return { clxData, criticals, completedCriticals, taskProgress, completedTasks, resolvedTriggers, avgClxDiff, currentMonth, months }
-}, ['dashboard-props'], { revalidate: 60, tags: ['reviews', 'tasks'] })
+}
 
 // ─── 수행과제 (Tasks) ───────────────────────────────────────
-// highlightTaskId(URL의 ?task=)는 캐시 키에 들어가지 않도록 데이터 조회만 캐시한다
-const getTasksData = unstable_cache(async (month?: string) => {
+async function getTasksData(month?: string) {
   // 월 목록은 tasks 전 행을 훑는다 — 과제가 쌓이면 상한에 닿고, 잘리면 오래된 월이
   // 드롭다운에서 사라진다(정렬이 내림차순이라 꼬리부터). 이어 받는다.
   const fetchMonths = () => fetchAllRows('tasks', 'task_month', q => q.order('task_month', { ascending: false }))
@@ -358,7 +370,7 @@ const getTasksData = unstable_cache(async (month?: string) => {
   }
 
   return { tasks, months, currentMonth }
-}, ['tasks-data'], { revalidate: 60, tags: ['tasks'] })
+}
 
 export async function getTasksProps(month?: string, task?: string) {
   const data = await getTasksData(month)
@@ -366,7 +378,7 @@ export async function getTasksProps(month?: string, task?: string) {
 }
 
 // ─── 분석 & 트렌드 (Analytics) ──────────────────────────────
-export const getAnalyticsProps = unstable_cache(async () => {
+export async function getAnalyticsProps() {
   // 이 페이지는 전 기간 리뷰를 전수로 집계한다 — 이 파일에서 상한에 가장 먼저 닿는 쿼리다
   // (2026-07-23 기준 927행). 잘리면 월별 CLX·카테고리·severity 트렌드가 전부 조용히 틀어진다.
   const [reviews, allTasks] = await Promise.all([
@@ -447,7 +459,7 @@ export const getAnalyticsProps = unstable_cache(async () => {
   })
 
   return { monthlyRaw, catData, severityData, triggerResolution, triggerMonthlyData, triggerNames }
-}, ['analytics-props'], { revalidate: 60, tags: ['reviews', 'tasks'] })
+}
 
 // ─── 주간 리포트 (Weekly Report) ────────────────────────────────
 // FO Weekly 260721 결정: '그 주에 리뷰를 쓴 사람들'이 채널 누적 점수보다 낮게 줬는가로
