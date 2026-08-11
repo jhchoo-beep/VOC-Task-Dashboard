@@ -2,7 +2,7 @@ import { supabase, calcCLX } from '@/lib/supabase'
 import { distColumnsFor, isWeeklyGap, OTA_SITE_BY_NAME } from '@/lib/otaDetail'
 import { buildWeeklyReport, listReportWeeks } from '@/lib/weeklyReport'
 import type {
-  PropertyRow, DistRow, ScoreSnapshotRow, WeeklyReport,
+  PropertyRow, DistRow, WeeklyReport,
 } from '@/lib/weeklyReport'
 import { buildChannelReviews, drilldownMonths } from '@/lib/weeklyReviews'
 import type { ChannelReviews, RawReviewRow, TranslatedRow } from '@/lib/weeklyReviews'
@@ -479,14 +479,15 @@ export async function getWeeklyReportProps(week?: string): Promise<{
   report: WeeklyReport | null
   week: string
   weeks: string[]
-  reviews: Record<number, ChannelReviews>   // propertyId → 그 버킷 리뷰. 미달 채널만
+  reviews: Record<number, ChannelReviews>   // propertyId → 그 버킷의 목표 미달 리뷰
 }> {
   // ota_complaints·ota_voc는 더 이상 읽지 않는다 — 카드가 원인을 쓰지 않기로 했다(2026-07-27).
+  // ota_scores(누적 점수 스냅샷)도 더 이상 읽지 않는다 — 기준이 고정 목표 9.0으로 바뀌었다
+  // (2026-08-11). okr_target 이 그 목표의 정본이라 ota_properties 에서 함께 가져온다.
   // 잘림 사고의 전말은 파일 상단 fetchAllRows 주석 참조.
-  const [propsRaw, distRaw, scoresRaw] = await Promise.all([
-    fetchAllRows('ota_properties', 'property_id,branch,ota_name,score_max', q => q.eq('active', true), 'property_id'),
+  const [propsRaw, distRaw] = await Promise.all([
+    fetchAllRows('ota_properties', 'property_id,branch,ota_name,score_max,okr_target', q => q.eq('active', true), 'property_id'),
     fetchAllRows('ota_score_dist', '*', q => q.order('week_start', { ascending: true })),
-    fetchAllRows('ota_scores', 'property_id,overall_score,review_count,recorded_at', q => q.order('recorded_at', { ascending: true })),
   ])
 
   const dist  = (distRaw ?? []) as DistRow[]
@@ -503,15 +504,18 @@ export async function getWeeklyReportProps(week?: string): Promise<{
     weekStart:  target,
     properties: (propsRaw ?? []) as PropertyRow[],
     dist,
-    scores:     (scoresRaw ?? []) as ScoreSnapshotRow[],
   })
 
-  // 리뷰 원문은 미달 채널에만 붙인다. 통과 채널까지 끌어오면 raw_reviews 1.2만 행에서
-  // 필요 없는 범위를 매주 읽게 되고, 화면은 그걸 쓰지도 않는다.
+  // 🔴 리뷰 원문은 그 주 리뷰가 있는 **전 채널**에 붙인다(2026-08-11).
+  //    이전에는 미달 채널에만 붙였는데, 이제 '주 평균은 목표를 넘겼지만 목표 미달 리뷰가
+  //    섞인 채널'도 논의 대상이다(discussionRows ②). 그 판정을 하려면 통과 채널의 원문도
+  //    읽어야 한다 — 미달 채널만 읽으면 신설 Agoda 8.7 안의 4.4점 리뷰를 영영 못 본다.
+  //    비용은 그 주가 걸친 달의 raw_reviews(수백 행)뿐이고, 통과 채널의 목표 이상 리뷰는
+  //    buildChannelReviews 가 걸러 내므로 화면으로 내려가는 양은 거의 늘지 않는다.
   //
   // 🔴 클라이언트 조회로 만들지 말 것 — 노션 임베드는 인증 API를 타지 못한다.
   //    서버가 미리 실어 내려야 임베드에서도 보인다(진행사항 로그에서 겪은 것과 같은 함정).
-  const drillTargets = [...report.below, ...report.monthly.filter(r => r.verdict === 'below')]
+  const drillTargets = [...report.below, ...report.onOrAbove, ...report.monthly]
   const reviews: Record<number, ChannelReviews> = {}
 
   if (drillTargets.length > 0) {
@@ -519,9 +523,9 @@ export async function getWeeklyReportProps(week?: string): Promise<{
     // 주 버킷은 두 달에 걸칠 수 있다 — 시작월과 종료월을 모두 넣는다.
     // 🔴 weekStart는 구간의 '끝'이라 그 월만 쓰면 범위가 한 달로 접힌다. drilldownMonths 주석 참조.
     const months = drilldownMonths(drillTargets)
-    // 채널로도 좁힌다 — 미달이 "신설 Trip.com" 하나여도 신설의 전 채널 그 달치를
-    // 통째로 끌어오지 않는다. selectBucketReviews가 어차피 지점×채널로 거르므로
-    // 판정에는 영향이 없다(raw_reviews.ota_site 표기로 변환해야 한다).
+    // 채널로도 좁힌다 — 그 주 리뷰가 0건인 채널(silent)까지 끌어오지 않는다.
+    // selectBucketReviews가 어차피 지점×채널로 거르므로 판정에는 영향이 없다
+    // (raw_reviews.ota_site 표기로 변환해야 한다).
     const sites = [...new Set(
       drillTargets.map(r => OTA_SITE_BY_NAME[r.otaName]).filter((s): s is string => Boolean(s))
     )]
@@ -550,9 +554,9 @@ export async function getWeeklyReportProps(week?: string): Promise<{
           weekStart: row.weekStart,
           granularity: row.granularity,
           reviewCount: row.reviewCount,
-          // 카드가 판정에 쓴 바로 그 기준선. 드릴다운은 이보다 낮은 리뷰만 보여 준다 —
-          // 점수를 밀어올린 10.0짜리 호평이 '미달 주'의 근거 자리에 섞이지 않게 한다.
-          baseline: row.baseline,
+          // 카드가 판정에 쓴 바로 그 목표. 드릴다운은 이보다 낮은 리뷰만 보여 준다 —
+          // 목표를 넘긴 10.0짜리 호평이 논의 근거 자리에 섞이지 않게 한다.
+          target: row.target,
         },
       )
     }

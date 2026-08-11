@@ -3,18 +3,22 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
-import { ESTIMATOR_LABEL, BRANCH_ORDER, type WeeklyReport, type WeeklyChannelRow, type BaselineRow } from '@/lib/weeklyReport'
+import {
+  ESTIMATOR_LABEL, BRANCH_ORDER, discussionRows,
+  type WeeklyReport, type WeeklyChannelRow, type ChannelBoardRow,
+} from '@/lib/weeklyReport'
 import { bandsFor } from '@/lib/otaDetail'
-import type { ChannelReviews } from '@/lib/weeklyReviews'
+import { belowReviewCounts, type ChannelReviews } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
 import WeeklyTaskSection from './WeeklyTaskSection'
 
 // FO Weekly 회의 중 노션 임베드로 화면 공유하며 읽는 보고서다. 설계 정본은
 // docs/superpowers/specs/2026-07-24-weekly-report-quality-design.md.
 //
-//   · 논의 카드 아래에는 주간 수행과제 섹션이 온다. 리포트가 관측에서 끝나지 않게 하는 층이다.
-//     (2026-07-28에 '통과·월단위·리뷰0건' 접힌 참고를 걷어내고 그 자리를 내줬다 — 안 읽혔다.)
-//   · 접힌 카드의 숫자는 셋뿐이다: 누적 → 그 주, 건수. 나머지는 펼침 안으로.
+//   · 흐름은 점수 보드 → 논의 → 주간 수행과제 한 컬럼이다.
+//   · 논의에 서는 것은 '목표(9.0)에 못 미친 리뷰가 난 채널'이다 — 주 평균이 목표를
+//     넘겼어도 그 안에 미달 리뷰가 섞여 있으면 카드가 선다(2026-08-11 재헌 결정).
+//   · 접힌 카드의 숫자는 셋뿐이다: 주 평균, 리뷰 수, 미달 건수. 나머지는 펼침 안으로.
 //   · 지점 순서는 고정한다. 격차 순으로 정렬하면 매주 자리가 바뀌어 회의에서 찾게 된다.
 //   · 타이포는 프로젝터 기준이다. 11~13px은 회의실 화면에서 읽히지 않는다.
 
@@ -27,18 +31,6 @@ const fmt = (n: number) => n.toFixed(1)
 const trim = (n: number) => String(Number(n.toFixed(2)))
 const signed = (n: number) => (n > 0 ? '+' : '') + trim(n)
 
-/** 지점 고정 순 → 지점 안에서 격차 큰(음수 큰) 순. */
-function orderForMeeting(rows: WeeklyChannelRow[]): WeeklyChannelRow[] {
-  const rank = (b: string) => {
-    const i = BRANCH_ORDER.indexOf(b)
-    return i === -1 ? BRANCH_ORDER.length : i   // 모르는 지점은 맨 뒤
-  }
-  return [...rows].sort((a, b) => {
-    if (rank(a.branch) !== rank(b.branch)) return rank(a.branch) - rank(b.branch)
-    return (a.gap ?? 0) - (b.gap ?? 0)
-  })
-}
-
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span style={{
@@ -48,22 +40,23 @@ function Chip({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ratingColor(r: number | null) {
+/** 리뷰 한 건의 색은 그 채널 목표를 넘겼는지로 정한다(척도 환산 없음). */
+function ratingColor(r: number | null, target: number) {
   if (r == null) return 'var(--text-3)'
-  if (r >= 9) return 'var(--done)'
-  if (r >= 7) return 'var(--medium)'
-  if (r >= 5) return 'var(--high)'
+  if (r >= target) return 'var(--done)'
+  if (r >= target * 0.78) return 'var(--medium)'   // 10점제 7.0 · 5점제 3.5 언저리
+  if (r >= target * 0.56) return 'var(--high)'     // 10점제 5.0 · 5점제 2.5 언저리
   return 'var(--critical)'
 }
 
 // ─── 리뷰 원문 ────────────────────────────────────────────────────────────────
-// 기준선 미만 리뷰만 나온다(필터는 lib/weeklyReviews.ts). 카드가 '8.9 → 8.0'이라 써 놓고
+// 목표 미달 리뷰만 나온다(필터는 lib/weeklyReviews.ts). 카드가 '미달 4건'이라 써 놓고
 // 펼치면 10.0짜리 호평이 함께 뜨던 문제를 없앤 것이다.
 function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
-  // 확보한 원문 총수 = 보여 주는 것 + 기준선 이상이라 뺀 것. 커버리지 경고의 분자다 —
+  // 확보한 원문 총수 = 보여 주는 것 + 목표 이상이라 뺀 것. 커버리지 경고의 분자다 —
   // items.length 를 쓰면 3건을 다 확보하고도 '원문 확보 1/3건'이 뜬다.
   const secured = cr ? cr.items.length + cr.hiddenCount : 0
-  const baseTxt = cr?.baseline != null ? `기준 ${fmt(cr.baseline)}` : '기준선 없음'
+  const baseTxt = cr ? `목표 ${fmt(cr.target)}` : '목표'
 
   if (!cr || secured === 0) {
     return (
@@ -73,7 +66,7 @@ function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
     )
   }
 
-  // 원문은 확보했는데 전부 기준선 이상인 상태. 위 문구와 합치면 '수집이 안 됐다'와
+  // 원문은 확보했는데 전부 목표 이상인 상태. 위 문구와 합치면 '수집이 안 됐다'와
   // '나쁜 리뷰만 수집에서 빠졌다'가 구분되지 않는다 — 후자는 수집 쪽 결함 신호다.
   if (cr.items.length === 0) {
     return (
@@ -99,7 +92,7 @@ function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
             background: 'var(--bg-input)',
           }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-              <span className="font-display" style={{ fontSize: 15, fontWeight: 800, color: ratingColor(it.rating) }}>
+              <span className="font-display" style={{ fontSize: 15, fontWeight: 800, color: ratingColor(it.rating, cr.target) }}>
                 {it.rating == null ? '—' : fmt(it.rating)}
               </span>
               <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
@@ -125,16 +118,25 @@ function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
 }
 
 // ─── 논의 카드 ────────────────────────────────────────────────────────────────
-// 🔴 카드는 원인을 쓰지 않는다(2026-07-27 재헌 결정). 말하는 것은 '기준 점수보다 낮은
+// 🔴 카드는 원인을 쓰지 않는다(2026-07-27 재헌 결정). 말하는 것은 '목표보다 낮은
 //    리뷰가 났다'까지이고, 왜 그랬는지는 펼침의 리뷰 원문을 사람이 읽어 판단한다.
 //    이전에는 ota_complaints.headline → memo → bad 키워드로 폴백해 결론 한 줄을 지어냈는데,
 //    그 폴백이 밴드를 보지 않아 기준선을 밀어올린 9.5점 리뷰의 팁이 미달 원인 자리에 앉았다.
+//
+// 카드가 서는 경로가 둘이라 왼쪽 띠 색으로 구분한다 —
+//   빨강  주 평균 자체가 목표 미달
+//   주황  주 평균은 목표를 넘겼지만 미달 리뷰가 섞임(이 경우가 이번 개편의 신규분이다)
 function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | undefined }) {
   const [open, setOpen] = useState(false)
   const unit = r.granularity === 'month' ? '직전 달' : '직전 주'
+  const belowN = cr?.items.length ?? 0
+  const avgBelow = r.verdict === 'below'
 
   return (
-    <div className="card" style={{ padding: '14px 20px', marginBottom: 10, borderLeft: '3px solid var(--critical)' }}>
+    <div className="card" style={{
+      padding: '14px 20px', marginBottom: 10,
+      borderLeft: `3px solid ${avgBelow ? 'var(--critical)' : 'var(--medium)'}`,
+    }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 16, fontWeight: 700 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: branchColor(r.branch) }} />
@@ -146,19 +148,24 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
           )}
         </span>
         {/* 수치와 버튼을 한 줄에 둔다 — 원인 한 줄이 빠진 뒤 버튼만 남은 둘째 줄은 여백일 뿐이다 */}
-        <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
-              {r.baseline != null ? fmt(r.baseline) : '—'} →
-            </span>
-            <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--critical)', lineHeight: 1 }}>
-              {fmt(r.weekAvg)}
-            </span>
-            {/* 건수를 점수와 같은 크기로 — 1건짜리 격차를 붕괴로 읽지 않게 하는 장치다 */}
-            <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1 }}>
-              {r.reviewCount}건
-            </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
+            평균{' '}
+            <b style={{ color: avgBelow ? 'var(--critical)' : 'var(--done)', fontWeight: 700 }}>{fmt(r.weekAvg)}</b>
+            {' · '}{r.reviewCount}건
           </span>
+          {belowN > 0 ? (
+            <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-3)' }}>미달</span>
+              <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--critical)', lineHeight: 1 }}>
+                {belowN}건
+              </span>
+            </span>
+          ) : (
+            // 평균은 미달인데 미달 리뷰 원문이 0건 = 원문을 확보하지 못한 채널이다.
+            // 숫자 자리를 0으로 채우면 '미달 리뷰가 없다'로 읽힌다.
+            <Chip>원문 미확보</Chip>
+          )}
           <button
             onClick={() => setOpen(o => !o)}
             style={{
@@ -187,8 +194,6 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
               </>
             )}
             {' · '}{ESTIMATOR_LABEL[r.estimator]}
-            {r.baselineRecordedAt && ` · 기준선 ${r.baselineRecordedAt} 스냅샷`}
-            {r.baselineIsFallback && ' · 기준선 대체(이후 스냅샷)'}
           </div>
 
           <ReviewList cr={cr} />
@@ -202,7 +207,7 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
 // 첫 화면은 이 보드다(2026-08-04 FO Weekly 재헌 지시). 이전에는 기준 점수가 우측 보조
 // 패널이었고 '이번 주에 몇 점짜리 리뷰가 몇 건 왔는가'는 상세 탭 분포도까지 들어가야
 // 보였다 — 회의가 리포트↔점수 현황↔분포도를 오가며 끊겼다. 보드가 지점×채널마다
-// '기준 → 이번 주 평균 + 수집 점수 밴드'를 한 벌로 펴고, 미달만 붉게 띄운다.
+// '이번 주 평균 + 수집 점수 밴드 + 미달 건수'를 한 벌로 편다.
 //
 // 값은 카드와 같은 산출이다(lib/weeklyReport.ts). 여기서 다시 계산하지 말 것.
 const OTA_ORDER = ['Agoda', 'Booking', 'Trip.com', 'Expedia', 'Airbnb', 'NOL', '여기어때']
@@ -215,13 +220,12 @@ const brRank = (b: string) => {
   return i === -1 ? BRANCH_ORDER.length : i
 }
 
-// 밴드 칩은 밴드 '전체'가 기준선 아래일 때만 붉게 칠한다. 밴드는 폭이 1점이라
-// (8점대 = 8.0~8.9) 기준선이 밴드 안에 걸리면 그 칩의 리뷰가 미달인지 단정할 수 없다 —
-// 단정은 카드 판정(weekAvg)과 펼침의 원문 목록이 한다.
-function bandWhollyBelow(band: number, scoreMax: number, baseline: number | null): boolean {
-  if (baseline == null) return false
+// 밴드 칩은 밴드 '전체'가 목표 아래일 때만 붉게 칠한다. 밴드는 폭이 1점이라
+// (8점대 = 8.0~8.9) 목표가 밴드 안에 걸리면 그 칩의 리뷰가 미달인지 단정할 수 없다 —
+// 목표 9.0은 10점제에서 밴드 경계와 맞아떨어지지만, 5점제 4.5는 4점대 밴드를 가른다.
+function bandWhollyBelow(band: number, scoreMax: number, target: number): boolean {
   const top = band === scoreMax ? scoreMax : band + 0.99
-  return top < baseline
+  return top < target
 }
 
 function BandChips({ r }: { r: WeeklyChannelRow }) {
@@ -229,7 +233,7 @@ function BandChips({ r }: { r: WeeklyChannelRow }) {
   return (
     <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
       {r.bands.map(b => {
-        const below = bandWhollyBelow(b.band, r.scoreMax, r.baseline)
+        const below = bandWhollyBelow(b.band, r.scoreMax, r.target)
         return (
           <span key={b.band} style={{
             fontSize: 12, padding: '1px 7px', borderRadius: 6, whiteSpace: 'nowrap',
@@ -245,11 +249,9 @@ function BandChips({ r }: { r: WeeklyChannelRow }) {
   )
 }
 
-function BoardRow({ base, row }: { base: BaselineRow; row: WeeklyChannelRow | undefined }) {
+function BoardRow({ base, row, belowN }: { base: ChannelBoardRow; row: WeeklyChannelRow | undefined; belowN: number }) {
   const below = row?.verdict === 'below'
-  const avgColor = row == null ? 'var(--text-3)'
-    : below ? 'var(--critical)'
-    : row.verdict === 'onOrAbove' ? 'var(--done)' : 'var(--text-1)'
+  const avgColor = row == null ? 'var(--text-3)' : below ? 'var(--critical)' : 'var(--done)'
 
   return (
     <div style={{
@@ -266,14 +268,16 @@ function BoardRow({ base, row }: { base: BaselineRow; row: WeeklyChannelRow | un
       </span>
 
       <span style={{ display: 'flex', alignItems: 'baseline', gap: 5, whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-          {base.score == null ? '—' : fmt(base.score)}{base.isFallback && '*'} →
-        </span>
         <span className="font-display" style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: avgColor }}>
           {row == null ? '—' : fmt(row.weekAvg)}
         </span>
         {row != null && (
-          <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{row.reviewCount}건</span>
+          <span style={{ fontSize: 12, color: 'var(--text-2)' }}>
+            {row.reviewCount}건
+            {belowN > 0 && (
+              <span style={{ color: 'var(--critical)', fontWeight: 700 }}> · 미달 {belowN}</span>
+            )}
+          </span>
         )}
       </span>
 
@@ -284,48 +288,58 @@ function BoardRow({ base, row }: { base: BaselineRow; row: WeeklyChannelRow | un
   )
 }
 
-function ScoreBoard({ report }: { report: WeeklyReport }) {
-  const { baselines } = report
-  if (baselines.length === 0) return null
+function ScoreBoard({ report, belowCounts }: { report: WeeklyReport; belowCounts: Record<number, number> }) {
+  const { board } = report
+  if (board.length === 0) return null
 
   // 판정·평균·밴드는 리포트 본체가 이미 채널별로 갖고 있다 — propertyId 로 잇기만 한다.
   const rowByProp = new Map<number, WeeklyChannelRow>(
-    [...report.below, ...report.onOrAbove, ...report.unknown, ...report.monthly].map(r => [r.propertyId, r]),
+    [...report.below, ...report.onOrAbove, ...report.monthly].map(r => [r.propertyId, r]),
   )
 
-  const branches = [...new Set(baselines.map(b => b.branch))].sort((a, b) => brRank(a) - brRank(b))
+  const branches = [...new Set(board.map(b => b.branch))].sort((a, b) => brRank(a) - brRank(b))
 
-  // 스냅샷 날짜는 전 채널이 같을 때만 한 번 쓴다. 갈리는데 대표값 하나를 찍으면
-  // 그 순간 화면이 거짓을 말한다.
-  const dates = [...new Set(baselines.map(b => b.recordedAt).filter(Boolean))]
-  const dateTxt = dates.length === 1 ? `기준 = ${dates[0]} 누적 점수` : '기준 = 채널별 누적 점수'
+  // 목표는 채널 척도로 갈린다(10점제 9.0 · 5점제 4.5). 하나로 뭉뚱그리면 화면이 거짓을 말한다.
+  const targetsOf = (max: number) =>
+    [...new Set(board.filter(b => b.scoreMax === max).map(b => b.target))].sort((a, b) => a - b)
+  const targetTxt = [
+    targetsOf(10).map(t => `기준 ${fmt(t)}`).join('·'),
+    targetsOf(5).map(t => `5점 만점 채널 ${fmt(t)}`).join('·'),
+  ].filter(Boolean).join(' · ')
 
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
         <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>이번 주 점수</b>
-        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{dateTxt}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{targetTxt}</span>
       </div>
 
       <div className="score-board">
         {branches.map(br => {
-          const rows = baselines
+          const rows = board
             .filter(b => b.branch === br)
             .sort((a, b) => otaRank(a.otaName) - otaRank(b.otaName))
-          const belowCount = rows.filter(b => b.below).length
+          const belowTotal = rows.reduce((s, b) => s + (belowCounts[b.propertyId] ?? 0), 0)
           return (
             <div key={br} className="card" style={{ padding: '12px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 10px', marginBottom: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: branchColor(br) }} />
                 <span style={{ fontSize: 14, fontWeight: 700 }}>{br}</span>
-                {belowCount > 0 && (
+                {belowTotal > 0 && (
                   <span style={{
                     marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--critical)',
                     border: '1px solid var(--critical)', borderRadius: 10, padding: '1px 8px',
-                  }}>미달 {belowCount}</span>
+                  }}>미달 리뷰 {belowTotal}</span>
                 )}
               </div>
-              {rows.map(b => <BoardRow key={b.propertyId} base={b} row={rowByProp.get(b.propertyId)} />)}
+              {rows.map(b => (
+                <BoardRow
+                  key={b.propertyId}
+                  base={b}
+                  row={rowByProp.get(b.propertyId)}
+                  belowN={belowCounts[b.propertyId] ?? 0}
+                />
+              ))}
             </div>
           )
         })}
@@ -333,7 +347,6 @@ function ScoreBoard({ report }: { report: WeeklyReport }) {
 
       <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.7, marginTop: 8 }}>
         에어비앤비·야놀자는 5점 만점 · — 는 이번 주 리뷰 0건
-        {baselines.some(b => b.isFallback) && ' · * 이 주 이전 스냅샷이 없어 이후 값을 빌려 씀'}
       </div>
     </div>
   )
@@ -359,10 +372,17 @@ export default function WeeklyReportClient({
   const older = idx >= 0 && idx + 1 < weeks.length ? weeks[idx + 1] : null   // 목록은 최신 우선
   const newer = idx > 0 ? weeks[idx - 1] : null
 
-  // 월 단위 채널의 미달도 논의 대상이다 — 참고로 접으면 '에어비앤비는 문제 없었다'가 된다.
-  const cards = report
-    ? orderForMeeting([...report.below, ...report.monthly.filter(r => r.verdict === 'below')])
-    : []
+  // 🔴 논의 대상 선정은 순수 함수 discussionRows 가 한다. 화면에서 조건을 다시 쓰면
+  //    점수 보드의 '미달 N'과 카드 목록이 조용히 갈라진다.
+  const belowCounts = belowReviewCounts(reviews)
+  const cards = report ? discussionRows(report, belowCounts) : []
+  const belowTotal = cards.reduce((s, r) => s + (belowCounts[r.propertyId] ?? 0), 0)
+  // 🔴 분모는 summary.reviewTotal(주간 채널만)이 아니다. 미달 건수에는 월 단위 채널
+  //    (에어비앤비·여기어때)의 미달 리뷰가 들어 있어, 주간만 세면 '미달 17 / 33'처럼
+  //    분자에만 있고 분모에는 없는 리뷰가 생긴다. 보드가 덮는 범위와 같게 맞춘다.
+  const reviewTotal = report
+    ? [...report.below, ...report.onOrAbove, ...report.monthly].reduce((s, r) => s + r.reviewCount, 0)
+    : 0
 
   const navBtn = (target: string | null, dir: 'prev' | 'next') => {
     const style: React.CSSProperties = {
@@ -389,7 +409,7 @@ export default function WeeklyReportClient({
             {report ? report.label : `${week || '—'} 주차`}
           </h1>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
-            그 주에 리뷰를 쓴 사람들의 평균을 채널 자신의 누적 점수와 비교합니다
+            그 주에 달린 리뷰 중 목표 9.0에 못 미친 리뷰를 모두 논의에 올립니다
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -420,7 +440,7 @@ export default function WeeklyReportClient({
         // 흐름은 점수 보드 → 논의 → 주간 수행과제 한 컬럼이다(2026-08-04 재헌 지시).
         // 보드에서 미달을 눈으로 잡고, 논의에서 원문을 읽고, 수행과제로 넘길지 정한다.
         <div style={{ maxWidth: 900, minWidth: 0 }}>
-          <ScoreBoard report={report} />
+          <ScoreBoard report={report} belowCounts={belowCounts} />
 
           <div style={{
             display: 'flex', alignItems: 'baseline', gap: 10,
@@ -429,12 +449,14 @@ export default function WeeklyReportClient({
             <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>
               논의 {cards.length}건
             </b>
-            <span style={{ color: 'var(--text-3)' }}>· 주간 리뷰 {report.summary.reviewTotal}건</span>
+            <span style={{ color: 'var(--text-3)' }}>
+              · 미달 리뷰 {belowTotal}건 / 전체 리뷰 {reviewTotal}건
+            </span>
           </div>
 
           {cards.length === 0 ? (
             <div className="card" style={{ padding: '18px 20px', fontSize: 14, color: 'var(--text-2)' }}>
-              이번 주 기준선을 끌어내린 채널이 없습니다.
+              이번 주 목표에 못 미친 리뷰가 없습니다.
             </div>
           ) : (
             // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은

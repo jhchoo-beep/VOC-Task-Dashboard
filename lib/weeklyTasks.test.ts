@@ -9,14 +9,13 @@ const card = (propertyId: number, branch: string, otaName: string): WeeklyChanne
   propertyId, branch, otaName,
   scoreMax: 10, granularity: 'week',
   weekStart: '2026-07-27', bucketEnd: '2026-07-27',
-  reviewCount: 2, weekAvg: 6.5, estimator: 'exact',   // AvgEstimator = 'exact' | 'approx'
-  baseline: 8.9, baselineRecordedAt: '2026-07-27', baselineIsFallback: false,
-  gap: -2.4, verdict: 'below',
+  reviewCount: 2, weekAvg: 6.5, bands: [], estimator: 'exact',   // AvgEstimator = 'exact' | 'approx'
+  target: 9.0, gap: -2.5, verdict: 'below',
   prevWeekStart: null, prevWeekAvg: null, prevReviewCount: null, wow: null,
 })
 
 const cr = (propertyId: number, items: ChannelReviews['items']): ChannelReviews => ({
-  propertyId, items, expectedCount: items.length, hiddenCount: 0, baseline: 8.9,
+  propertyId, items, expectedCount: items.length, hiddenCount: 0, target: 9.0,
 })
 
 describe('flattenCandidates', () => {

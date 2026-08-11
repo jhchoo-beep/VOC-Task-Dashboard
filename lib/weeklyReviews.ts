@@ -50,10 +50,17 @@ export interface WeeklyReviewItem {
 
 export interface ChannelReviews {
   propertyId: number
-  items: WeeklyReviewItem[]   // 기준선 미만만. 기준선이 없으면 전부
+  items: WeeklyReviewItem[]   // 목표 미달 리뷰만
   expectedCount: number       // 판정이 쓴 reviewCount. 확보한 원문 수보다 클 수 있다
-  hiddenCount: number         // 기준선 이상이라 목록에서 뺀 건수
-  baseline: number | null     // 화면이 '기준 8.9'를 출력하기 위한 값
+  hiddenCount: number         // 목표 이상이라 목록에서 뺀 건수
+  target: number              // 화면이 '기준 9.0'을 출력하기 위한 값
+}
+
+/** propertyId → 목표 미달 리뷰 수. 논의 대상 선정(discussionRows)과 점수 보드가 함께 쓴다. */
+export function belowReviewCounts(reviews: Record<number, ChannelReviews>): Record<number, number> {
+  const out: Record<number, number> = {}
+  for (const [id, cr] of Object.entries(reviews)) out[Number(id)] = cr.items.length
+  return out
 }
 
 const TRANSLATION_KEY_LEN = 60
@@ -117,27 +124,30 @@ export function selectBucketReviews(
 }
 
 /**
- * 기준선 미만 리뷰인가. 판정(judgeWeek)과 같은 부등호·같은 반올림을 쓴다.
+ * 목표 미달 리뷰인가. 판정(judgeWeek)과 같은 부등호·같은 반올림을 쓴다.
  *
  * 척도 환산은 하지 않는다 — raw_reviews.rating은 채널 자기 척도로 저장돼 있고
- * (야놀자·에어비앤비 1~5, 나머지 1~10) baseline도 같은 채널의 값이라 항상 짝이 맞는다.
+ * (야놀자·에어비앤비 1~5, 나머지 1~10) target도 같은 척도로 내려온다(9.0 · 4.5).
  * 여기에 10점 환산을 끼우면 5점제 채널의 리뷰가 전부 미달로 뒤집힌다.
  *
  * 평점이 없으면 미만이라고 단정하지 않고 남긴다(true). 판정할 수 없는 것을 통과로
- * 처리하지 않는 이 리포트의 원칙과 같다 — verdict 'unknown', silent 채널과 같은 이유다.
+ * 처리하지 않는 이 리포트의 원칙과 같다 — silent 채널을 통과에 합치지 않는 것과 같은 이유다.
  */
-function isBelowBaseline(rating: number | null, baseline: number | null): boolean {
-  if (baseline == null) return true      // 기준선이 없으면 거르지 않는다
+function isBelowTarget(rating: number | null, target: number): boolean {
   if (rating == null) return true
-  // 8.9 - 8.9 = -1.7e-15 같은 부동소수 잔차가 경계값을 미달로 뒤집는 것을 막는다.
-  return Math.round((rating - baseline) * 100) / 100 < 0
+  // 9.0 - 9.0 = -1.7e-15 같은 부동소수 잔차가 경계값을 미달로 뒤집는 것을 막는다.
+  return Math.round((rating - target) * 100) / 100 < 0
 }
 
 /**
- * 버킷 리뷰를 기준선 미만만 남겨 저평점 순으로 정렬하고 번역본을 붙인다.
+ * 버킷 리뷰를 목표 미달만 남겨 저평점 순으로 정렬하고 번역본을 붙인다.
  *
- * 🔴 필터는 여기(순수 함수)에 둔다. 화면에서 걸면 카드의 판정과 펼침의 목록이 기준선을
+ * 🔴 필터는 여기(순수 함수)에 둔다. 화면에서 걸면 카드의 판정과 펼침의 목록이 기준을
  *    두 벌 유지하게 되고, 한쪽만 고치는 순간 둘이 조용히 갈라진다.
+ *
+ * 🔴 이 결과의 items.length 가 곧 논의 대상 선정 기준이다(discussionRows) — 주 평균이
+ *    목표를 넘긴 채널도 여기서 1건이라도 나오면 논의 카드가 선다. 그래서 미달 채널만이
+ *    아니라 그 주 리뷰가 있는 **모든 채널**에 대해 호출해야 한다.
  */
 export function buildChannelReviews(
   rows: RawReviewRow[],
@@ -149,7 +159,7 @@ export function buildChannelReviews(
     weekStart: string
     granularity: Granularity
     reviewCount: number
-    baseline: number | null   // 그 채널 누적 점수. null이면 필터를 걸지 않는다
+    target: number            // 이 채널의 목표 점수(9.0 · 5점제 4.5)
   },
 ): ChannelReviews {
   const picked = selectBucketReviews(rows, target.branch, target.otaName, target.weekStart, target.granularity)
@@ -183,7 +193,7 @@ export function buildChannelReviews(
 
   // 점수를 끌어내린 리뷰만 남긴다. 숨긴 건수는 버리지 않고 화면에 넘긴다 —
   // 조용히 빼면 남은 목록이 '그 주 전부'로 읽힌다.
-  const items = all.filter(i => isBelowBaseline(i.rating, target.baseline))
+  const items = all.filter(i => isBelowTarget(i.rating, target.target))
   const hiddenCount = all.length - items.length
 
   // 저평점 먼저. 평점이 없는 행은 뒤로 보낸다(정렬 기준이 없는 행이 맨 앞을 차지하면
@@ -201,6 +211,6 @@ export function buildChannelReviews(
     items,
     expectedCount: target.reviewCount,
     hiddenCount,
-    baseline: target.baseline,
+    target: target.target,
   }
 }
