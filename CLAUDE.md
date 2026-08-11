@@ -141,7 +141,10 @@ property_id  INTEGER PK
 branch       TEXT        -- 신설 / 동대문 / 제주시티 / 고성
 ota_name     TEXT        -- Agoda / Booking / Trip.com / Expedia / Airbnb / NOL / 여기어때
 score_max    INTEGER     -- 채널 만점 (10 또는 5) — 점수 밴드·분포 컬럼 수를 결정
-okr_target   NUMERIC
+okr_target   NUMERIC     -- 🔴 주간 OTA 리포트의 기준 점수 정본(2026-08-11~). 현재 전 채널
+                         --    9.00, 5점 만점 채널은 환산값 4.50. 여기를 고치면 리포트의
+                         --    미달 판정·논의 대상이 그대로 바뀐다(코드 상수 아님).
+                         --    비었거나 척도를 벗어나면 9.0·4.5로 폴백(targetScoreOf)
 ota_url      TEXT
 active       BOOLEAN
 ```
