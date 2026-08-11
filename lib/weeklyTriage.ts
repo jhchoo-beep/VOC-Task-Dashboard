@@ -32,14 +32,10 @@ export interface TriageRow {
   note: string | null
 }
 
-// 판단을 붙이는 지점은 재헌님 담당 지점뿐이다. 타 지점(제주시티·고성)의 미달 리뷰는
-// 화면에 보이되 판단 없이 둔다 — 그 판단은 담당 FO의 몫이고, 여기서 상태를 붙이면
-// '대기'가 영영 0이 되지 않아 요약이 신호를 잃는다.
-export const TRIAGE_BRANCHES = ['신설', '동대문']
-
-export function isTriageBranch(branch: string): boolean {
-  return TRIAGE_BRANCHES.includes(branch)
-}
+// 판단은 전 지점에 붙인다. 처음엔 신설·동대문(재헌 담당)으로 제한했으나 같은 날
+// 재헌 지시로 개방했다(2026-08-11) — 리포트가 4지점을 한 화면에 보여주는 이상
+// 판단도 같은 화면에서 닫는다. 타 지점 판단의 주체(담당 FO가 직접 vs 회의에서 함께)는
+// 운영에서 정해질 문제고, 화면이 미리 막을 일이 아니다.
 
 // 회의 헤더의 한 줄: 조치 N · 이월 N · 종결 N · 대기 N.
 // 대기 = 판단이 아직 안 붙은 미달 리뷰. 이 수가 0이어야 "다 읽고 판단했다"가 화면에 남는다.
@@ -52,13 +48,7 @@ export interface TriageSummary {
 
 export const EMPTY_SUMMARY: TriageSummary = { 조치: 0, 이월: 0, 종결: 0, 대기: 0 }
 
-/**
- * 미달 리뷰 id 목록을 판단 상태별로 센다.
- *
- * 🔴 호출자가 넘기는 ids는 판단 대상(신설·동대문의 미달 리뷰)만이어야 한다.
- *    타 지점 리뷰를 섞으면 그 건들이 전부 '대기'로 잡혀 요약이 거짓을 말한다 —
- *    거르는 함수는 triageableIds.
- */
+/** 미달 리뷰 id 목록을 판단 상태별로 센다. 판단이 없는 리뷰는 '대기'다. */
 export function summarizeTriage(
   ids: string[],
   triage: Record<string, TriageRow>,
@@ -72,14 +62,13 @@ export function summarizeTriage(
   return s
 }
 
-/** 판단 대상 리뷰 id — 판단 지점 카드의 미달 리뷰 전부. */
+/** 판단 대상 리뷰 id — 논의 카드 전체의 미달 리뷰. */
 export function triageableIds(
-  cards: { branch: string; propertyId: number }[],
+  cards: { propertyId: number }[],
   reviews: Record<number, { items: { id: string }[] }>,
 ): string[] {
   const out: string[] = []
   for (const c of cards) {
-    if (!isTriageBranch(c.branch)) continue
     for (const it of reviews[c.propertyId]?.items ?? []) out.push(it.id)
   }
   return out

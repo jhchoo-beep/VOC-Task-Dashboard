@@ -11,7 +11,7 @@ import { bandsFor } from '@/lib/otaDetail'
 import { belowReviewCounts, type ChannelReviews, type WeeklyReviewItem } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
 import {
-  TRIAGE_VERDICTS, isTriageBranch, summarizeTriage, triageableIds,
+  TRIAGE_VERDICTS, summarizeTriage, triageableIds,
   type TriageRow, type TriageVerdict,
 } from '@/lib/weeklyTriage'
 import WeeklyTaskSection from './WeeklyTaskSection'
@@ -118,10 +118,9 @@ function TriageControl({ item, row, canEdit, on }: {
 // ─── 리뷰 원문 ────────────────────────────────────────────────────────────────
 // 목표 미달 리뷰만 나온다(필터는 lib/weeklyReviews.ts). 카드가 '미달 4건'이라 써 놓고
 // 펼치면 10.0짜리 호평이 함께 뜨던 문제를 없앤 것이다.
-function ReviewList({ cr, triage, canTriage, embed, on }: {
+function ReviewList({ cr, triage, embed, on }: {
   cr: ChannelReviews | undefined
   triage: Record<string, TriageRow>
-  canTriage: boolean
   embed: boolean
   on: TriageHandlers
 }) {
@@ -166,7 +165,7 @@ function ReviewList({ cr, triage, canTriage, embed, on }: {
               background: 'var(--bg-input)',
               // 편집 모드에서 판단이 붙은 리뷰는 살짝 가라앉힌다 — 회의 전 훑기에서
               // '대기'가 도드라져야 한다. 회의 화면(임베드)에서는 가라앉히지 않는다.
-              opacity: canTriage && !embed && row ? 0.75 : 1,
+              opacity: !embed && row ? 0.75 : 1,
             }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                 <span className="font-display" style={{ fontSize: 15, fontWeight: 800, color: ratingColor(it.rating, cr.target) }}>
@@ -176,14 +175,14 @@ function ReviewList({ cr, triage, canTriage, embed, on }: {
                   {[it.country, it.date, it.roomType].filter(Boolean).join(' · ') || '정보 없음'}
                 </span>
                 {!it.translated && <Chip>원문(번역 없음)</Chip>}
-                {canTriage && <TriageControl item={it} row={row} canEdit={!embed} on={on} />}
+                <TriageControl item={it} row={row} canEdit={!embed} on={on} />
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-1)', whiteSpace: 'pre-wrap' }}>
                 {it.body || '(본문 없음)'}
               </div>
               {/* 사유는 판단이 있을 때만. 종결이 특히 이 한 줄을 남겨야 한다 —
                   회의에서 "이거 왜 종결이에요?"에 원문을 다시 읽지 않고 답하는 자리다. */}
-              {canTriage && !embed && row && (
+              {!embed && row && (
                 <input
                   defaultValue={row.note ?? ''}
                   placeholder="한 줄 사유 (선택)"
@@ -235,9 +234,8 @@ function DiscussionCard({ r, cr, triage, embed, on }: {
   const belowN = cr?.items.length ?? 0
   const avgBelow = r.verdict === 'below'
 
-  // 판단 지점 카드는 접힌 채로도 판단 상태가 읽혀야 한다 — 펼쳐야 아는 요약은 요약이 아니다.
-  const canTriage = isTriageBranch(r.branch)
-  const sum = canTriage && cr ? summarizeTriage(cr.items.map(i => i.id), triage) : null
+  // 접힌 채로도 판단 상태가 읽혀야 한다 — 펼쳐야 아는 요약은 요약이 아니다.
+  const sum = cr ? summarizeTriage(cr.items.map(i => i.id), triage) : null
 
   return (
     <div className="card" style={{
@@ -327,7 +325,7 @@ function DiscussionCard({ r, cr, triage, embed, on }: {
             {' · '}{ESTIMATOR_LABEL[r.estimator]}
           </div>
 
-          <ReviewList cr={cr} triage={triage} canTriage={canTriage} embed={embed} on={on} />
+          <ReviewList cr={cr} triage={triage} embed={embed} on={on} />
         </div>
       )}
     </div>
@@ -619,14 +617,14 @@ export default function WeeklyReportClient({
               </span>
             </div>
             {/* FO 보고의 한 줄. 회의는 이 줄과 조치 건만 소비한다 — 원문 전수 낭독을 없애는 층.
-                타 지점(제주시티·고성)은 담당 FO 몫이라 이 요약에 넣지 않는다. */}
+                전 지점 합산이다(처음의 신설·동대문 제한은 2026-08-11 재헌 지시로 개방). */}
             {(() => {
               const ids = triageableIds(cards, reviews)
               if (ids.length === 0) return null
               const s = summarizeTriage(ids, merged)
               return (
                 <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 6 }}>
-                  신설·동대문 판단 —{' '}
+                  판단 —{' '}
                   {TRIAGE_VERDICTS.map(v => (
                     <span key={v} style={{ marginRight: 10 }}>
                       <span style={{ color: VERDICT_COLOR[v], fontWeight: 700 }}>{v} {s[v]}</span>
