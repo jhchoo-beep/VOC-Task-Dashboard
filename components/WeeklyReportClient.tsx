@@ -82,8 +82,8 @@ function TriageControl({ item, row, canEdit, on }: {
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
         <span style={{
-          fontSize: 11, fontWeight: 700, color: VERDICT_COLOR[row.verdict],
-          border: `1px solid ${VERDICT_COLOR[row.verdict]}`, borderRadius: 10, padding: '1px 8px',
+          fontSize: 11, fontWeight: 800, color: '#fff',
+          background: VERDICT_COLOR[row.verdict], borderRadius: 10, padding: '2px 9px',
           whiteSpace: 'nowrap',
         }}>{row.verdict}</span>
         {row.note && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{row.note}</span>}
@@ -101,10 +101,12 @@ function TriageControl({ item, row, canEdit, on }: {
             // 켜진 판단을 다시 누르면 해제 — 실수를 되돌리는 경로가 있어야 누르는 데 주저가 없다.
             onClick={() => (active ? on.clear(item.id) : on.set(item, v, row?.note ?? null))}
             style={{
-              fontSize: 11, fontWeight: active ? 700 : 400, padding: '2px 9px', borderRadius: 10,
+              // 켜진 버튼은 통째로 칠한다 — 외곽선·글자색만 바꾸면 눌렀는지가 안 읽힌다(2026-08-11 재헌).
+              fontSize: 11, fontWeight: active ? 800 : 400, padding: '3px 10px', borderRadius: 10,
               border: `1px solid ${active ? VERDICT_COLOR[v] : 'var(--border)'}`,
-              color: active ? VERDICT_COLOR[v] : 'var(--text-3)',
-              background: 'transparent', fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+              color: active ? '#fff' : 'var(--text-3)',
+              background: active ? VERDICT_COLOR[v] : 'transparent',
+              fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
             }}
           >{v}</button>
         )
@@ -271,15 +273,27 @@ function DiscussionCard({ r, cr, triage, embed, on }: {
             // 숫자 자리를 0으로 채우면 '미달 리뷰가 없다'로 읽힌다.
             <Chip>원문 미확보</Chip>
           )}
-          {/* 판단 상태 — 대기가 남았으면 붉게, 다 붙었으면 판단 내역만 흐리게 */}
+          {/* 판단 내역을 접힌 채로 상시 노출 — 카드를 열어야 아는 요약은 요약이 아니다
+              (2026-08-11 재헌: "일일이 카드를 열어서 확인해야 한다"). 0건 칩은 가라앉히고
+              건수 있는 칩은 채워서, 훑기만 해도 카드별 판단 분포가 읽히게 한다. */}
           {sum && belowN > 0 && (
-            <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-              {sum.대기 > 0 ? (
-                <span style={{ color: 'var(--critical)', fontWeight: 700 }}>대기 {sum.대기}</span>
-              ) : (
-                <span style={{ color: 'var(--text-3)' }}>
-                  {TRIAGE_VERDICTS.filter(v => sum[v] > 0).map(v => `${v} ${sum[v]}`).join(' · ')}
-                </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {TRIAGE_VERDICTS.map(v => (
+                <span key={v} style={{
+                  fontSize: 11, borderRadius: 10, padding: '2px 8px', whiteSpace: 'nowrap',
+                  fontWeight: sum[v] > 0 ? 800 : 400,
+                  color: sum[v] > 0 ? '#fff' : 'var(--text-3)',
+                  background: sum[v] > 0 ? VERDICT_COLOR[v] : 'transparent',
+                  border: `1px solid ${sum[v] > 0 ? VERDICT_COLOR[v] : 'var(--border)'}`,
+                  opacity: sum[v] > 0 ? 1 : 0.55,
+                }}>{v} {sum[v]}</span>
+              ))}
+              {sum.대기 > 0 && (
+                <span style={{
+                  fontSize: 11, fontWeight: 800, borderRadius: 10, padding: '2px 8px',
+                  whiteSpace: 'nowrap', color: '#fff', background: 'var(--critical)',
+                  border: '1px solid var(--critical)',
+                }}>대기 {sum.대기}</span>
               )}
             </span>
           )}
