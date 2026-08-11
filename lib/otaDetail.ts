@@ -330,68 +330,135 @@ export const OTA_SITE_BY_NAME: Record<string, string> = {
   '여기어때':  '여기어때',
 }
 
-// ── 스크래퍼가 리뷰로 잘못 잡은 UI 요소 행 ─────────────────────────
-// 🔴 이 필터는 원인 치료가 아니라 하류 방어다. 진짜 고쳐야 할 곳은 수집(ingestion)이다.
+// ── reviews 정본 × raw 날짜 ────────────────────────────────────────
 //
-// 무슨 일이 있었나: 에어비앤비 수집기가 리뷰 목록을 한 행씩 밀려 읽어, 페이지 내비게이션
-// 버튼인 '호스팅 하기'(Become a host)를 리뷰어 이름으로 잡았다. 그 행의 본문에는
-// '바로 앞 진짜 리뷰의 본문 + 줄바꿈 + 바로 뒤 리뷰어 이름'이 붙는다.
-//   채운        | 너무 깔끔하소 좋았습니다 !
-//   호스팅 하기 | 너무 깔끔하소 좋았습니다 !\n서영     ← 리뷰가 아님
-// 결과: 그 달 버킷의 리뷰 건수가 부풀고, 같은 손님의 감정이 두 번 세어진다
-// (2026-04~07 전 지점 48행, 동대문 2026-06은 9행 중 5행 = 56%가 이 행이었다).
+// 🔴 리뷰의 모집단은 `reviews` 표다(2026-08-11 재헌 결정). raw_reviews 가 아니다.
 //
-// 기존 중복 제거 키 (reviewer, raw_date, rating, content 앞 80자)로는 절대 못 잡는다 —
-// 리뷰어도 다르고(진짜 이름 vs '호스팅 하기') 본문도 다르다(뒤에 이름이 덧붙음).
+// 왜: raw_reviews 는 같은 리뷰를 여러 행으로 갖는다. 세 경로가 있다 —
+//   ① 리뷰어만 다르게 적재 — '경미' / '459개 후기에서 별 5개 만점에 4.87개' / '호스팅 하기'
+//   ② 원문과 번역본이 각각 한 행 — 중국어 94자 + 한국어 162자 (본문이 달라 기계적 제거 불가)
+//   ③ 스크래퍼가 화면 UI 텍스트를 리뷰어로 적재
+// dedupeRawRows·isScraperChromeReviewer 로는 ①의 일부와 ③의 알려진 라벨만 잡힌다.
+// 실측 2026-08 동대문 에어비앤비는 raw 9행 = 실제 4건이었고, 화면에 **똑같은 리뷰가
+// 두 벌 나란히** 떴다. 반면 `reviews` 는 /parse-reviews Part A 에서 사람이 중복을 걷어내고
+// 번역을 붙인 결과라 4건으로 정확하다.
 //
-// raw_reviews는 사용자의 실제 원본 데이터다. 지우거나 고치지 않고, 파생 배치가 읽는
-// 시점에 건너뛴다. 수집기가 고쳐져 이 행이 더는 들어오지 않게 되더라도, 이미 쌓인
-// 48행은 그대로 남아 있으므로 이 필터를 삭제하면 안 된다.
+// 🔴 그런데 `reviews` 에는 일 단위 날짜가 없다(review_month 뿐). 그래서 주 버킷을 만들 수
+//    없다 — 이것이 여태 raw 를 모집단으로 써 온 이유다. 해법은 둘을 합치는 것이다:
+//    **모집단·본문·평점은 reviews, 날짜·국가·객실타입은 매칭된 raw 행**에서 가져온다.
 //
-// 판정은 리뷰어 값의 '완전 일치'로만 한다. 본문 유사도·길이 같은 휴리스틱을 쓰지 않는
-// 이유는 정밀도 때문이다 — 여기서의 오탐(false positive)은 진짜 손님의 목소리를
-// 조용히 분석에서 지우는 일이고, 짧은 칭찬 리뷰("깨끗해요")는 서로 실제로 닮았다.
-// 앞뒤·중간 공백만 정규화한다(수집 시 공백이 흔들려도 같은 라벨로 보기 위해서다).
+// 실측 근거(2026-06~08):
+//   · 매칭률 — 8월 48/48, 7월 145/146, 6월 178/185 (본문 있는 행 기준)
+//   · 평점 — reviews.rating ÷ (5점제면 2) 가 raw.rating 과 **371건 전건 일치**.
+//     reviews.rating 은 10점 환산 저장이라 채널 척도로 되돌려야 한다(야놀자 6 → 3.0).
 //
-// 다음 UI 요소는 '호스팅 하기'라는 이름이 아닐 것이다 — 새 라벨이 발견되면
-// 이 집합에 한 줄 추가하고 테스트를 한 줄 더한다. 판정 로직은 그대로 둔다.
-const SCRAPER_CHROME_REVIEWERS = new Set<string>([
-  '호스팅 하기',   // 에어비앤비 내비게이션 버튼(Become a host) — 2026-07 확인
-])
+// 🔴 반대 방향(raw 를 순회하며 reviews 화이트리스트로 거르기)으로 만들지 말 것.
+//    그 방향은 raw 488건 중 30건(6%)이 매칭되지 않아 **진짜 리뷰를 지운다** — 아고다 raw 는
+//    본문 첫 줄에 등급 라벨('최고'·'우수')이 붙는데 reviews 는 그걸 떼고 저장해서 키가
+//    어긋난다. 검증 중 신설 트립닷컴 3.5점('첫날부터 세면대가 막혀서 불쾌했습니다')이
+//    이 방식에서 사라지는 것을 확인하고 폐기했다.
 
-// 이 행이 손님이 쓴 리뷰가 아니라 스크래퍼가 잡아 온 화면 UI 요소인가.
-// 채널을 가리지 않는다 — 어느 채널에도 '호스팅 하기'라는 이름의 손님은 없고,
-// 같은 수집기가 다른 채널에 같은 행을 남길 수 있다.
-export function isScraperChromeReviewer(reviewer: string | null | undefined): boolean {
-  if (!reviewer) return false
-  return SCRAPER_CHROME_REVIEWERS.has(reviewer.trim().replace(/\s+/g, ' '))
+/** reviews ↔ raw_reviews 를 잇는 본문 키. 공백을 모두 지운 앞 60자. */
+export const REVIEW_KEY_LEN = 60
+
+export function reviewKey(content: string | null | undefined): string {
+  return (content ?? '').replace(/\s+/g, '').substring(0, REVIEW_KEY_LEN)
 }
 
-// ── raw_reviews 중복 제거 ─────────────────────────────────────────
-// 부킹닷컴 raw에 중복 행이 실재한다(~14%) — 파생 배치가 버킷을 만들기 전에 반드시 제거한다.
-// scripts/derive-ota-detail.ts의 로컬 함수였던 것을 그대로 옮겼다(로직 변경 없음) —
-// 드릴다운(lib/weeklyReviews.ts)이 같은 규칙을 쓰려면 스크립트가 아니라 여기 있어야 한다.
-export function dedupeRawRows<T extends { reviewer?: string | null; raw_date?: string | null; rating?: number | string | null; content?: string | null }>(rows: T[]): T[] {
-  const seen = new Set<string>()
-  return rows.filter(r => {
-    const k = `${r.reviewer ?? ''}|${r.raw_date ?? ''}|${r.rating ?? ''}|${(r.content ?? '').slice(0, 80)}`
-    if (seen.has(k)) return false
-    seen.add(k)
-    return true
-  })
+export interface ReviewRowLike {
+  branch: string
+  ota_site: string
+  review_month: string | null
+  rating: number | string | null
+  content: string | null
+}
+
+export interface RawRowLike {
+  branch: string
+  ota_site: string
+  review_month: string | null
+  raw_date: string | null
+  rating: number | string | null
+  content: string | null
+}
+
+/** reviews 한 건과, 날짜를 빌려 줄 raw 행(못 찾으면 null). */
+export interface ReviewPair<V, R> {
+  review: V
+  raw: R | null
+}
+
+const numOr = (v: unknown): number | null => {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
 }
 
 /**
- * 파생 배치가 버킷을 만들기 전에 거는 행 필터. 🔴 배치와 드릴다운이 반드시 같은 것을 써야 한다.
+ * reviews.rating(10점 환산 저장)을 채널 자기 척도로 되돌린다.
  *
- * 왜 공유하는가: 화면이 "3건 8.0"이라 써 놓고 다른 3건을 띄우면 리포트가 근거를 잃는다.
- * 예전엔 두 경로가 같은 규칙을 각자 구현했고, 그래서 드릴다운이 중복 행과 스크래퍼 UI 행을
- * 다시 주워 왔다(부킹 중복 14%, 에어비앤비 '호스팅 하기' 행 48건).
- *
- * 🔴 여기에 필터를 추가하면 배치와 화면 양쪽에 자동으로 반영된다. 한쪽에만 넣지 말 것.
+ * 🔴 되돌리는 방향에 주의. raw_reviews.rating 은 채널 척도 그대로이고 reviews.rating 만
+ *    10점으로 환산돼 있다. 두 표를 같은 화면에 섞을 때 이 방향을 뒤집으면 5점제 채널의
+ *    리뷰가 전부 만점 근처로 올라붙는다.
  */
-export function eligibleRawRows<T extends { reviewer?: string | null; raw_date?: string | null; rating?: number | string | null; content?: string | null }>(rows: T[]): T[] {
-  return dedupeRawRows(rows).filter(r => !isScraperChromeReviewer(r.reviewer))
+export function ratingInChannelScale(rating: number | string | null, scoreMax: number): number | null {
+  const n = numOr(rating)
+  if (n == null) return null
+  return scoreMax === 5 ? Math.round((n / 2) * 100) / 100 : n
+}
+
+/**
+ * reviews 각 행에 날짜를 줄 raw 행을 1:1로 붙인다.
+ *
+ * 같은 본문 키를 가진 raw 행이 여럿이면(= 중복 적재) **하나만 소비한다.** 이것이 중복이
+ * 걸러지는 자리다 — reviews 가 1건이면 raw 가 3행이어도 결과는 1건이다.
+ *
+ * 본문이 빈 리뷰(별점만 남긴 손님. 부킹닷컴에 많다)는 본문 키를 만들 수 없어
+ * `(review_month, rating)`으로 짝을 짓는다. 이 조합도 1:1로 소비하므로, 같은 달 같은
+ * 점수의 무본문 리뷰가 여럿이면 raw 쪽 개수만큼만 날짜를 얻는다.
+ *
+ * 🔴 raw 에 eligibleRawRows 를 미리 태우지 말 것. 여기서는 raw 를 **날짜 공급원**으로만
+ *    쓰므로 스크래퍼 UI 행이 먼저 소비돼도 결과가 같다(같은 리뷰의 사본이라 날짜가 같다).
+ *    반대로 필터를 태우면 매칭 대상이 줄어 날짜를 못 찾는 리뷰가 늘어난다.
+ */
+export function pairReviewsWithRaw<V extends ReviewRowLike, R extends RawRowLike>(
+  reviews: V[], raw: R[],
+): ReviewPair<V, R>[] {
+  const byText = new Map<string, R[]>()
+  const byBlank = new Map<string, R[]>()
+
+  for (const r of raw) {
+    const k = reviewKey(r.content)
+    if (k) {
+      const arr = byText.get(k) ?? []
+      arr.push(r)
+      byText.set(k, arr)
+    } else {
+      const bk = `${r.review_month ?? ''}|${numOr(r.rating) ?? ''}`
+      const arr = byBlank.get(bk) ?? []
+      arr.push(r)
+      byBlank.set(bk, arr)
+    }
+  }
+
+  // 🔴 같은 달 raw 를 먼저 집는다. 스크래퍼가 같은 리뷰를 두 달에 걸쳐 적재하는 일이 있어
+  //    (신설 에어비앤비 'Strategic location…' 이 2026-07·2026-08 양쪽 raw 에 있다) 앞에서부터
+  //    집으면 8월 리뷰가 7월 raw 의 날짜를 얻어 8월 버킷에서 통째로 빠진다. 실제로 이 버그로
+  //    신설 Airbnb 8월이 2건 → 1건이 됐고 4.0점 미달 리뷰가 화면에서 사라졌다.
+  const take = <T extends RawRowLike>(pool: T[] | undefined, month: string | null): T | null => {
+    if (!pool || pool.length === 0) return null
+    const i = pool.findIndex(r => r.review_month === month)
+    return pool.splice(i >= 0 ? i : 0, 1)[0]
+  }
+
+  return reviews.map(v => {
+    const k = reviewKey(v.content)
+    // splice 로 소비한다 — 같은 리뷰의 사본이 남아 다음 reviews 행에 붙는 일을 막는다.
+    const pool = k
+      ? byText.get(k)
+      : byBlank.get(`${v.review_month ?? ''}|${numOr(v.rating) ?? ''}`)
+    return { review: v, raw: take(pool, v.review_month) }
+  })
 }
 
 // ── 지점×채널 제외 지정(--exclude) ────────────────────────────────

@@ -5,7 +5,7 @@ import type {
   PropertyRow, DistRow, WeeklyReport,
 } from '@/lib/weeklyReport'
 import { buildChannelReviews, drilldownMonths } from '@/lib/weeklyReviews'
-import type { ChannelReviews, RawReviewRow, TranslatedRow } from '@/lib/weeklyReviews'
+import type { ChannelReviews, RawReviewRow, ReviewRow } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
 
 // 🔴🔴 이 파일의 조회 함수는 어느 것도 캐시하지 않는다. 2026-08-08 이전에는 전부
@@ -530,7 +530,10 @@ export async function getWeeklyReportProps(week?: string): Promise<{
       drillTargets.map(r => OTA_SITE_BY_NAME[r.otaName]).filter((s): s is string => Boolean(s))
     )]
 
-    const [rawRows, transRows] = sites.length === 0 ? [[], []] : await Promise.all([
+    // 🔴 모집단은 reviews 다 — raw_reviews 는 날짜·국가·객실타입만 빌려 준다(2026-08-11).
+    //    raw 를 모집단으로 쓰던 때는 같은 리뷰가 여러 행이라 화면에 두 벌 나란히 떴다.
+    //    근거는 lib/otaDetail.ts pairReviewsWithRaw 주석.
+    const [rawRows, reviewRows] = sites.length === 0 ? [[], []] : await Promise.all([
       fetchAllRows(
         'raw_reviews',
         'id,branch,ota_site,review_month,raw_date,rating,country,room_type,content,reviewer',
@@ -538,19 +541,20 @@ export async function getWeeklyReportProps(week?: string): Promise<{
       ),
       fetchAllRows(
         'reviews',
-        'branch,ota_site,content,content_ko',
+        'id,branch,ota_site,review_month,rating,content,content_ko',
         q => q.in('branch', branches).in('review_month', months).in('ota_site', sites),
       ),
     ])
 
     for (const row of drillTargets) {
       reviews[row.propertyId] = buildChannelReviews(
+        (reviewRows ?? []) as ReviewRow[],
         (rawRows ?? []) as RawReviewRow[],
-        (transRows ?? []) as TranslatedRow[],
         {
           propertyId: row.propertyId,
           branch: row.branch,
           otaName: row.otaName,
+          scoreMax: row.scoreMax,
           weekStart: row.weekStart,
           granularity: row.granularity,
           reviewCount: row.reviewCount,

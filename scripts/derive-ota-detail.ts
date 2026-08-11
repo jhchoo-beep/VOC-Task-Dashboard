@@ -73,7 +73,7 @@ import {
   monthWindow, mergeSource, planDetailWrite, isForcedReanalysis, isWriteAction, WRITE_ACTION_LABEL,
   OTA_SITE_BY_NAME, granularityForSite,
   parseExclusions, isExcludedPair, formatExclusion,
-  dedupeRawRows, eligibleRawRows,
+  pairReviewsWithRaw, ratingInChannelScale,
   type Granularity, type DetailSource, type WriteAction, type OtaExclusion,
 } from '../lib/otaDetail'
 
@@ -229,12 +229,26 @@ const TODAY = todayIsoLocal()
 // PostgREST 기본 상한. 이보다 많은 행은 range 없이는 조용히 잘려 나간다.
 const PAGE_SIZE = 1000
 
+// 날짜 공급원. 모집단이 아니다 — 아래 fetchReviews 주석 참조.
 interface RawRow {
+  branch: string
+  ota_site: string
   reviewer?: string
-  raw_date?: string
-  review_month?: string
-  rating?: number
-  content?: string
+  raw_date: string | null
+  review_month: string | null
+  rating: number | string | null
+  content: string | null
+}
+
+// 리뷰의 모집단. 중복이 제거돼 있고 번역본이 붙어 있다.
+// 🔴 rating 은 10점 환산 저장이라 채널 척도로 되돌려 쓴다(ratingInChannelScale).
+interface ReviewRow {
+  branch: string
+  ota_site: string
+  review_month: string | null
+  rating: number | string | null
+  content: string | null
+  content_ko: string | null
 }
 
 // raw_reviews는 --weeks를 키우면 얼마든지 커진다. 상한에 걸려 조용히 잘리지 않도록
@@ -243,24 +257,34 @@ interface RawRow {
 // 페이지 크기보다 작게 내려간 순간 첫 페이지에서 멈춰 또 조용히 잘린다.
 // 실제로 받은 행 수만큼만 offset을 밀고, 빈 페이지에서만 끝낸다.
 // 페이지 경계가 흔들리지 않도록 정렬을 고정한다(정렬 없는 페이징은 행 누락·중복을 만든다).
-async function fetchRawReviews(branch: string, site: string, months: string[]): Promise<RawRow[]> {
-  const out: RawRow[] = []
+async function fetchPaged<T>(table: string, cols: string, branch: string, site: string, months: string[]): Promise<T[]> {
+  const out: T[] = []
   for (let from = 0; ;) {
     const { data, error } = await db
-      .from('raw_reviews')
-      .select('reviewer,raw_date,review_month,rating,content')
+      .from(table)
+      .select(cols)
       .eq('branch', branch).eq('ota_site', site)
       .in('review_month', months)
       .order('id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
     if (error) throw error
-    const page = (data ?? []) as RawRow[]
+    const page = (data ?? []) as T[]
     if (page.length === 0) break
     out.push(...page)
     from += page.length
   }
   return out
 }
+
+const fetchRawReviews = (branch: string, site: string, months: string[]) =>
+  fetchPaged<RawRow>('raw_reviews', 'branch,ota_site,reviewer,raw_date,review_month,rating,content', branch, site, months)
+
+// 🔴 리뷰의 모집단은 여기다(2026-08-11 재헌 결정). raw_reviews 는 날짜만 빌려 준다.
+//    raw 는 같은 리뷰를 여러 행으로 갖는다(원문+번역본 / 리뷰어만 다른 사본 / 스크래퍼 UI 행).
+//    실측 2026-08 동대문 에어비앤비는 raw 9행 = 실제 4건이었고, 주간 리포트 화면에
+//    똑같은 리뷰가 두 벌 나란히 떴다. 근거·매칭률은 lib/otaDetail.ts pairReviewsWithRaw 참조.
+const fetchReviews = (branch: string, site: string, months: string[]) =>
+  fetchPaged<ReviewRow>('reviews', 'branch,ota_site,review_month,rating,content,content_ko', branch, site, months)
 
 // 제외 지정이 실제로 무엇을 걸렀는지 조합별로 찍는다 — '걸렸겠지'를 믿지 않게.
 // 어느 하나라도 ota_properties에서 짚이는 조합이 없으면 비정상 종료한다. 오타 난 제외는
@@ -314,8 +338,10 @@ async function buildBuckets(): Promise<Bucket[]> {
   let scanned = 0
   // 주간 채널에서 일자를 못 구해 제외한 행 수 — 채널별로 따로 센다
   const droppedNoDay = new Map<string, number>()
-  // 스크래퍼가 리뷰로 잘못 잡은 UI 요소 행(리뷰 아님) — 날짜 사유와 별개로 따로 센다
-  const droppedChrome = new Map<string, number>()
+  // reviews 에는 있는데 raw 에서 날짜를 빌릴 짝을 못 찾은 리뷰 — 위와 사유가 다르다
+  const noRawPair = new Map<string, number>()
+  // raw 에는 있는데 아직 reviews 로 파싱되지 않은 행 — 집계에서 빠진다는 사실을 알린다
+  const notParsed = new Map<string, number>()
 
   for (const p of props ?? []) {
     if (onlyBranch && p.branch !== onlyBranch) continue
@@ -326,7 +352,10 @@ async function buildBuckets(): Promise<Bucket[]> {
     const site = OTA_SITE_BY_NAME[p.ota_name]
     if (!site) { console.warn(`매핑 없는 채널: ${p.ota_name} — 건너뜀`); continue }
 
-    const raw = await fetchRawReviews(p.branch, site, targetMonths)
+    const [raw, reviews] = await Promise.all([
+      fetchRawReviews(p.branch, site, targetMonths),
+      fetchReviews(p.branch, site, targetMonths),
+    ])
 
     // 입도는 채널이 정한다 — 행 단위로 정하면 일자 못 구한 리뷰 하나가 주간 채널에
     // 월 버킷을 끼워 넣어, 한 채널에 '7월'과 '07/14' 라벨이 섞이고 월간 뷰에서
@@ -336,22 +365,20 @@ async function buildBuckets(): Promise<Bucket[]> {
     const scoreMax = p.score_max === 5 ? 5 : 10
     const byKey    = new Map<string, Bucket>()
 
-    // 부킹닷컴 raw에 중복 행이 실재한다(~14%) — 집계 전에 반드시 제거한다.
-    // 드릴다운(lib/weeklyReviews.ts)이 같은 필터를 타야 하므로 정본은 lib/otaDetail.ts에 있다.
-    const deduped = dedupeRawRows(raw)
+    // 🔴 모집단은 reviews 다. raw 는 날짜·짝 맞추기에만 쓴다(pairReviewsWithRaw).
+    //    같은 본문 키의 raw 행이 여럿이어도 하나만 소비되므로, 여기서 중복이 걸러진다.
+    const pairs = pairReviewsWithRaw(reviews, raw)
+    scanned += pairs.length
 
-    // 스크래퍼가 리뷰로 잘못 잡은 화면 UI 요소 행을 읽는 시점에 뺀다(판정 정본은 lib/otaDetail.ts).
-    // raw_reviews는 원본 데이터라 지우지 않는다 — 여기서 건너뛸 뿐이다.
-    // 진짜 고칠 곳은 수집 단계다. 자세한 경위는 isScraperChromeReviewer 주석 참조.
-    // eligibleRawRows(raw)와 결과가 같다(이미 deduped라 안쪽 dedupeRawRows는 아무것도 지우지
-    // 않는다) — chromeN 집계를 위해 두 단계로 나눠 부른다.
-    const rows = eligibleRawRows(deduped)
-    const chromeN = deduped.length - rows.length
-    if (chromeN > 0) droppedChrome.set(chanKey, (droppedChrome.get(chanKey) ?? 0) + chromeN)
-    scanned += rows.length
+    // raw 에는 있는데 reviews 로 아직 파싱되지 않은 행 수. 이 행들은 집계에서 빠지므로
+    // 조용히 넘어가지 않고 센다 — 회의 전에 /parse-reviews 를 돌려야 한다는 신호다.
+    const pairedRaw = pairs.filter(x => x.raw != null).length
+    if (raw.length > pairedRaw) notParsed.set(chanKey, (notParsed.get(chanKey) ?? 0) + (raw.length - pairedRaw))
 
-    for (const r of rows) {
-      const { date, month } = parseRawDate(r.raw_date, r.review_month)
+    for (const pair of pairs) {
+      const r = pair.review
+      if (pair.raw == null) noRawPair.set(chanKey, (noRawPair.get(chanKey) ?? 0) + 1)
+      const { date, month } = parseRawDate(pair.raw?.raw_date ?? null, r.review_month)
       if (!date && !month) { unparsed++; continue }
 
       // 주간 채널인데 일자를 복원 못 한 행: 월로 강등하지 않고 제외하고 센다.
@@ -373,12 +400,17 @@ async function buildBuckets(): Promise<Bucket[]> {
         })
       }
       const b = byKey.get(k)!
-      if (r.rating != null) b.ratings.push(Number(r.rating))
-      if (r.content && r.content.trim().length > 5) {
+      // 🔴 reviews.rating 은 10점 환산 저장이다. 채널 척도로 되돌리지 않으면 5점제 채널의
+      //    분포가 score_6~10 쪽으로 통째로 밀린다(실측: reviews 6 = raw 3.0, 야놀자).
+      const rating = ratingInChannelScale(r.rating, scoreMax)
+      if (rating != null) b.ratings.push(rating)
+      // 판독용 본문은 번역본을 우선한다 — reviews 의 본문 정본이 그쪽이다.
+      const body = (r.content_ko ?? r.content ?? '').trim()
+      if (body.length > 5) {
         // rating이 없으면 키 자체를 넣지 않는다(undefined는 JSON.stringify가 드롭한다) —
         // 0점으로 채우면 실제 1점 리뷰와 구분이 안 돼 밴드 오판정을 만든다.
-        const entry: { content: string; rating?: number } = { content: r.content.trim() }
-        if (r.rating != null) entry.rating = Number(r.rating)
+        const entry: { content: string; rating?: number } = { content: body }
+        if (rating != null) entry.rating = rating
         b.texts.push(entry)
       }
     }
@@ -403,16 +435,30 @@ async function buildBuckets(): Promise<Bucket[]> {
     console.log('주간 채널 일자 미확인 제외: 0건')
   }
 
-  // 날짜 사유와 전혀 다른 사유다 — 반드시 별도 카운터로 보고한다.
-  // 한 달치의 절반을 조용히 지우는 필터는 그것이 고치려는 버그보다 나쁘다. 운영자가 봐야 한다.
-  const chromeTotal = [...droppedChrome.values()].reduce((a, b) => a + b, 0)
-  if (chromeTotal > 0) {
-    console.warn(`리뷰가 아닌 UI 요소 행으로 제외: ${chromeTotal}건 (수집기가 화면 버튼을 리뷰어로 잡은 행 — 원인 수정은 수집 단계)`)
-    for (const [k, n] of [...droppedChrome.entries()].sort((a, b) => b[1] - a[1])) {
-      console.warn(`  · ${k} — ${n}건 제외`)
+  // reviews 에는 있는데 raw 에서 짝을 못 찾은 리뷰. 날짜를 못 얻으므로 주간 채널에서는
+  // 위의 '일자 미확인'으로 이어진다. 사유가 다르니 따로 센다 — 이 수가 늘면 두 표의
+  // 본문이 갈라지고 있다는 뜻이다(수집·파싱 쪽 신호).
+  const noPairTotal = [...noRawPair.values()].reduce((a, b) => a + b, 0)
+  if (noPairTotal > 0) {
+    console.warn(`raw 에서 날짜 짝을 못 찾은 리뷰: ${noPairTotal}건`)
+    for (const [k, n] of [...noRawPair.entries()].sort((a, b) => b[1] - a[1])) {
+      console.warn(`  · ${k} — ${n}건`)
     }
   } else {
-    console.log('리뷰가 아닌 UI 요소 행 제외: 0건')
+    console.log('raw 날짜 짝 미발견: 0건')
+  }
+
+  // 🔴 raw 에는 있는데 아직 reviews 로 파싱되지 않은 행. **집계에서 빠진다.**
+  //    조용히 넘어가면 '이번 주 리뷰가 적네'로 읽힌다 — 회의 전에 /parse-reviews 를
+  //    돌려야 한다는 신호다. 중복 사본도 여기 섞여 세어지므로 0이 아닌 것이 정상이다.
+  const notParsedTotal = [...notParsed.values()].reduce((a, b) => a + b, 0)
+  if (notParsedTotal > 0) {
+    console.warn(`reviews 미반영 raw 행: ${notParsedTotal}건 (중복 사본 + 미파싱 신규가 섞여 있음 — 집계 제외)`)
+    for (const [k, n] of [...notParsed.entries()].sort((a, b) => b[1] - a[1])) {
+      console.warn(`  · ${k} — ${n}건`)
+    }
+  } else {
+    console.log('reviews 미반영 raw 행: 0건')
   }
   return buckets
 }
