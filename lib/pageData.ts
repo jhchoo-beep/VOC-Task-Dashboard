@@ -7,6 +7,7 @@ import type {
 import { buildChannelReviews, drilldownMonths } from '@/lib/weeklyReviews'
 import type { ChannelReviews, RawReviewRow, ReviewRow } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
+import type { TriageRow } from '@/lib/weeklyTriage'
 
 // 🔴🔴 이 파일의 조회 함수는 어느 것도 캐시하지 않는다. 2026-08-08 이전에는 전부
 //    unstable_cache(revalidate N, tags:[테이블]) 였고, 쓰기 API의 revalidateTag로 무효화하는
@@ -480,6 +481,7 @@ export async function getWeeklyReportProps(week?: string): Promise<{
   week: string
   weeks: string[]
   reviews: Record<number, ChannelReviews>   // propertyId → 그 버킷의 목표 미달 리뷰
+  triage: Record<string, TriageRow>         // reviewId → FO 판단(조치/이월/종결)
 }> {
   // ota_complaints·ota_voc는 더 이상 읽지 않는다 — 카드가 원인을 쓰지 않기로 했다(2026-07-27).
   // ota_scores(누적 점수 스냅샷)도 더 이상 읽지 않는다 — 기준이 고정 목표 9.0으로 바뀌었다
@@ -497,7 +499,7 @@ export async function getWeeklyReportProps(week?: string): Promise<{
   // '지난주는 문제 없었다'로 읽히는 화면이 나온다. 목록에 없는 주는 report=null 이다.
   const target = week ?? weeks[0] ?? ''
   if (!target || !weeks.includes(target)) {
-    return { report: null, week: target, weeks, reviews: {} }
+    return { report: null, week: target, weeks, reviews: {}, triage: {} }
   }
 
   const report = buildWeeklyReport({
@@ -566,7 +568,20 @@ export async function getWeeklyReportProps(week?: string): Promise<{
     }
   }
 
-  return { report, week: target, weeks, reviews }
+  // FO 판단(조치/이월/종결). 조회 키는 review_id다 — 월 단위 채널 리뷰는 같은 달의
+  // 여러 주 화면에 나타나는데, 어느 주에서 판단했든 따라다녀야 한다(week_start로 거르면
+  // 다른 주에서 붙인 판단이 사라진 것처럼 보인다).
+  const itemIds = Object.values(reviews).flatMap(cr => cr.items.map(i => i.id))
+  const triage: Record<string, TriageRow> = {}
+  if (itemIds.length > 0) {
+    const { data: tRows } = await supabase
+      .from('review_triage')
+      .select('review_id,week_start,property_id,verdict,note')
+      .in('review_id', itemIds)
+    for (const t of (tRows ?? []) as TriageRow[]) triage[t.review_id] = t
+  }
+
+  return { report, week: target, weeks, reviews, triage }
 }
 
 // 주간 수행과제. 리포트 본문과 캐시를 분리한다 — 과제 하나 저장할 때마다

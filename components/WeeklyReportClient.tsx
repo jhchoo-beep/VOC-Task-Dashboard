@@ -8,8 +8,12 @@ import {
   type WeeklyReport, type WeeklyChannelRow, type ChannelBoardRow,
 } from '@/lib/weeklyReport'
 import { bandsFor } from '@/lib/otaDetail'
-import { belowReviewCounts, type ChannelReviews } from '@/lib/weeklyReviews'
+import { belowReviewCounts, type ChannelReviews, type WeeklyReviewItem } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
+import {
+  TRIAGE_VERDICTS, isTriageBranch, summarizeTriage, triageableIds,
+  type TriageRow, type TriageVerdict,
+} from '@/lib/weeklyTriage'
 import WeeklyTaskSection from './WeeklyTaskSection'
 
 // FO Weekly 회의 중 노션 임베드로 화면 공유하며 읽는 보고서다. 설계 정본은
@@ -49,10 +53,76 @@ function ratingColor(r: number | null, target: number) {
   return 'var(--critical)'
 }
 
+// ─── 판단(조치/이월/종결) ─────────────────────────────────────────────────────
+// 🔴 판단은 FO가 회의 전에 붙이는 입력이다. 앱은 어떤 판단도 제안하지 않는다(07-27과 같은 선).
+//    회의는 요약 한 줄("조치 3 · 이월 5 · 종결 8 · 대기 0")과 조치 건만 소비한다 —
+//    미달 리뷰 원문을 그 자리에서 전부 읽는 독서 모임을 없애는 층이다(2026-08-11 재헌).
+
+const VERDICT_COLOR: Record<TriageVerdict, string> = {
+  조치: 'var(--progress)',
+  이월: 'var(--medium)',
+  종결: 'var(--text-3)',
+}
+
+interface TriageHandlers {
+  set: (item: WeeklyReviewItem, verdict: TriageVerdict, note: string | null) => void
+  clear: (id: string) => void
+}
+
+// 한 리뷰의 판단 컨트롤. 편집 모드(회의 전 FO)는 토글 3개 + 사유 입력,
+// 읽기 모드(임베드=회의 화면)는 판단 배지 + 사유만 보인다.
+function TriageControl({ item, row, canEdit, on }: {
+  item: WeeklyReviewItem
+  row: TriageRow | undefined
+  canEdit: boolean
+  on: TriageHandlers
+}) {
+  if (!canEdit) {
+    if (!row) return null
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: VERDICT_COLOR[row.verdict],
+          border: `1px solid ${VERDICT_COLOR[row.verdict]}`, borderRadius: 10, padding: '1px 8px',
+          whiteSpace: 'nowrap',
+        }}>{row.verdict}</span>
+        {row.note && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{row.note}</span>}
+      </span>
+    )
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+      {TRIAGE_VERDICTS.map(v => {
+        const active = row?.verdict === v
+        return (
+          <button
+            key={v}
+            // 켜진 판단을 다시 누르면 해제 — 실수를 되돌리는 경로가 있어야 누르는 데 주저가 없다.
+            onClick={() => (active ? on.clear(item.id) : on.set(item, v, row?.note ?? null))}
+            style={{
+              fontSize: 11, fontWeight: active ? 700 : 400, padding: '2px 9px', borderRadius: 10,
+              border: `1px solid ${active ? VERDICT_COLOR[v] : 'var(--border)'}`,
+              color: active ? VERDICT_COLOR[v] : 'var(--text-3)',
+              background: 'transparent', fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >{v}</button>
+        )
+      })}
+    </span>
+  )
+}
+
 // ─── 리뷰 원문 ────────────────────────────────────────────────────────────────
 // 목표 미달 리뷰만 나온다(필터는 lib/weeklyReviews.ts). 카드가 '미달 4건'이라 써 놓고
 // 펼치면 10.0짜리 호평이 함께 뜨던 문제를 없앤 것이다.
-function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
+function ReviewList({ cr, triage, canTriage, embed, on }: {
+  cr: ChannelReviews | undefined
+  triage: Record<string, TriageRow>
+  canTriage: boolean
+  embed: boolean
+  on: TriageHandlers
+}) {
   // 확보한 원문 총수 = 보여 주는 것 + 목표 이상이라 뺀 것. 커버리지 경고의 분자다 —
   // items.length 를 쓰면 3건을 다 확보하고도 '원문 확보 1/3건'이 뜬다.
   const secured = cr ? cr.items.length + cr.hiddenCount : 0
@@ -86,25 +156,50 @@ function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
         )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {cr.items.map(it => (
-          <div key={it.id} style={{
-            border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px',
-            background: 'var(--bg-input)',
-          }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-              <span className="font-display" style={{ fontSize: 15, fontWeight: 800, color: ratingColor(it.rating, cr.target) }}>
-                {it.rating == null ? '—' : fmt(it.rating)}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                {[it.country, it.date, it.roomType].filter(Boolean).join(' · ') || '정보 없음'}
-              </span>
-              {!it.translated && <Chip>원문(번역 없음)</Chip>}
+        {cr.items.map(it => {
+          const row = triage[it.id]
+          return (
+            <div key={it.id} style={{
+              border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px',
+              background: 'var(--bg-input)',
+              // 편집 모드에서 판단이 붙은 리뷰는 살짝 가라앉힌다 — 회의 전 훑기에서
+              // '대기'가 도드라져야 한다. 회의 화면(임베드)에서는 가라앉히지 않는다.
+              opacity: canTriage && !embed && row ? 0.75 : 1,
+            }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <span className="font-display" style={{ fontSize: 15, fontWeight: 800, color: ratingColor(it.rating, cr.target) }}>
+                  {it.rating == null ? '—' : fmt(it.rating)}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                  {[it.country, it.date, it.roomType].filter(Boolean).join(' · ') || '정보 없음'}
+                </span>
+                {!it.translated && <Chip>원문(번역 없음)</Chip>}
+                {canTriage && <TriageControl item={it} row={row} canEdit={!embed} on={on} />}
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-1)', whiteSpace: 'pre-wrap' }}>
+                {it.body || '(본문 없음)'}
+              </div>
+              {/* 사유는 판단이 있을 때만. 종결이 특히 이 한 줄을 남겨야 한다 —
+                  회의에서 "이거 왜 종결이에요?"에 원문을 다시 읽지 않고 답하는 자리다. */}
+              {canTriage && !embed && row && (
+                <input
+                  defaultValue={row.note ?? ''}
+                  placeholder="한 줄 사유 (선택)"
+                  onBlur={e => {
+                    const v = e.target.value.trim()
+                    if (v !== (row.note ?? '')) on.set(it, row.verdict, v || null)
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                  style={{
+                    marginTop: 8, width: '100%', fontSize: 12, padding: '5px 9px',
+                    border: '1px solid var(--border)', borderRadius: 6,
+                    background: 'var(--bg-card)', color: 'var(--text-1)', fontFamily: 'inherit',
+                  }}
+                />
+              )}
             </div>
-            <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-1)', whiteSpace: 'pre-wrap' }}>
-              {it.body || '(본문 없음)'}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* 숨긴 사실을 남긴다 — 없으면 남은 목록이 '그 주 전부'로 읽힌다 */}
@@ -126,11 +221,21 @@ function ReviewList({ cr }: { cr: ChannelReviews | undefined }) {
 // 카드가 서는 경로가 둘이라 왼쪽 띠 색으로 구분한다 —
 //   빨강  주 평균 자체가 목표 미달
 //   주황  주 평균은 목표를 넘겼지만 미달 리뷰가 섞임(이 경우가 이번 개편의 신규분이다)
-function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | undefined }) {
+function DiscussionCard({ r, cr, triage, embed, on }: {
+  r: WeeklyChannelRow
+  cr: ChannelReviews | undefined
+  triage: Record<string, TriageRow>
+  embed: boolean
+  on: TriageHandlers
+}) {
   const [open, setOpen] = useState(false)
   const unit = r.granularity === 'month' ? '직전 달' : '직전 주'
   const belowN = cr?.items.length ?? 0
   const avgBelow = r.verdict === 'below'
+
+  // 판단 지점 카드는 접힌 채로도 판단 상태가 읽혀야 한다 — 펼쳐야 아는 요약은 요약이 아니다.
+  const canTriage = isTriageBranch(r.branch)
+  const sum = canTriage && cr ? summarizeTriage(cr.items.map(i => i.id), triage) : null
 
   return (
     <div className="card" style={{
@@ -166,6 +271,18 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
             // 숫자 자리를 0으로 채우면 '미달 리뷰가 없다'로 읽힌다.
             <Chip>원문 미확보</Chip>
           )}
+          {/* 판단 상태 — 대기가 남았으면 붉게, 다 붙었으면 판단 내역만 흐리게 */}
+          {sum && belowN > 0 && (
+            <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+              {sum.대기 > 0 ? (
+                <span style={{ color: 'var(--critical)', fontWeight: 700 }}>대기 {sum.대기}</span>
+              ) : (
+                <span style={{ color: 'var(--text-3)' }}>
+                  {TRIAGE_VERDICTS.filter(v => sum[v] > 0).map(v => `${v} ${sum[v]}`).join(' · ')}
+                </span>
+              )}
+            </span>
+          )}
           <button
             onClick={() => setOpen(o => !o)}
             style={{
@@ -196,7 +313,7 @@ function DiscussionCard({ r, cr }: { r: WeeklyChannelRow; cr: ChannelReviews | u
             {' · '}{ESTIMATOR_LABEL[r.estimator]}
           </div>
 
-          <ReviewList cr={cr} />
+          <ReviewList cr={cr} triage={triage} canTriage={canTriage} embed={embed} on={on} />
         </div>
       )}
     </div>
@@ -354,12 +471,13 @@ function ScoreBoard({ report, belowCounts }: { report: WeeklyReport; belowCounts
 
 // ─── 본체 ─────────────────────────────────────────────────────────────────────
 export default function WeeklyReportClient({
-  report, week, weeks, reviews, weeklyTasks, basePath, extraQuery = '', embed = false,
+  report, week, weeks, reviews, triage, weeklyTasks, basePath, extraQuery = '', embed = false,
 }: {
   report: WeeklyReport | null
   week: string
   weeks: string[]
   reviews: Record<number, ChannelReviews>
+  triage: Record<string, TriageRow>
   weeklyTasks: WeeklyTaskRow[]
   basePath: string
   extraQuery?: string   // 임베드의 ?key= 처럼 주 이동 시에도 유지해야 하는 쿼리
@@ -367,6 +485,38 @@ export default function WeeklyReportClient({
 }) {
   const router = useRouter()
   const hrefFor = (w: string) => `${basePath}?week=${w}${extraQuery ? `&${extraQuery}` : ''}`
+
+  // 판단의 낙관적 상태. 서버 값(triage) 위에 이 세션의 변경만 덮는다 — null=해제.
+  // 주를 이동해도 남지만 해가 없다: 판단은 리뷰의 속성이라 리뷰가 같으면 값도 같아야 한다.
+  const [overrides, setOverrides] = useState<Record<string, TriageRow | null>>({})
+  const merged: Record<string, TriageRow> = { ...triage }
+  for (const [id, row] of Object.entries(overrides)) {
+    if (row) merged[id] = row
+    else delete merged[id]
+  }
+
+  const triageOn: TriageHandlers = {
+    set: async (item, verdict, note) => {
+      // propertyId는 카드가 아니라 리뷰가 속한 채널에서 찾는다.
+      const propertyId = Number(Object.keys(reviews).find(pid =>
+        reviews[Number(pid)].items.some(i => i.id === item.id)) ?? 0)
+      const prev = merged[item.id] ?? null
+      const next: TriageRow = { review_id: item.id, week_start: week, property_id: propertyId, verdict, note }
+      setOverrides(o => ({ ...o, [item.id]: next }))
+      const res = await fetch('/api/review-triage', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      })
+      // 낙관적으로 그려 놓고 실패를 삼키면 "판단했는데 저장 안 됨"이 된다 — 되돌린다.
+      if (!res.ok) setOverrides(o => ({ ...o, [item.id]: prev }))
+    },
+    clear: async (id) => {
+      const prev = merged[id] ?? null
+      setOverrides(o => ({ ...o, [id]: null }))
+      const res = await fetch(`/api/review-triage?review_id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      if (!res.ok) setOverrides(o => ({ ...o, [id]: prev }))
+    },
+  }
 
   const idx = weeks.indexOf(week)
   const older = idx >= 0 && idx + 1 < weeks.length ? weeks[idx + 1] : null   // 목록은 최신 우선
@@ -442,16 +592,35 @@ export default function WeeklyReportClient({
         <div style={{ maxWidth: 900, minWidth: 0 }}>
           <ScoreBoard report={report} belowCounts={belowCounts} />
 
-          <div style={{
-            display: 'flex', alignItems: 'baseline', gap: 10,
-            fontSize: 14, color: 'var(--text-2)', marginBottom: 16,
-          }}>
-            <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>
-              논의 {cards.length}건
-            </b>
-            <span style={{ color: 'var(--text-3)' }}>
-              · 미달 리뷰 {belowTotal}건 / 전체 리뷰 {reviewTotal}건
-            </span>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, fontSize: 14, color: 'var(--text-2)' }}>
+              <b className="font-display" style={{ fontSize: 17, color: 'var(--text-1)' }}>
+                논의 {cards.length}건
+              </b>
+              <span style={{ color: 'var(--text-3)' }}>
+                · 미달 리뷰 {belowTotal}건 / 전체 리뷰 {reviewTotal}건
+              </span>
+            </div>
+            {/* FO 보고의 한 줄. 회의는 이 줄과 조치 건만 소비한다 — 원문 전수 낭독을 없애는 층.
+                타 지점(제주시티·고성)은 담당 FO 몫이라 이 요약에 넣지 않는다. */}
+            {(() => {
+              const ids = triageableIds(cards, reviews)
+              if (ids.length === 0) return null
+              const s = summarizeTriage(ids, merged)
+              return (
+                <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 6 }}>
+                  신설·동대문 판단 —{' '}
+                  {TRIAGE_VERDICTS.map(v => (
+                    <span key={v} style={{ marginRight: 10 }}>
+                      <span style={{ color: VERDICT_COLOR[v], fontWeight: 700 }}>{v} {s[v]}</span>
+                    </span>
+                  ))}
+                  <span style={{ color: s.대기 > 0 ? 'var(--critical)' : 'var(--text-3)', fontWeight: s.대기 > 0 ? 700 : 400 }}>
+                    대기 {s.대기}
+                  </span>
+                </div>
+              )
+            })()}
           </div>
 
           {cards.length === 0 ? (
@@ -462,7 +631,16 @@ export default function WeeklyReportClient({
             // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은
             //    인스턴스로 재사용돼 펼침 상태가 따라온다 — 회의에서 주를 넘기면 지난 주에 열어
             //    둔 카드가 펼쳐진 채로 시작해 '논의 카드 한 벌이 한 화면'이 깨진다.
-            cards.map(r => <DiscussionCard key={`${week}-${r.propertyId}`} r={r} cr={reviews[r.propertyId]} />)
+            cards.map(r => (
+              <DiscussionCard
+                key={`${week}-${r.propertyId}`}
+                r={r}
+                cr={reviews[r.propertyId]}
+                triage={merged}
+                embed={embed}
+                on={triageOn}
+              />
+            ))
           )}
 
           {/* key에 week를 줘야 한다 — 안 주면 주가 바뀌어도 리마운트되지 않아
