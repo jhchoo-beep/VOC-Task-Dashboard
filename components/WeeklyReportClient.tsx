@@ -551,8 +551,11 @@ export default function WeeklyReportClient({
   }
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1220 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, marginBottom: 20, maxWidth: 900 }}>
+    // 폭 상한을 두지 않는다 — 수행과제 등 다른 탭과 같이 우측 여백까지 쓴다(2026-08-11 재헌).
+    // 이전의 maxWidth 900은 07-27 2컬럼(리포트+기준 패널) 설계의 잔재였고, 패널이
+    // 점수 보드로 대체된 뒤에는 넓은 모니터에서 왼쪽에 몰려 보이는 원인일 뿐이었다.
+    <div style={{ padding: '28px 32px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>주간 OTA 리포트</div>
           <h1 className="font-display" style={{ fontSize: 26, fontWeight: 800 }}>
@@ -589,7 +592,7 @@ export default function WeeklyReportClient({
       ) : (
         // 흐름은 점수 보드 → 논의 → 주간 수행과제 한 컬럼이다(2026-08-04 재헌 지시).
         // 보드에서 미달을 눈으로 잡고, 논의에서 원문을 읽고, 수행과제로 넘길지 정한다.
-        <div style={{ maxWidth: 900, minWidth: 0 }}>
+        <div style={{ minWidth: 0 }}>
           <ScoreBoard report={report} belowCounts={belowCounts} />
 
           <div style={{ marginBottom: 16 }}>
