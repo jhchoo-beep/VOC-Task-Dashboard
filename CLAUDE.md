@@ -105,6 +105,9 @@ linked_review_ids   UUID[]
 done_memo           TEXT
 link_url            TEXT        -- 참고 링크 URL
 link_label          TEXT        -- 참고 링크 제목
+slack_thread_ts     TEXT        -- 등록 알림 슬랙 메시지의 ts. 이후 진행사항 알림이 이 스레드의
+                                --   답글로 붙는다(reply_broadcast로 채널에도 표시). NULL이면
+                                --   기능 이전 등록분 → 기존처럼 최상위 메시지로 폴백
 created_at          TIMESTAMPTZ
 ```
 

@@ -36,10 +36,12 @@ export async function POST(req: NextRequest) {
 
   // 슬랙 알림: 응답 반환 후 실행(after) — 서버리스에서 누락 없이 보장되며 댓글 저장 응답을 지연시키지 않음.
   // 실패해도 댓글 저장에는 영향 없음.
+  // slack_thread_ts가 있으면 등록 알림 스레드의 답글로 붙는다(채널에도 함께 표시).
+  // 이 기능 이전에 등록된 과제는 값이 없어 기존처럼 채널 최상위 메시지로 나간다.
   after(async () => {
     try {
       const { data: task } = await supabase
-        .from('tasks').select('branch, title, task_month').eq('id', taskId).single()
+        .from('tasks').select('branch, title, task_month, slack_thread_ts').eq('id', taskId).single()
       if (task) {
         await notifyNewComment({
           branch: task.branch,
@@ -48,6 +50,7 @@ export async function POST(req: NextRequest) {
           taskMonth: task.task_month ?? '',
           author,
           content,
+          threadTs: task.slack_thread_ts,
         })
       }
     } catch (e) {

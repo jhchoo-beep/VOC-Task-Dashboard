@@ -54,6 +54,8 @@ export interface Task {
   status: string
   linked_review_ids: string[]
   done_memo: string
+  /** 등록 시 발송한 슬랙 알림의 ts. 이후 진행사항 알림이 이 스레드의 답글로 붙는다. */
+  slack_thread_ts?: string | null
   created_at: string
   logs?: TaskLog[]
 }

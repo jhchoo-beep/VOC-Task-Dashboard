@@ -288,3 +288,96 @@ describe('notifyNewComment', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 })
+
+// 진행사항 알림을 등록 알림의 스레드에 묶는다 — 매번 새 스레드가 생기는 노이즈를 없애기 위한 기능.
+// 불변식: slack_thread_ts가 있는 과제의 후속 알림은 채널에 새 최상위 메시지를 만들지 않는다.
+describe('등록 스레드에 후속 알림 묶기', () => {
+  const okRes = (ts = '1788177972.875829') => ({ ok: true, json: async () => ({ ok: true, ts }) })
+  const bodyOf = (call: number) => JSON.parse((fetch as any).mock.calls[call][1].body)
+
+  const comment = {
+    branch: '신설', taskId: 't1', taskTitle: '요청사항 배정 기준',
+    taskMonth: '2026-08', author: '추재헌', content: '1차 목록 정리 완료',
+  }
+
+  beforeEach(() => {
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test'
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete process.env.SLACK_BOT_TOKEN
+  })
+
+  it('notifyNewTask는 발송한 메시지의 ts를 반환한다(스레드 앵커로 저장할 값)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => okRes('1700000000.000100')))
+    const ts = await notifyNewTask({
+      branch: '신설', taskId: 't1', taskTitle: '요청사항 배정 기준',
+      taskMonth: '2026-08', severity: 'High',
+    })
+    expect(ts).toBe('1700000000.000100')
+  })
+
+  it('등록 알림 자체는 최상위 메시지로 나간다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => okRes()))
+    await notifyNewTask({
+      branch: '신설', taskId: 't1', taskTitle: 'x', taskMonth: '2026-08', severity: 'High',
+    })
+    expect(bodyOf(0).thread_ts).toBeUndefined()
+  })
+
+  it('threadTs가 있으면 댓글 알림을 그 스레드의 답글로 보내고 채널에도 함께 띄운다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => okRes()))
+    await notifyNewComment({ ...comment, threadTs: '1788177972.875829' })
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    const body = bodyOf(0)
+    expect(body.channel).toBe('C028UUVJ0FL')
+    expect(body.thread_ts).toBe('1788177972.875829')
+    expect(body.reply_broadcast).toBe(true)
+  })
+
+  it('threadTs가 없으면(기능 이전 등록분) 기존처럼 최상위 메시지로 보낸다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => okRes()))
+    await notifyNewComment({ ...comment, threadTs: null })
+
+    const body = bodyOf(0)
+    expect(body.thread_ts).toBeUndefined()
+    expect(body.reply_broadcast).toBeUndefined()
+  })
+
+  it('스레드가 사라져 답글이 실패하면 최상위 메시지로 폴백해 알림을 잃지 않는다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: false, error: 'thread_not_found' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, ts: '1700000000.000200' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await notifyNewComment({ ...comment, threadTs: '1788177972.875829' })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(bodyOf(0).thread_ts).toBe('1788177972.875829')
+    expect(bodyOf(1).thread_ts).toBeUndefined()
+    expect(bodyOf(1).text).toContain('1차 목록 정리 완료')
+  })
+
+  it('최상위 발송이 실패하면 재시도하지 않는다', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: false, error: 'channel_not_found' }) }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await notifyNewComment({ ...comment, threadTs: null })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('완료 알림도 같은 등록 스레드에 묶인다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => okRes()))
+    await notifyTaskDone({
+      branch: '동대문', taskId: 't2', taskTitle: '린넨 취급 기준',
+      taskMonth: '2026-08', assignee: null, doneMemo: null,
+      threadTs: '1788177973.610479',
+    })
+
+    const body = bodyOf(0)
+    expect(body.thread_ts).toBe('1788177973.610479')
+    expect(body.reply_broadcast).toBe(true)
+  })
+})

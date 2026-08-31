@@ -91,27 +91,60 @@ export interface NotifyArgs {
   taskMonth: string
   author: string
   content: string
+  /** 등록 알림 메시지의 ts(`tasks.slack_thread_ts`). 있으면 그 스레드의 답글로 붙는다. */
+  threadTs?: string | null
 }
 
 // 슬랙 채널로 텍스트 발송(공통 I/O). 토큰 없으면 조용히 스킵.
-async function postToSlack(channel: string, text: string): Promise<void> {
+// threadTs를 주면 그 메시지의 스레드 답글로 보내고, reply_broadcast로 채널에도 함께 띄운다.
+// 스레드 답글이 실패하면(원본 삭제·지점 변경으로 채널이 다름 등) 최상위 메시지로 한 번 폴백한다
+// — 스레드에 묶는 것보다 알림을 잃지 않는 쪽이 우선이다.
+// 반환: 발송에 성공한 메시지의 ts. 실패하면 null.
+async function postToSlack(
+  channel: string,
+  text: string,
+  threadTs?: string | null,
+): Promise<string | null> {
   const token = process.env.SLACK_BOT_TOKEN
   if (!token) {
     console.warn('[slack] SLACK_BOT_TOKEN 미설정 — 알림 스킵')
-    return
+    return null
   }
-  const res = await fetch('https://slack.com/api/chat.postMessage', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ channel, text }),
-  })
-  const data = await res.json().catch(() => ({}))
-  if (!data?.ok) {
-    console.error('[slack] chat.postMessage 실패:', data?.error ?? res.status)
+
+  const send = async (thread?: string | null) => {
+    const payload: Record<string, unknown> = { channel, text }
+    if (thread) {
+      payload.thread_ts = thread
+      payload.reply_broadcast = true
+    }
+    const res = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json().catch(() => ({}))
+    return {
+      ok: !!data?.ok,
+      ts: (data?.ts as string | undefined) ?? null,
+      error: data?.error ?? res.status,
+    }
   }
+
+  const first = await send(threadTs)
+  if (first.ok) return first.ts
+
+  console.error('[slack] chat.postMessage 실패:', first.error)
+  if (!threadTs) return null
+
+  const retry = await send(null)
+  if (!retry.ok) {
+    console.error('[slack] 스레드 폴백 재발송 실패:', retry.error)
+    return null
+  }
+  return retry.ts
 }
 
 export async function notifyNewComment(args: NotifyArgs): Promise<void> {
@@ -131,7 +164,7 @@ export async function notifyNewComment(args: NotifyArgs): Promise<void> {
     link: buildTaskDeepLink(args.taskId, args.taskMonth),
   })
 
-  await postToSlack(target.channel, text)
+  await postToSlack(target.channel, text, args.threadTs)
 }
 
 export interface NewTaskTextArgs {
@@ -177,11 +210,13 @@ export interface NotifyNewTaskArgs {
   churnTrigger?: string[] | null
 }
 
-export async function notifyNewTask(args: NotifyNewTaskArgs): Promise<void> {
+// 반환한 ts를 `tasks.slack_thread_ts`에 저장해 두면, 이후 진행사항 댓글 알림이
+// 새 스레드를 만들지 않고 이 메시지의 답글로 붙는다.
+export async function notifyNewTask(args: NotifyNewTaskArgs): Promise<string | null> {
   const target = resolveBranchTarget(args.branch)
   if (!target) {
     console.warn(`[slack] 매핑 없는 지점 "${args.branch}" — 신규 과제 알림 스킵`)
-    return
+    return null
   }
 
   const text = buildNewTaskText({
@@ -196,7 +231,7 @@ export async function notifyNewTask(args: NotifyNewTaskArgs): Promise<void> {
     link: buildTaskDeepLink(args.taskId, args.taskMonth),
   })
 
-  await postToSlack(target.channel, text)
+  return await postToSlack(target.channel, text)
 }
 
 export interface TaskDoneTextArgs {
@@ -232,6 +267,8 @@ export interface NotifyTaskDoneArgs {
   taskMonth: string
   assignee?: string | null
   doneMemo?: string | null
+  /** 등록 알림 메시지의 ts(`tasks.slack_thread_ts`). 있으면 그 스레드의 답글로 붙는다. */
+  threadTs?: string | null
 }
 
 export async function notifyTaskDone(args: NotifyTaskDoneArgs): Promise<void> {
@@ -251,5 +288,5 @@ export async function notifyTaskDone(args: NotifyTaskDoneArgs): Promise<void> {
     link: buildTaskDeepLink(args.taskId, args.taskMonth),
   })
 
-  await postToSlack(target.channel, text)
+  await postToSlack(target.channel, text, args.threadTs)
 }

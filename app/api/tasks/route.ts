@@ -41,9 +41,10 @@ export async function POST(req: NextRequest) {
 
   // 슬랙 알림: 응답 반환 후 실행(after) — 신규 수행과제 등록을 해당 지점 스쿼드 채널에 통보.
   // 실패해도 과제 저장 응답에는 영향 없음.
+  // 발송된 메시지의 ts를 저장해 둔다 — 이후 진행사항 댓글 알림이 이 스레드의 답글로 붙는다.
   after(async () => {
     try {
-      await notifyNewTask({
+      const threadTs = await notifyNewTask({
         branch: data.branch,
         taskId: data.id,
         taskTitle: data.title,
@@ -53,6 +54,11 @@ export async function POST(req: NextRequest) {
         dueDate: data.due_date,
         churnTrigger: data.churn_trigger,
       })
+      if (threadTs) {
+        const { error: tsError } = await supabase
+          .from('tasks').update({ slack_thread_ts: threadTs }).eq('id', data.id)
+        if (tsError) console.error('[slack] 스레드 ts 저장 실패:', tsError.message)
+      }
     } catch (e) {
       console.error('[slack] 신규 과제 알림 처리 실패:', e)
     }
