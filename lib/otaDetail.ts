@@ -63,6 +63,84 @@ export function parseRawDate(
   return { date: null, month: fallbackMonth }
 }
 
+// ── 일자가 없을 때의 수집일 대체 ──────────────────────────────────
+// 🔴 2026-08-13 수집분부터 아고다 raw_date 가 작성일('2026-08-12') 대신 투숙월('August 2026')로 온다.
+//    수집기(별도 PC)가 파트너 포털 로그인에 막혀 화면 긁기로 떨어진 뒤 생긴 일이고, 아고다 사이트는
+//    지금도 리뷰마다 작성일을 일 단위로 보여 준다. 주 단위 채널은 일자가 없으면 어느 주에도 넣을 수
+//    없어 아고다 주간 버킷이 4주간 비었고, 주간 리포트에서도 아고다 미달 리뷰가 통째로 빠졌다.
+//    그때는 raw 의 수집일(created_at, KST 달력)을 날짜로 쓴다(2026-09-13 재헌 결정).
+//
+//    대가: 수집일은 작성일보다 1~3일 늦다(6월~8/12 아고다 113행 실측: 0~1일 66% · 2~3일 25%).
+//    주 경계(월·화)에 걸린 리뷰 일부가 한 주 늦은 버킷에 들어간다.
+//
+//    월 단위 채널(에어비앤비·여기어때)은 원래 달 버킷을 쓰므로 대체하지 않는다.
+//    raw_date 에 일자가 있으면 절대 수집일로 덮지 않는다.
+
+/** 타임스탬프('2026-09-12T20:19:21.848334+00:00' 등)를 KST 달력 날짜로. 못 읽으면 null. */
+export function collectedDateKst(ts: string | null | undefined): string | null {
+  const m = (ts ?? '').trim().match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/i,
+  )
+  if (!m) return null
+  const [, y, mo, d, h, mi, s, tz] = m
+  let offsetMin = 0
+  if (tz && tz.toUpperCase() !== 'Z') {
+    const sign = tz[0] === '-' ? -1 : 1
+    const digits = tz.slice(1).replace(':', '')
+    offsetMin = sign * (Number(digits.slice(0, 2)) * 60 + Number(digits.slice(2, 4) || 0))
+  }
+  // 오프셋 없는 표기는 UTC로 본다(Supabase는 항상 오프셋을 붙인다).
+  const utcMs = Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s ?? 0)) - offsetMin * 60_000
+  const kst = new Date(utcMs + 9 * 60 * 60_000)
+  return `${kst.getUTCFullYear()}-${pad(kst.getUTCMonth() + 1)}-${pad(kst.getUTCDate())}`
+}
+
+export type DateSource = 'raw' | 'collected'
+
+export interface ResolvedDate extends ParsedDate {
+  // 'raw' = raw_date 의 일자 · 'collected' = 수집일 대체 · null = 일자 없음
+  dateSource: DateSource | null
+}
+
+export interface DateSourceRow {
+  ota_site: string
+  raw_date: string | null
+  created_at?: string | null
+}
+
+/**
+ * 리뷰 한 건의 날짜. 파생 배치와 주간 리포트가 반드시 이 함수 하나를 쓴다 —
+ * 한쪽만 수집일 대체를 하면 카드의 건수와 펼친 원문이 조용히 갈라진다.
+ */
+export function resolveReviewDate(
+  raw: DateSourceRow | null | undefined,
+  reviewMonth?: string | null,
+): ResolvedDate {
+  const parsed = parseRawDate(raw?.raw_date ?? null, reviewMonth)
+  if (parsed.date) return { ...parsed, dateSource: 'raw' }
+  if (raw && granularityForSite(raw.ota_site) === 'week') {
+    const collected = collectedDateKst(raw.created_at)
+    if (collected) return { date: collected, month: collected.substring(0, 7), dateSource: 'collected' }
+  }
+  return { ...parsed, dateSource: null }
+}
+
+/** KST 달력 구간 [firstDay, lastDay] 를 created_at 비교 경계(UTC)로. lt 는 lastDay 다음 날 KST 0시. */
+export function collectedRangeUtc(firstDay: string, lastDay: string): { gte: string; lt: string } {
+  return { gte: `${addDaysIso(firstDay, -1)}T15:00:00Z`, lt: `${lastDay}T15:00:00Z` }
+}
+
+/**
+ * raw_reviews 조회 필터: review_month 가 목록에 있거나, 수집일이 구간 안인 행.
+ *
+ * 🔴 수집일 대체를 받는 행은 review_month 가 투숙월이라(실측: 5월 투숙·8/30 작성) 달 목록만으로는
+ *    조회조차 되지 않는다. PostgREST or 필터 — ':' 가 든 값은 따옴표로 감싼다.
+ */
+export function rawMonthOrCollectedFilter(months: string[], range: { gte: string; lt: string }): string {
+  const byCollected = `and(created_at.gte."${range.gte}",created_at.lt."${range.lt}")`
+  return months.length > 0 ? `review_month.in.(${months.join(',')}),${byCollected}` : byCollected
+}
+
 // ── 주 버킷의 라벨 ────────────────────────────────────────────────
 // 🔴 라벨(week_start 컬럼값)은 구간의 '끝'이다. 이름이 week_start지만 시작이 아니다.
 //
@@ -380,6 +458,7 @@ export interface RawRowLike {
   raw_date: string | null
   rating: number | string | null
   content: string | null
+  created_at?: string | null   // 수집일 — resolveReviewDate 의 일자 대체
 }
 
 /** reviews 한 건과, 날짜를 빌려 줄 raw 행(못 찾으면 null). */
@@ -445,9 +524,16 @@ export function pairReviewsWithRaw<V extends ReviewRowLike, R extends RawRowLike
   //    (신설 에어비앤비 'Strategic location…' 이 2026-07·2026-08 양쪽 raw 에 있다) 앞에서부터
   //    집으면 8월 리뷰가 7월 raw 의 날짜를 얻어 8월 버킷에서 통째로 빠진다. 실제로 이 버그로
   //    신설 Airbnb 8월이 2건 → 1건이 됐고 4.0점 미달 리뷰가 화면에서 사라졌다.
+  //
+  // 🔴 같은 조건이면 raw_date 에 일자가 있는 사본을 먼저 집는다(2026-09-13). 8/14 수집분에
+  //    8/13 이전 ISO 날짜로 이미 들어온 리뷰의 투숙월 사본이 섞였다(신설 아고다 Jinjoo 등) —
+  //    사본을 집으면 작성일 대신 수집일이 붙어 리뷰가 다른 주로 옮겨 간다. 달 일치가 먼저다.
+  const hasDay = (r: RawRowLike) => parseRawDate(r.raw_date).date != null
   const take = <T extends RawRowLike>(pool: T[] | undefined, month: string | null): T | null => {
     if (!pool || pool.length === 0) return null
-    const i = pool.findIndex(r => r.review_month === month)
+    let i = pool.findIndex(r => r.review_month === month && hasDay(r))
+    if (i < 0) i = pool.findIndex(r => r.review_month === month)
+    if (i < 0) i = pool.findIndex(hasDay)
     return pool.splice(i >= 0 ? i : 0, 1)[0]
   }
 

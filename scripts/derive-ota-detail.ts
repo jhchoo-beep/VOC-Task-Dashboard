@@ -68,7 +68,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import {
-  parseRawDate, weekLabelOf, monthStartOf, distFromRatings, distColumnsFor,
+  resolveReviewDate, collectedRangeUtc, rawMonthOrCollectedFilter,
+  weekLabelOf, monthStartOf, distFromRatings, distColumnsFor,
   recentWeekStarts, monthsCovering, isUnsettledBucket, SETTLE_GRACE_DAYS,
   monthWindow, mergeSource, planDetailWrite, isForcedReanalysis, isWriteAction, WRITE_ACTION_LABEL,
   OTA_SITE_BY_NAME, granularityForSite,
@@ -238,6 +239,7 @@ interface RawRow {
   review_month: string | null
   rating: number | string | null
   content: string | null
+  created_at?: string | null   // 수집일 — raw_date 에 일자가 없을 때의 날짜(resolveReviewDate)
 }
 
 // 리뷰의 모집단. 중복이 제거돼 있고 번역본이 붙어 있다.
@@ -257,14 +259,21 @@ interface ReviewRow {
 // 페이지 크기보다 작게 내려간 순간 첫 페이지에서 멈춰 또 조용히 잘린다.
 // 실제로 받은 행 수만큼만 offset을 밀고, 빈 페이지에서만 끝낸다.
 // 페이지 경계가 흔들리지 않도록 정렬을 고정한다(정렬 없는 페이징은 행 누락·중복을 만든다).
-async function fetchPaged<T>(table: string, cols: string, branch: string, site: string, months: string[]): Promise<T[]> {
+async function fetchPaged<T>(
+  table: string, cols: string, branch: string, site: string, months: string[],
+  collected?: { gte: string; lt: string },
+): Promise<T[]> {
   const out: T[] = []
   for (let from = 0; ;) {
-    const { data, error } = await db
+    const base = db
       .from(table)
       .select(cols)
       .eq('branch', branch).eq('ota_site', site)
-      .in('review_month', months)
+    // 수집일 구간이 주어지면 'review_month 목록 OR 수집일 구간'으로 읽는다(수집일 대체 행 포함).
+    const filtered = collected
+      ? base.or(rawMonthOrCollectedFilter(months, collected))
+      : base.in('review_month', months)
+    const { data, error } = await filtered
       .order('id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
     if (error) throw error
@@ -276,8 +285,23 @@ async function fetchPaged<T>(table: string, cols: string, branch: string, site: 
   return out
 }
 
-const fetchRawReviews = (branch: string, site: string, months: string[]) =>
-  fetchPaged<RawRow>('raw_reviews', 'branch,ota_site,reviewer,raw_date,review_month,rating,content', branch, site, months)
+// 🔴 created_at 을 싣는다 — raw_date 에 일자가 없는 주 단위 채널(아고다, 2026-08-13 수집분~)은
+//    수집일이 날짜다(resolveReviewDate). 그런 행은 review_month 가 투숙월이라 달 목록만으로는
+//    조회되지 않으므로 수집일 구간으로도 읽는다. 읽은 뒤에는 '달 목록에 들거나 수집일 대체를
+//    받는 행'만 남긴다 — 일자가 있는 옛 백필 행(부킹 '2024년 3월 22일' 등)이 수집일 구간에
+//    걸려 들어와 'reviews 미반영 raw' 신호를 부풀리지 않게 한다.
+const fetchRawReviews = async (
+  branch: string, site: string, months: string[], collected?: { gte: string; lt: string },
+): Promise<RawRow[]> => {
+  const rows = await fetchPaged<RawRow>(
+    'raw_reviews', 'branch,ota_site,reviewer,raw_date,review_month,rating,content,created_at',
+    branch, site, months, collected,
+  )
+  if (!collected) return rows
+  return rows.filter(r =>
+    (r.review_month != null && months.includes(r.review_month)) ||
+    resolveReviewDate(r).dateSource === 'collected')
+}
 
 // 🔴 리뷰의 모집단은 여기다(2026-08-11 재헌 결정). raw_reviews 는 날짜만 빌려 준다.
 //    raw 는 같은 리뷰를 여러 행으로 갖는다(원문+번역본 / 리뷰어만 다른 사본 / 스크래퍼 UI 행).
@@ -342,6 +366,12 @@ async function buildBuckets(): Promise<Bucket[]> {
   const noRawPair = new Map<string, number>()
   // raw 에는 있는데 아직 reviews 로 파싱되지 않은 행 — 집계에서 빠진다는 사실을 알린다
   const notParsed = new Map<string, number>()
+  // 주간 채널에서 raw 일자가 없어 수집일로 대체한 리뷰 — 수집기가 작성일을 되찾으면 0으로 돌아간다
+  const collectedUsed = new Map<string, number>()
+  // 수집일 대체 행을 읽어 올 수집일 구간(KST 달력 → UTC 경계). raw 읽기 범위(targetMonths)와 같은 달들이다.
+  const readCollected = collectedRangeUtc(
+    `${targetMonths[0]}-01`, monthWindow(targetMonths[targetMonths.length - 1]).lastDay,
+  )
 
   for (const p of props ?? []) {
     if (onlyBranch && p.branch !== onlyBranch) continue
@@ -352,15 +382,16 @@ async function buildBuckets(): Promise<Bucket[]> {
     const site = OTA_SITE_BY_NAME[p.ota_name]
     if (!site) { console.warn(`매핑 없는 채널: ${p.ota_name} — 건너뜀`); continue }
 
-    const [raw, reviews] = await Promise.all([
-      fetchRawReviews(p.branch, site, targetMonths),
-      fetchReviews(p.branch, site, targetMonths),
-    ])
-
     // 입도는 채널이 정한다 — 행 단위로 정하면 일자 못 구한 리뷰 하나가 주간 채널에
     // 월 버킷을 끼워 넣어, 한 채널에 '7월'과 '07/14' 라벨이 섞이고 월간 뷰에서
     // React 키가 중복된다. 규칙의 정본은 lib/otaDetail.ts — 입력 모달도 같은 함수를 쓴다.
     const granularity: Granularity = granularityForSite(site)
+
+    // 주 단위 채널만 수집일 구간으로도 raw 를 읽는다(수집일 대체 행 — fetchRawReviews 주석).
+    const [raw, reviews] = await Promise.all([
+      fetchRawReviews(p.branch, site, targetMonths, granularity === 'week' ? readCollected : undefined),
+      fetchReviews(p.branch, site, targetMonths),
+    ])
     const chanKey  = `${p.branch} ${p.ota_name}`
     const scoreMax = p.score_max === 5 ? 5 : 10
     const byKey    = new Map<string, Bucket>()
@@ -378,7 +409,8 @@ async function buildBuckets(): Promise<Bucket[]> {
     for (const pair of pairs) {
       const r = pair.review
       if (pair.raw == null) noRawPair.set(chanKey, (noRawPair.get(chanKey) ?? 0) + 1)
-      const { date, month } = parseRawDate(pair.raw?.raw_date ?? null, r.review_month)
+      // 날짜 규칙의 정본은 resolveReviewDate — 주간 리포트 드릴다운과 같은 함수여야 카드와 펼침이 맞는다.
+      const { date, month, dateSource } = resolveReviewDate(pair.raw, r.review_month)
       if (!date && !month) { unparsed++; continue }
 
       // 주간 채널인데 일자를 복원 못 한 행: 월로 강등하지 않고 제외하고 센다.
@@ -391,6 +423,7 @@ async function buildBuckets(): Promise<Bucket[]> {
       const weekStart = granularity === 'month' ? monthStartOf(month!) : weekLabelOf(date!)
       if (granularity === 'week' && !targetWeeks.includes(weekStart)) continue
       if (granularity === 'month' && !targetMonthBuckets.includes(month!)) continue
+      if (dateSource === 'collected') collectedUsed.set(chanKey, (collectedUsed.get(chanKey) ?? 0) + 1)
 
       const k = `${weekStart}|${granularity}`
       if (!byKey.has(k)) {
@@ -433,6 +466,18 @@ async function buildBuckets(): Promise<Bucket[]> {
     }
   } else {
     console.log('주간 채널 일자 미확인 제외: 0건')
+  }
+
+  // 수집일 대체는 '제외'가 아니다 — 버킷에 들어갔다. 다만 작성일보다 1~3일 늦은 날짜라 따로 알린다.
+  // 0이 아니면 수집기가 여전히 작성일 대신 투숙월을 담고 있다는 뜻이다(2026-08-13~).
+  const collectedTotal = [...collectedUsed.values()].reduce((a, b) => a + b, 0)
+  if (collectedTotal > 0) {
+    console.warn(`주간 채널 raw 일자 없음 → 수집일로 대체: ${collectedTotal}건 (작성일보다 1~3일 늦을 수 있음)`)
+    for (const [k, n] of [...collectedUsed.entries()].sort((a, b) => b[1] - a[1])) {
+      console.warn(`  · ${k} — ${n}건`)
+    }
+  } else {
+    console.log('주간 채널 수집일 대체: 0건')
   }
 
   // reviews 에는 있는데 raw 에서 짝을 못 찾은 리뷰. 날짜를 못 얻으므로 주간 채널에서는

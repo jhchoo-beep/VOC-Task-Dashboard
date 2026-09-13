@@ -1,10 +1,10 @@
 import { supabase, calcCLX } from '@/lib/supabase'
-import { distColumnsFor, isWeeklyGap, OTA_SITE_BY_NAME } from '@/lib/otaDetail'
+import { distColumnsFor, isWeeklyGap, OTA_SITE_BY_NAME, rawMonthOrCollectedFilter } from '@/lib/otaDetail'
 import { buildWeeklyReport, listReportWeeks } from '@/lib/weeklyReport'
 import type {
   PropertyRow, DistRow, WeeklyReport,
 } from '@/lib/weeklyReport'
-import { buildChannelReviews, drilldownMonths } from '@/lib/weeklyReviews'
+import { buildChannelReviews, drilldownMonths, drilldownCollectedRange } from '@/lib/weeklyReviews'
 import type { ChannelReviews, RawReviewRow, ReviewRow } from '@/lib/weeklyReviews'
 import type { WeeklyTaskRow } from '@/lib/weeklyTasks'
 import type { TriageRow } from '@/lib/weeklyTriage'
@@ -535,11 +535,15 @@ export async function getWeeklyReportProps(week?: string): Promise<{
     // 🔴 모집단은 reviews 다 — raw_reviews 는 날짜·국가·객실타입만 빌려 준다(2026-08-11).
     //    raw 를 모집단으로 쓰던 때는 같은 리뷰가 여러 행이라 화면에 두 벌 나란히 떴다.
     //    근거는 lib/otaDetail.ts pairReviewsWithRaw 주석.
+    // 🔴 수집일 대체(아고다 2026-08-13 수집분~)를 받는 raw 행은 review_month 가 투숙월이라
+    //    달 목록만으로는 조회되지 않는다 — 버킷 구간의 수집일로도 읽는다. 짝짓기 후보가 늘 뿐
+    //    모집단(reviews)은 그대로다. 날짜 규칙은 lib/otaDetail.ts resolveReviewDate.
+    const collected = drilldownCollectedRange(drillTargets)!
     const [rawRows, reviewRows] = sites.length === 0 ? [[], []] : await Promise.all([
       fetchAllRows(
         'raw_reviews',
-        'id,branch,ota_site,review_month,raw_date,rating,country,room_type,content,reviewer',
-        q => q.in('branch', branches).in('review_month', months).in('ota_site', sites),
+        'id,branch,ota_site,review_month,raw_date,rating,country,room_type,content,reviewer,created_at',
+        q => q.in('branch', branches).in('ota_site', sites).or(rawMonthOrCollectedFilter(months, collected)),
       ),
       fetchAllRows(
         'reviews',

@@ -7,6 +7,8 @@
 //
 // 🔴 버킷 매칭은 반드시 파생 배치와 같은 파서·같은 채널명 맵을 쓴다.
 //    화면이 자기만의 매칭 규칙을 만들면 "3건 8.0"이라고 써 놓고 다른 3건을 띄운다.
+//    날짜는 resolveReviewDate 하나로 정한다 — raw_date 에 일자가 없는 주 단위 채널(아고다,
+//    2026-08-13 수집분부터)은 수집일로 대체한다. 한쪽만 대체하면 카드와 펼침이 갈라진다.
 //
 // 🔴 OtaScoresClient의 OTA_SITE_ALIAS(NOL: ['NOL','야놀자'])를 쓰지 말 것 — 그건 표기가
 //    갈리는 채널을 넓게 잡는 별개 용도라, 이쪽을 쓰면 배치가 세지 않은 행이 화면에만 뜬다.
@@ -14,8 +16,8 @@
 // 상대 경로로 가져온다 — vitest는 '@/' 별칭을 풀지 않는다.
 import type { Granularity } from './otaDetail'
 import {
-  parseRawDate, weekLabelOf, OTA_SITE_BY_NAME,
-  bucketPeriodStart, bucketPeriodEnd,
+  resolveReviewDate, weekLabelOf, OTA_SITE_BY_NAME,
+  bucketPeriodStart, bucketPeriodEnd, collectedRangeUtc,
   pairReviewsWithRaw, ratingInChannelScale, reviewKey,
 } from './otaDetail'
 
@@ -43,6 +45,7 @@ export interface RawReviewRow {
   room_type: string | null
   content: string | null
   reviewer: string | null
+  created_at?: string | null   // 수집일 — raw_date 에 일자가 없는 주 단위 채널의 날짜 대체
 }
 
 export interface WeeklyReviewItem {
@@ -92,6 +95,21 @@ export function drilldownMonths(
   return [...new Set(months)].sort()
 }
 
+/**
+ * 드릴다운 대상 버킷 구간 전체를 덮는 수집일 경계(UTC). 대상이 없으면 null.
+ *
+ * 🔴 수집일 대체를 받는 raw 행은 review_month 가 투숙월이라 drilldownMonths 만으로는 조회되지
+ *    않는다. 버킷 소속을 수집일로 정하므로 조회 범위도 버킷 구간 그대로면 된다.
+ */
+export function drilldownCollectedRange(
+  targets: { weekStart: string; granularity: Granularity }[],
+): { gte: string; lt: string } | null {
+  if (targets.length === 0) return null
+  const starts = targets.map(t => bucketPeriodStart(t.weekStart, t.granularity)).sort()
+  const ends   = targets.map(t => bucketPeriodEnd(t.weekStart, t.granularity)).sort()
+  return collectedRangeUtc(starts[0], ends[ends.length - 1])
+}
+
 /** 날짜가 붙은 정본 리뷰 한 건. */
 export interface DatedReview {
   review: ReviewRow
@@ -116,7 +134,7 @@ export function datedReviewsFor(
   const r = raw.filter(x => x.branch === branch && x.ota_site === site)
 
   return pairReviewsWithRaw(v, r).map(p => {
-    const { date, month } = parseRawDate(p.raw?.raw_date ?? null, p.review.review_month)
+    const { date, month } = resolveReviewDate(p.raw, p.review.review_month)
     return { review: p.review, raw: p.raw, date, month }
   })
 }
