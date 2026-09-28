@@ -69,8 +69,8 @@ interface TriageHandlers {
   clear: (id: string) => void
 }
 
-// 한 리뷰의 판단 컨트롤. 편집 모드(회의 전 FO)는 토글 3개 + 사유 입력,
-// 읽기 모드(임베드=회의 화면)는 판단 배지 + 사유만 보인다.
+// 한 리뷰의 판단 컨트롤. 편집 모드(회의 전 FO)는 토글 3개,
+// 읽기 모드(임베드=회의 화면)는 판단 배지만 보인다. 사유는 두 모드 모두 원문 아래(ReviewList).
 function TriageControl({ item, row, canEdit, on }: {
   item: WeeklyReviewItem
   row: TriageRow | undefined
@@ -80,14 +80,12 @@ function TriageControl({ item, row, canEdit, on }: {
   if (!canEdit) {
     if (!row) return null
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-        <span style={{
-          fontSize: 11, fontWeight: 800, color: '#fff',
-          background: VERDICT_COLOR[row.verdict], borderRadius: 10, padding: '2px 9px',
-          whiteSpace: 'nowrap',
-        }}>{row.verdict}</span>
-        {row.note && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{row.note}</span>}
-      </span>
+      <span style={{
+        marginLeft: 'auto',
+        fontSize: 11, fontWeight: 800, color: '#fff',
+        background: VERDICT_COLOR[row.verdict], borderRadius: 10, padding: '2px 9px',
+        whiteSpace: 'nowrap',
+      }}>{row.verdict}</span>
     )
   }
 
@@ -197,6 +195,15 @@ function ReviewList({ cr, triage, embed, on }: {
                     background: 'var(--bg-card)', color: 'var(--text-1)', fontFamily: 'inherit',
                   }}
                 />
+              )}
+              {/* 임베드도 사유를 편집 화면과 같은 자리·같은 모양으로 둔다. 배지 옆 회색 보조
+                  글씨로 두었더니 날짜 같은 메타 정보로 읽혀 회의 화면에서 안 보였다(2026-09-28 재헌). */}
+              {embed && row?.note && (
+                <div style={{
+                  marginTop: 8, fontSize: 12, lineHeight: 1.6, padding: '5px 9px',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  background: 'var(--bg-card)', color: 'var(--text-1)', whiteSpace: 'pre-wrap',
+                }}>{row.note}</div>
               )}
             </div>
           )
