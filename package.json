@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "derive:ota": "tsx scripts/derive-ota-detail.ts"
+    "derive:ota": "tsx scripts/derive-ota-detail.ts",
+    "export:notion": "tsx scripts/export-reviews-notion.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.102.1",
