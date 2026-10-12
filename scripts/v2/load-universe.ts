@@ -70,7 +70,7 @@ for (let i = 0; i < cRows.length; i += 80) {
 const extById = new Map<string, any>()
 ext.stars.forEach((s: any, i: number) => extById.set(`S-${String(i + 1).padStart(5, '0')}`, s))
 const dictKey = (s: any) => `${s.polarity}|${s.galaxy}|${s.phenomenon}|${s.owner}`
-const dict = [...new Set(u.stars.map(dictKey))].sort(BY_C) as string[]
+const dict = [...new Set<string>(u.stars.map(dictKey))].sort(BY_C)   // Set<string> 명시(타입만, 동작 같음)
 const dictIdx = new Map(dict.map((k, i) => [k, i + 1]))
 const dictSql = dict.map((k, i) => { const [p, g, ph, o] = k.split('|'); return `(${i + 1}, ${q(p)}, ${q(g)}, ${q(ph)}, ${q(o)})` }).join(',\n  ')
 const DAY0 = '2026-05-01'   // 별 날짜 = DAY0 + 정수(행 길이를 줄이려고)

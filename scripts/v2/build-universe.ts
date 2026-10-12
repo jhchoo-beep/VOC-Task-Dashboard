@@ -107,7 +107,7 @@ for (const g of groups.values()) {
     monthly[m] = (monthly[m] ?? 0) + 1
     channels[s.channel] = (channels[s.channel] ?? 0) + 1
   }
-  const history: StatusEvent[] | any[] = []
+  const history: any[] = []   // merge·seed·task_linked 등 StatusEvent 밖 이력도 담는다(타입만 넓힘, 동작 같음)
   for (const mf of mergedFrom.get(`${g.polarity}|${g.phenomenon}`) ?? []) {
     if (g.stars.some(s => s.phenomenon_raw === mf.from)) {
       history.push({ type: 'merge', at: curation.at, note: `「${mf.from}」을 합침 — ${mf.reason}` })
