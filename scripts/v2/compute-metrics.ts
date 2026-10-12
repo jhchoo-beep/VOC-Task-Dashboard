@@ -1,7 +1,8 @@
 /**
  * V2 백필 A7 — 북극성·가드레일 지표 (DB 접속 없음)
  * ────────────────────────────────────────────────────────────────
- * 입력(<data>): source/ota_properties.json, source/ota_scores.json, source/ota_channel_checkouts.json,
+ * 입력(<data>): source/ota_properties.json, source/ota_scores.json,
+ *              source/wings_channel_checkouts.json(있으면 우선, Wings 실 퇴실·연박 조각 제외) 또는 source/ota_channel_checkouts.json,
  *              reviews.resolved.json, stars.extracted.json
  * 출력: <data>/metrics.json (build-universe.ts 가 읽어 universe.json 에 넣는다)
  *
@@ -10,12 +11,13 @@
  *    직전 스냅샷과 간격이 10일을 넘으면 그 주는 뺀다(isWeeklyGap). 체크아웃이 없는 주는 계산하지 않는다.
  * 🔴 북극성(첫 가동 추정, 재헌 2026-10-12 확정):
  *    1 − (원문 있는 리뷰 중 부정 별이 1개 이상인 리뷰 비율 × 그 기간 채널 전체 리뷰 수(스냅샷 증가분)) ÷ 그 기간 채널 체크아웃 수
- *    분모는 지점 전체 체크아웃이 아니라 OTA 채널 체크아웃. 체크아웃이 있는 채널만 계산한다(지금은 신설 Agoda).
+ *    분모는 지점 전체 체크아웃이 아니라 OTA 채널 체크아웃. 채널별로 추정한 뒤 합산한다
+ *    (추정 부정 체류 합 ÷ 체크아웃 합, 원문 리뷰 0건인 채널은 분자·분모에서 뺌). 지점별 값은 north_star.by_branch.
  *
  *   npx tsx scripts/v2/compute-metrics.ts <data 폴더> [--from 2026-06-01] [--as-of 2026-10-12]
  * ────────────────────────────────────────────────────────────────
  */
-import { readFileSync, writeFileSync, renameSync } from 'node:fs'
+import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { isWeeklyGap, addDaysIso } from '../../lib/otaDetail'
 
@@ -27,7 +29,11 @@ const read = (f: string) => JSON.parse(readFileSync(join(dataDir, f), 'utf8'))
 
 const props: any[] = read('source/ota_properties.json')
 const scores: any[] = read('source/ota_scores.json')
-const checkouts: any[] = read('source/ota_channel_checkouts.json')
+// 체크아웃 원천: Wings 실 퇴실(연박 조각 제외, Output/.../engineering/wings_checkouts.py)이 있으면 그것을 쓴다.
+// ota_channel_checkouts 는 신설 Agoda 수기 입력만 있어(재헌 2026-10-13 「손으로 쓴 거라 신뢰하기 어려워」) 대체 원천일 뿐이다.
+const WINGS_FILE = 'source/wings_channel_checkouts.json'
+const checkoutSource = existsSync(join(dataDir, WINGS_FILE)) ? 'wings' : 'ota_channel_checkouts'
+const checkouts: any[] = read(checkoutSource === 'wings' ? WINGS_FILE : 'source/ota_channel_checkouts.json')
 const resolved: any[] = read('reviews.resolved.json')
 const extracted = read('stars.extracted.json')
 const BRANCHES = ['신설', '동대문']
@@ -105,25 +111,49 @@ const otaRating = props.filter(p => BRANCHES.includes(p.branch) && p.active).map
   return l ? { branch: p.branch, channel: p.ota_name, score: Number(l.overall_score), scale: p.score_max, recorded_at: l.recorded_at, review_count: l.review_count } : null
 }).filter(Boolean)
 
-const main = northDetail[0]?.all
+// 북극성 합산: 원문 리뷰가 있어 부정 비율을 낼 수 있는 채널만 분자·분모에 넣는다(추정 부정 체류 합 ÷ 체크아웃 합).
+// 원문이 0건인 채널은 부정 비율을 모르므로 체크아웃도 분모에서 뺀다(넣으면 불편 없음으로 부풀려진다).
+function aggregate(rows: any[]) {
+  const ok = rows.filter(d => d.all && d.all.est_neg_stays != null)
+  if (ok.length === 0) return null
+  const est = ok.reduce((a, d) => a + d.all.est_neg_stays, 0)
+  const co = ok.reduce((a, d) => a + d.all.channel_checkouts, 0)
+  const froms = ok.map(d => d.all.period.from).sort(), tos = ok.map(d => d.all.period.to).sort()
+  return {
+    value: Math.round((1 - est / co) * 10000) / 10000,
+    channels: ok.map(d => `${d.branch} ${d.channel}`),
+    period: { from: froms[0], to: tos[tos.length - 1], weeks: Math.max(...ok.map(d => d.all.period.weeks)) },
+    inputs: {
+      text_reviews: ok.reduce((a, d) => a + d.all.text_reviews, 0),
+      text_reviews_with_neg_star: ok.reduce((a, d) => a + d.all.text_reviews_with_neg_star, 0),
+      channel_reviews_delta: ok.reduce((a, d) => a + d.all.channel_reviews_delta, 0),
+      channel_checkouts: co,
+      est_neg_stays: Math.round(est * 10) / 10,
+    },
+  }
+}
+const overall = aggregate(northDetail)
+const byBranch = Object.fromEntries(BRANCHES.map(b => [b, aggregate(northDetail.filter(d => d.branch === b))]))
+const skipped = northDetail.filter(d => !d.all || d.all.est_neg_stays == null).map(d => `${d.branch} ${d.channel}`)
+const noCheckout = props.filter(p => BRANCHES.includes(p.branch) && p.active && !northDetail.some(d => d.property_id === p.property_id)).map(p => `${p.branch} ${p.ota_name}`)
+const voiceSum = (rows: any[]) => { const r = rows.reduce((a, v) => a + v.reviews, 0), c = rows.reduce((a, v) => a + v.checkouts, 0); return c ? { ratio: Math.round((r / c) * 10000) / 10000, reviews: r, checkouts: c } : null }
+const srcLabel = checkoutSource === 'wings' ? 'Wings 실 퇴실(연박 조각 제외) 체크아웃' : 'ota_channel_checkouts 수기 체크아웃'
 const out = {
   north_star: {
     label: '불편 없이 끝난 체류 비율',
-    value: main?.value == null ? null : Math.round(main.value * 10000) / 10000,
-    scope: main ? `신설 Agoda만(체크아웃 데이터가 있는 유일한 채널) · ${main.period.from}~${main.period.to} ${main.period.weeks}주 · 리뷰 1건=체류 1건 추정` : '체크아웃 데이터가 있는 채널 없음',
+    value: overall?.value ?? null,
+    scope: overall ? `신설·동대문 OTA ${overall.channels.length}채널 · ${overall.period.from}~${overall.period.to} ${overall.period.weeks}주 · ${srcLabel} · 리뷰 1건=체류 1건 추정` : '체크아웃 데이터가 있는 채널 없음',
     is_estimate: true,
-    inputs: main ? {
-      text_reviews: main.text_reviews, text_reviews_with_neg_star: main.text_reviews_with_neg_star,
-      neg_ratio: main.neg_ratio == null ? null : Math.round(main.neg_ratio * 10000) / 10000,
-      channel_reviews_delta: main.channel_reviews_delta, channel_checkouts: main.channel_checkouts,
-      est_neg_stays: main.est_neg_stays == null ? null : Math.round(main.est_neg_stays * 10) / 10,
-    } : null,
-    not_computed: '동대문 전 채널·신설 Agoda 외 채널 — ota_channel_checkouts 에 체크아웃 수 없음. 신설 Agoda도 2026-07-20 주 이후 체크아웃 미입력',
+    by_branch: Object.fromEntries(Object.entries(byBranch).map(([b, a]) => [b, a ? { value: a.value, ...a.inputs } : null])),
+    inputs: overall ? overall.inputs : null,
+    checkout_source: checkoutSource,
+    not_computed: [skipped.length ? `원문 리뷰 0건이라 부정 비율 없음: ${skipped.join(', ')}` : '', noCheckout.length ? `체크아웃 없음: ${noCheckout.join(', ')}` : ''].filter(Boolean).join(' / ') || '없음',
   },
   guardrails: {
     ota_rating: otaRating,
     voice_ratio: voiceRatio,
-    voice_ratio_not_computed: '체크아웃 수가 있는 채널만 계산(V1 작성률과 같음). 지금은 신설 Agoda 2026-07-20 주까지',
+    voice_ratio_summary: { 전체: voiceSum(voiceRatio), ...Object.fromEntries(BRANCHES.map(b => [b, voiceSum(voiceRatio.filter(v => v.branch === b))])) },
+    voice_ratio_not_computed: noCheckout.length ? `체크아웃 없음: ${noCheckout.join(', ')}` : '없음',
   },
   detail: northDetail,
 }
