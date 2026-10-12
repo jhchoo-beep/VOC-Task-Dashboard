@@ -13,6 +13,8 @@
  * ────────────────────────────────────────────────────────────────
  */
 
+import type { UniverseLoad } from './universeFromDb'
+
 export const DATA_MARK = '/*@@DATA@@*/'
 
 /** 아티팩트 뼈대가 주던 규칙 — B 화면은 [hidden] 이 확실히 숨는다는 전제로 짜여 있다(모더레이터 확인 2026-10-13). */
@@ -73,4 +75,23 @@ a{color:#d8ecff;text-underline-offset:3px}
 </body>
 </html>
 `
+}
+
+// ─── 조립 결과 → 응답 문서(라우트와 렌더 스크립트가 같은 판단을 쓰게) ─────────
+
+export interface PageOut { status: number; state: 'ready' | 'empty' | 'error'; html: string }
+
+/** DB 조립 결과를 문서로. 적재 전이면 빈 우주 대신 「데이터 적재 전」. */
+export function pageForLoad(load: UniverseLoad, template: string): PageOut {
+  if (load.state === 'empty') {
+    const t = load.tables
+    const line = load.reason === 'tables_missing' ? 'V2 표 없음' : `별 ${t.voc_stars ?? 0} · 별자리 ${t.voc_constellations ?? 0}`
+    return { status: 200, state: 'empty', html: renderStatusPage({ heading: '데이터 적재 전', lines: [line] }) }
+  }
+  return { status: 200, state: 'ready', html: renderUniversePage(template, load.universe) }
+}
+
+/** 읽기 실패 화면(500). 오류 내용은 서버 로그에만 남긴다. */
+export function errorPage(): PageOut {
+  return { status: 500, state: 'error', html: renderStatusPage({ heading: '데이터를 읽지 못했습니다', lines: ['잠시 뒤 새로고침'] }) }
 }

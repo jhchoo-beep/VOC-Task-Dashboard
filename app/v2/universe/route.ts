@@ -7,17 +7,11 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { getSupabase } from '@/lib/supabase'
 import { loadUniverseFromDb } from '@/lib/v2/universeFromDb'
-import { renderStatusPage, renderUniversePage } from '@/lib/v2/universePage'
+import { errorPage, pageForLoad, type PageOut } from '@/lib/v2/universePage'
 import { UNIVERSE_TEMPLATE } from '@/lib/v2/viewer/universeTemplate'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-const headers = (state: 'ready' | 'empty' | 'error') => ({
-  'Content-Type': 'text/html; charset=utf-8',
-  'Cache-Control': 'no-store',
-  'X-VOC-Universe': state,
-})
 
 export async function GET(req: Request) {
   const session = await auth()
@@ -27,19 +21,19 @@ export async function GET(req: Request) {
     return res
   }
 
+  let page: PageOut
   try {
     const load = await loadUniverseFromDb(getSupabase())
-    if (load.state === 'empty') {
-      const t = load.tables
-      const line = load.reason === 'tables_missing'
-        ? 'V2 표 없음'
-        : `별 ${t.voc_stars ?? 0} · 별자리 ${t.voc_constellations ?? 0}`
-      return new Response(renderStatusPage({ heading: '데이터 적재 전', lines: [line] }), { status: 200, headers: headers('empty') })
+    if (load.state === 'ready' && load.warnings.length) {
+      console.warn(`[v2/universe] 조립 경고 ${load.warnings.length}건`, load.warnings.slice(0, 20))
     }
-    if (load.warnings.length) console.warn(`[v2/universe] 조립 경고 ${load.warnings.length}건`, load.warnings.slice(0, 20))
-    return new Response(renderUniversePage(UNIVERSE_TEMPLATE, load.universe), { status: 200, headers: headers('ready') })
+    page = pageForLoad(load, UNIVERSE_TEMPLATE)
   } catch (e) {
     console.error('[v2/universe] 읽기 실패', e)
-    return new Response(renderStatusPage({ heading: '데이터를 읽지 못했습니다', lines: ['잠시 뒤 새로고침'] }), { status: 500, headers: headers('error') })
+    page = errorPage()
   }
+  return new Response(page.html, {
+    status: page.status,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-VOC-Universe': page.state },
+  })
 }

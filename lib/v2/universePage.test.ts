@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DATA_MARK, HIDDEN_RULE, embedJson, renderStatusPage, renderUniversePage } from './universePage'
+import { DATA_MARK, HIDDEN_RULE, embedJson, errorPage, pageForLoad, renderStatusPage, renderUniversePage } from './universePage'
 
 const LS = String.fromCharCode(0x2028)
 const TEMPLATE = `<!doctype html>
@@ -67,5 +67,25 @@ describe('renderStatusPage — 적재 전·읽기 실패 화면', () => {
     expect(html).not.toContain('<img')
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')
     expect(html).toContain('a &amp; b')
+  })
+})
+
+describe('pageForLoad — 조립 결과를 응답 문서로(라우트·렌더 스크립트 공용)', () => {
+  it('새 표가 없으면 「데이터 적재 전 · V2 표 없음」, 별 0행이면 표 행 수 — 빈 3D 우주를 내지 않는다', () => {
+    const missing = pageForLoad({ state: 'empty', reason: 'tables_missing', tables: { voc_stars: null, voc_constellations: null } }, TEMPLATE)
+    expect(missing.state).toBe('empty')
+    expect(missing.html).toContain('<h1>데이터 적재 전</h1>')
+    expect(missing.html).toContain('V2 표 없음')
+    expect(missing.html).not.toContain('voc-data')
+    const noRows = pageForLoad({ state: 'empty', reason: 'no_rows', tables: { voc_stars: 0, voc_constellations: 4 } }, TEMPLATE)
+    expect(noRows.html).toContain('별 0 · 별자리 4')
+  })
+
+  it('조립이 끝나면 템플릿에 데이터를 넣은 문서, 읽기 실패는 500 문서', () => {
+    const ready = pageForLoad({ state: 'ready', universe: { meta: { as_of: '2026-10-12' } } as never, warnings: [] }, TEMPLATE)
+    expect(ready).toMatchObject({ status: 200, state: 'ready' })
+    expect(JSON.parse(dataBlock(ready.html))).toEqual({ meta: { as_of: '2026-10-12' } })
+    expect(errorPage()).toMatchObject({ status: 500, state: 'error' })
+    expect(errorPage().html).toContain('데이터를 읽지 못했습니다')
   })
 })
