@@ -6,7 +6,7 @@
  * 들어가고 화면이 JSON.parse 로 읽는다.
  *
  * 🔴 이스케이프: 리뷰 원문에 `</script>`·`<!--` 가 있으면 스크립트 블록이 거기서 끊기거나(이후 원문이 HTML 로
- *    해석) 주석 상태로 넘어간다. JSON 문자열 안의 `<` 를 전부 `<` 로 바꾼다 — JSON 으로도 그대로 유효하다
+ *    해석) 주석 상태로 넘어간다. JSON 문자열 안의 `<` 를 전부 유니코드 탈출(u003c)로 바꾼다 — JSON 으로도 그대로 유효하다
  *    (`<\!--` 처럼 JSON 에 없는 탈출 문자를 쓰면 JSON.parse 가 실패한다).
  * 🔴 끼워 넣기는 String.replace 를 쓰지 않는다 — 대체 문자열의 `$&`·`$'` 가 특수 패턴으로 해석돼
  *    리뷰 원문에 따라 템플릿 조각이 데이터 안에 복제된다.
@@ -18,14 +18,19 @@ export const DATA_MARK = '/*@@DATA@@*/'
 /** 아티팩트 뼈대가 주던 규칙 — B 화면은 [hidden] 이 확실히 숨는다는 전제로 짜여 있다(모더레이터 확인 2026-10-13). */
 export const HIDDEN_RULE = '[hidden]:not([hidden=until-found i]){display:none!important}'
 
+// 줄 구분 문자 U+2028·U+2029(JSON 에는 유효하지만 옛 JS 문자열에서는 줄바꿈) — 소스에 그 문자를 직접 쓰지 않는다.
+const LS = String.fromCharCode(0x2028)
+const PS = String.fromCharCode(0x2029)
+const BS = String.fromCharCode(92)   // 역슬래시 — 탈출 문자열을 소스 탈출 규칙과 섞지 않으려고
+
 /** <script type="application/json"> 안에 넣어도 안전한 JSON 문자열. */
 export function embedJson(value: unknown): string {
   return JSON.stringify(value)
     .replace(/</g, '\\u003c')
     .replace(/>/g, '\\u003e')
     .replace(/&/g, '\\u0026')
-    .replace(/ /g, '\\u2028')
-    .replace(/ /g, '\\u2029')
+    .split(LS).join(BS + 'u2028')
+    .split(PS).join(BS + 'u2029')
 }
 
 /** 템플릿의 데이터 자리(정확히 1곳)에 JSON 을 넣어 완전한 HTML 문서를 돌려준다. */
