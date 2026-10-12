@@ -1,0 +1,2685 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VOC 우주</title>
+<meta name="theme-color" content="#02030a">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css">
+<style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<meta name="description" content="이용객 목소리를 별, 별자리, 은하, 북극성으로 보는 3D 탐색 화면">
+<style>
+@font-face{font-family:'Gmarket Sans';font-weight:400 600;font-style:normal;font-display:swap;unicode-range:U+0025, U+002B-002F, U+0030-0039, U+003A;src:url(data:font/woff2;base64,d09GMk9UVE8AAAWIAAwAAAAACBQAAAU9AAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAADYkMGjQGYAA8ATYCJANIBAYFgVQHIBckGCYbQQcAjsK2nTOKpIwwwgg+xgn+v9/vt/Y+76OWTEPypJY0M4ROqAwxQsTrT3hp96H35+nS/iwnmvC33lkw4jJS6Y3UTQ/wP0ib1lvSb5I3vfv/752+121PG1M0C3HM+082Fq9tgUQBFWgWcCdai6KxKO5TwJzNNelmH8YGqEisfDdFFCYSF1dRamFUXeeTfwkKrLyht5Ss+OtncE92919qGBf9Wa/qnQ6YFEvixGki4/rozInpud7iyqGjJ9Y2PztoZEZqLicyMjtkQTbkQC7kgZPjkmSmQwZkQhZkQw7kDsgrlZBnvttG4kxEwTlf8gdz2cIxGbgM7jHt0ENFlb/z3OinbI9v0kYBHsH70E1Be/INOG10nkCt0elC7uInZ0ErlsqD6Q0m/dW9wMHUsh+DdJB/8ZYtixdt27aoZsiQGv8gUXpenk9BcyoJyfPUJE+pNpkXb9u62L+G3z9YFJ4u/4FHFIfCKAeOcpVZMFR5A0Z9qEaQeRi2gNpYBz5zgqkFTJYS4SbFuxlwVyNgN9AkGgp2hUKBroaGqVMbGrqmhkTBBf0xkUqKHo+JyYr/PGrhaLplpeCFeBBhBhDZiF70ETTNwBnATvCJl1XI5QCBTgicAQ44IGd+OAxgZw4SJGIL5kKLk97vXoB/pIFbIyy4clJpzUU5UQPNUK+GSIheXmVneDAbrmMOeowYgRbdfc35mxNAbj2NTtGxkQ3VFjOPc3CuWliUjhX21Zo70E9koHRudX9/4Kfdu9gNHuL0d9GFTiSoQIPuvub07SEgD7YM8jnLR1h0WdnnNBC17yDDUzkIVSKq2dbO987wJs1nP/oHJihkvLCzLHbSW1AFvc9jb+kfjNHIMfI/LFOyMzUuP09huZTN5OxK4Chq8YYsyEYVcJgsprHhDYFm/rv0vdSPsYvyC+wpue4uU/99vXLxOcY/2FdgNpb7UPl8/rZFvGeEIhaG0peSl4IflmIk+wngEfWEhWmDmItHD1A95EIO0IfggTyMe4jpulbW8fpzb/BHfssp8iUvd+7sOw48aPfNmy0lHtSKwoepv5OCkqXz3dPYHnkJY2lSIVMLC9MJKwUP8Fde4v+MSt5Z/OOWn49sZ3d4iDDfwmRMMdsxUscsR6q3PFfyQlIlwyge+wGfAl6d9JQqfdDmwwc2b7hyZfOwooJBw9JFeYAKlaWPJ08d3n7/3uHqPGfpYFSIQqg0QitFPy6FSJYCcES9vPrvdnaCBw/Sh5iLOUj16ME8iNNDum4Wm/7Vz1/yPqmcAr9v3mIpcSOP2pKXu3f2HQOteHjXlU7ShsDUxsbg1NC8YNe8eYGuRlE2quaFgQYaMAfnhQLBOULP2ASphxIOaEKhuq4djhZ6UURn9xERi3SfqMEXXg7h0nfTJxlStExNEHgL8/5ZWSP5fQx36P+fYWLoOX8cDjJyQFsa9S6UiFQqJmlNXjhLIuds3Uk559d8SIC47EnTS08Pr4n2PuAjlJch8Lz/02x/dr+8Hr9GLCHU4Z09sfc/g0yMXRFCEkbAoaod8S1eulyah+PjLsnTTpziyJwTiOgFZGk9Kf4Uuz8nyUH6+fix7W7B4M9IGZ+nE0fmIfuQDggFUyhREUZMEzRHcEKko0IPzbvXMMxLDKGJRtp4mgDlTKOTp67cE7SsduvJJJV0QjewIg7rQDt8gqMw1MmTWcKx3Zlkk0KG1WSSjmPjfHvxSVFNo5PJyNxvzvCXH5sXkInqVhtRnP6dl0kvk/iXrll8RjZEcTm3+5ztJFETSY1YxRnvtL4bdobGTDUA) format('woff2')}
+@font-face{font-family:'Gmarket Sans';font-weight:700;font-style:normal;font-display:swap;unicode-range:U+0025, U+002B-002F, U+0030-0039, U+003A;src:url(data:font/woff2;base64,d09GMk9UVE8AAAVcAAwAAAAACBgAAAUQAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAADYkaGjQGYAA8ATYCJANIBAYFgUgHIBckGCYbQwdRlC5Ok+wjITfR+oEpQpShtDbE1fS543HTjy+1VLN5UjVoHWpUxGbmb2bCF6cztQs79sfzwaG++5fopEkUkGjAO4hKFav6FMnY//+90/+67WlrEIX8f2NZNMamOr41K8AssDFxbEvDwFJPHPLMrTFk9rBgsMc9RkjJmILQo3w8W0LjQtFFu2xnTJR36DvojxVev6DJKZRZc03+rrNuHkK58/z1YNHsWO1KuRUtOLrNFd/gyFijKaeooq591yH5Zbrw2OLT6RmiIBpiIBbiIJ6UwNJHgg70EAXREAOxA+MmxKgv5bQJt1A0zijL7WB2waPyrpgaW3cjMm2yK8da36N7+3HJCP6DyefhMtonbJBD9u4G7MHh7jewwCV8o4N6ujlaxlbEtu/+H7QifMdzW9m8s2e7dr16tm3ba9fRozt3mZ+sasPxdXg0ipx7m1Si/aE1l9EIJjSgCXL0B6McDGB6WJBsPMx4ImMU6YZLoRnhJSw1a44yBmvuENzo7ikBH+XSDu3Lyg63b7AcPmKxdDhSpkqJWoN1s4zpxMb8b4D0iPIwfLGOm5GFzdEHD+B+gByyIAsDxX44gC/ALBWjuNvH47AIC4vjDIbi+1AIRcfv31YlLAaw9pDxJurB94cf5ArSPLjW7z1S0QkdMVqFbOHkweNXb+3qVKyQNoOrgvxFXItbiY92mxAIx4sE7MCJBx8IPHSFPBAhECmgMF+RlsCtLuYGtEMOI366hl2WS+cPdi0ubNcpTUnEwDvCA0u37OLajqlqCul4YPIZEbOFZagDNgCyCSQRaPaWgI58iTuTuvT80gsXyEsR/NHuHSYp0matuU6GVIj/BsGe2gwcJOB52wyCwRpDeKyAYBkq4BzBc7y0AO4jLYMRPICDVEhD6hNGq9Wk3djuQ8VFEAafCIEI21IyyNYfEgi/fvveTRYi3jxalZLatiJNTSVd90+GUY2ZRJQWwMuOfyIpoIADGCABmwCLUepEMnHG1BkiFMI27EiwKz7k61MGFBGjiCZQkYVkBcK5xBrLlSt/Wu7c+bPMZKopS1SlbtoLaw/ZZkE9fBBw9w8/KCPwn7Wal1ZbFWgqE+AjLptWnFxz5SJ5IYIb8t/QgIkoeqOHQsKvZp4anj46PJ0gL2IgtAqDNEiDVi8hUMHWmoNc0bpLQVHdQctfv+49dcbcqVrZZKPkkop2BkPF0WMnLOabNy1tixRpAQToZOhIoCs85H+7vvkEuSWCCVVgMRmTUUUOTZgATZCFKGURkbZo9rzZ4rSjr/wUfH2HaDYeY/PiPnXz9yoPa7BM0YTtyEWzxBWNOCmNc1SzaWyb8zsexXxCTFGzjOh/umIqDLEpsaQpS94zO1Of+0lsz2e8uvastm2XZ8FPiMHjfg9sxiHgBCIhQGPI9/w5xBmC7PP7eT3upXV2i69fr7VzNu5FB/YFyd7arTqD9e7Pql7drihKxASa2JfHJnXd0KBzH4GW8m69jJHqA1NPX37qvykM+0Qkk0f+Fli3KVmpVdaT6T5Ns5pXq2cG8s02irndvWejSlBuKIoTi0UP7CiGiCIdq4qo4zXWdpdAMZhJP711lgVRX4NnD9RNF570wkXClaj5bH10uES9/IOVW7SvQUFru14vWhidivQiXVVO10AP6uHqm926Ye2Msb3yxJ+H6Uk9PcF83K8e075Qe48UzOuwJ0X3i2fPPEm02hqua7vmda4qvuE7boEX6Q4AAA==) format('woff2')}
+[hidden]:not([hidden=until-found i]) { display: none !important; }
+/* 레이아웃: 화면 전체가 하나의 우주(three.js). 그 위에 유리 질감의 얇은 층 — 위 경로·조작, 오른쪽(휴대폰은 아래) 패널, 아래 범례 */
+:root {
+  color-scheme: dark;
+  --void: #02030a;
+  --ink: #eef2fb;
+  --ink-2: #b4bdd4;
+  --ink-3: #79829d;
+  --hair: rgba(206, 218, 255, 0.11);
+  --hair-2: rgba(206, 218, 255, 0.06);
+  --glass: rgba(12, 16, 33, 0.56);
+  --glass-hi: rgba(20, 26, 50, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.075);
+  --neg: #ff7262;
+  --pos: #ffd27c;
+  --neb: #b394ff;
+  --dust: #9fabcb;
+  --polar: #d8ecff;
+  --gold: #d9b67b;
+  --amber: #f1a75e;
+  --f-ui: "Gmarket Sans", "Pretendard", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-prose: "Pretendard", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "PingFang SC", "Hiragino Sans", "Microsoft YaHei", system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-io: cubic-bezier(0.77, 0, 0.175, 1);
+  --panel-w: 384px;
+}
+html, body { height: 100%; margin: 0; background: var(--void); color: var(--ink); overflow: hidden; overscroll-behavior: none; }
+body { font: 400 14px/1.5 var(--f-ui); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; }
+* { box-sizing: border-box; }
+
+#app { position: fixed; inset: 0; overflow: hidden; background: var(--void); touch-action: none; user-select: none; -webkit-user-select: none; }
+#sky0 { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 1.1s var(--ease-out); }
+#sky0.gone { opacity: 0; }
+#gl { position: absolute; inset: 0; }
+#gl canvas { display: block; width: 100%; height: 100%; outline: none; }
+#gl.grab canvas { cursor: grab; }
+#gl.dragging canvas { cursor: grabbing; }
+#gl.point canvas { cursor: pointer; }
+#veil { position: absolute; inset: 0; background: #02030a; opacity: 0; pointer-events: none; transition: opacity 0.22s ease; }
+#veil.on { opacity: 1; }
+
+/* 유리 */
+.glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* 위 */
+.hud-top {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 5;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 0;
+  pointer-events: none;
+}
+.hud-top > * { pointer-events: auto; }
+.crumbs { display: flex; align-items: center; min-width: 0; height: 38px; padding: 0 6px; border-radius: 999px; overflow: hidden; }
+.crumbs button, .crumbs .cur {
+  border: 0; background: none; height: 30px; padding: 0 10px; border-radius: 999px; white-space: nowrap;
+  font-size: 13px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink-2); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+.crumbs .cur { color: var(--ink); font-weight: 600; cursor: default; display: inline-block; line-height: 30px; }
+.crumbs .cur-btn { color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--hair); }
+.crumbs .sep { color: var(--ink-3); font-size: 12px; flex: none; }
+.crumbs .home-ico { width: 14px; height: 14px; color: var(--polar); flex: none; }
+.crumbs .back { width: 30px; padding: 0; justify-content: center; flex: none; color: var(--ink); }
+.crumbs .back svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) {
+  .crumbs button:hover { background: rgba(255, 255, 255, 0.07); color: var(--ink); }
+}
+.crumbs button:active { background: rgba(255, 255, 255, 0.1); }
+
+.tools { display: flex; align-items: center; gap: 8px; flex: none; }
+.btn {
+  height: 38px; padding: 0 14px 0 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); cursor: pointer;
+  transition: transform 0.12s var(--ease-out), background-color 0.16s ease, border-color 0.16s ease;
+}
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn:active { transform: scale(0.97); }
+.btn[aria-pressed="false"] { color: var(--ink-2); }
+.btn[aria-pressed="false"] svg { opacity: 0.55; }
+#btn-home svg { color: var(--polar); }
+@media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--glass-hi); } }
+
+.seg { position: relative; display: flex; height: 38px; padding: 3px; border-radius: 999px; }
+.seg button {
+  position: relative; z-index: 1; border: 0; background: none; height: 30px; padding: 0 13px; border-radius: 999px;
+  font-size: 13px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink-2); cursor: pointer; white-space: nowrap;
+  transition: color 0.18s ease;
+}
+.seg button[aria-checked="true"] { color: #0b0f1d; font-weight: 600; }
+.seg-ind {
+  position: absolute; top: 3px; left: 0; height: 30px; width: 40px; border-radius: 999px; background: #e9eefb;
+  box-shadow: 0 1px 8px rgba(160, 190, 255, 0.25); transition: transform 0.26s var(--ease-out), width 0.26s var(--ease-out);
+}
+.sample-tag {
+  height: 26px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center;
+  font-size: 12px; font-weight: 600; color: var(--amber); border: 1px solid rgba(241, 167, 94, 0.45); background: rgba(241, 167, 94, 0.08);
+}
+button:focus-visible { outline: 2px solid var(--polar); outline-offset: 2px; }
+
+/* 라벨(3D 위치를 화면에 투영) */
+#labels { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.lb { position: absolute; left: 0; top: 0; will-change: transform, opacity; opacity: 0; transition: opacity 0.2s ease; white-space: nowrap; }
+.lb > div { transform: translate(-50%, 0); text-align: center; text-shadow: 0 0 10px rgba(2, 3, 10, 0.95), 0 0 2px rgba(2, 3, 10, 0.9); }
+.lb.on { opacity: 1; }
+.lb.dim { opacity: 0.38; }
+.lb.ns > div { transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 30px 10px; background: radial-gradient(closest-side, rgba(2, 3, 10, 0.72), rgba(2, 3, 10, 0)); }
+.lb.ns .k { font-size: 12px; font-weight: 500; letter-spacing: 0.01em; color: var(--polar); opacity: 0.86; }
+.lb.ns .v { display: inline-flex; align-items: baseline; gap: 6px; }
+.lb.ns .v b { font-size: 25px; font-weight: 700; letter-spacing: -0.02em; color: #f4f9ff; }
+.lb.ns .v .u { font-size: 14px; color: var(--polar); }
+.lb.ns .tag { font-size: 11px; font-weight: 600; color: var(--amber); border: 1px solid rgba(241, 167, 94, 0.5); border-radius: 999px; padding: 1px 7px; }
+.lb.gal b { display: block; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--gcol, var(--ink)); }
+.lb.gal small { display: block; margin-top: 1px; font-size: 11px; font-weight: 500; color: var(--gold); opacity: 0.9; letter-spacing: 0.01em; }
+.lb.gal.hot b { color: #fff; }
+.lb.con > div { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--ccol, var(--ink)); }
+.lb.con.seed > div { font-weight: 500; font-size: 12px; opacity: 0.85; }
+.lb.con.hot > div, .lb.con.sel > div { color: #fff; }
+.lb.con.sel > div { font-size: 15px; }
+.lb.mon > div { font-size: 11px; font-weight: 500; color: var(--gold); opacity: 0.85; transform: translate(-50%, -50%); }
+.lb.arm > div { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink); transform: translate(-50%, -50%); }
+.lb.arm > div i { display: block; font-style: normal; font-size: 10.5px; font-weight: 500; letter-spacing: 0.02em; color: var(--ink-3); }
+
+/* 패널 */
+.panel {
+  position: absolute; z-index: 6; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 66px); bottom: 16px; width: var(--panel-w);
+  border-radius: 20px; display: flex; flex-direction: column; overflow: hidden;
+  background: rgba(10, 13, 28, 0.62);
+  -webkit-backdrop-filter: blur(26px) saturate(150%); backdrop-filter: blur(26px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 24px 70px rgba(0, 0, 0, 0.5);
+  transform-origin: 100% 50%;
+  transition: transform 0.32s var(--ease-out), opacity 0.24s ease;
+}
+.panel.enter { opacity: 0; transform: translateX(18px) scale(0.985); }
+.panel .grab { display: none; }
+.p-close {
+  position: absolute; top: 12px; right: 12px; z-index: 2; width: 30px; height: 30px; border-radius: 999px; border: 0;
+  background: rgba(255, 255, 255, 0.06); color: var(--ink-2); display: grid; place-items: center; cursor: pointer;
+}
+.p-close svg { width: 14px; height: 14px; }
+@media (hover: hover) and (pointer: fine) { .p-close:hover { background: rgba(255, 255, 255, 0.12); color: var(--ink); } }
+.p-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; touch-action: pan-y; }
+.p-body { padding: 22px 22px 26px; display: flex; flex-direction: column; gap: 18px; user-select: text; -webkit-user-select: text; }
+.p-body.swap { animation: pswap 0.24s var(--ease-out); }
+@keyframes pswap { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); letter-spacing: 0.01em; padding-right: 34px; flex-wrap: wrap; }
+.eyebrow .id { color: var(--gold); }
+.p-title { margin: 6px 0 0; font-size: 23px; line-height: 1.28; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; letter-spacing: -0.005em; border: 1px solid currentColor; white-space: nowrap;
+}
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.ghost { color: var(--ink-2); border-color: var(--hair); }
+.badge.ghost::before { display: none; }
+.c-neg { color: var(--neg); } .c-pos { color: var(--pos); } .c-neb { color: var(--neb); } .c-amber { color: var(--amber); } .c-dust { color: var(--dust); } .c-polar { color: var(--polar); }
+
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 9px 18px; margin: 0; font-size: 13.5px; }
+.facts dt { color: var(--ink-3); font-weight: 500; }
+.facts dd { margin: 0; color: var(--ink); min-width: 0; }
+.facts dd .muted { color: var(--ink-3); }
+.num { font-variant-numeric: tabular-nums; }
+
+.bars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; align-items: end; height: 96px; padding-top: 4px; }
+.bars .b { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; min-width: 0; }
+.bars .b i { display: block; width: 100%; max-width: 30px; min-height: 2px; border-radius: 5px 5px 2px 2px; background: currentColor; transform-origin: 50% 100%; animation: grow 0.5s var(--ease-out) both; }
+.bars .b b { font-size: 12px; font-weight: 500; color: var(--ink); }
+.bars .b span { font-size: 11.5px; color: var(--ink-3); }
+.bars .b.zero b { color: transparent; }
+.bars .b.zero i { opacity: 0.35; }
+@keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+.summary { margin: 0; font: 400 14.5px/1.65 var(--f-prose); color: var(--ink); letter-spacing: -0.005em; }
+.next { display: flex; flex-direction: column; gap: 4px; padding: 13px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--hair-2); }
+.next .k { font-size: 11.5px; font-weight: 500; color: var(--gold); letter-spacing: 0.02em; }
+.next .v { font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.45; }
+.next .v .st { color: var(--ink-2); font-weight: 500; }
+
+.sect-k { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ink-2); letter-spacing: 0.01em; padding: 0 2px 6px; border-bottom: 1px solid var(--hair-2); }
+.sect-k > span { color: var(--ink-3); font-weight: 500; }
+.sect-k > .t { color: var(--ink-2); font-weight: 600; }
+.sect-k > .t b { margin-left: 6px; color: var(--ink); font-weight: 600; }
+.rows { display: flex; flex-direction: column; }
+.row {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
+  width: 100%; min-height: 40px; padding: 6px 8px; margin: 0 -8px; width: calc(100% + 16px);
+  border: 0; border-radius: 10px; background: none; text-align: left; cursor: pointer; color: var(--ink);
+  transition: background-color 0.14s ease;
+}
+.row .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.row .dot.ring { background: none; border: 1.5px dashed currentColor; box-shadow: none; width: 9px; height: 9px; }
+.row .nm { font-size: 14px; font-weight: 500; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .nm small { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 500; margin-top: 1px; }
+.row .st { font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.row .n { font-size: 13px; font-weight: 500; color: var(--ink-2); min-width: 2.2em; text-align: right; }
+.row.star { grid-template-columns: 10px auto minmax(0, 1fr) auto; }
+.row.star .d { font-size: 13px; font-weight: 500; color: var(--ink); }
+.row.star .ch { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.star .sc { font-size: 13px; font-weight: 500; color: var(--ink); }
+.row.star .sc span { color: var(--ink-3); font-size: 11.5px; }
+.row.on { background: rgba(255, 255, 255, 0.08); }
+@media (hover: hover) and (pointer: fine) { .row:hover, .row.hl { background: rgba(255, 255, 255, 0.06); } }
+.row:active { background: rgba(255, 255, 255, 0.1); }
+.foot-k { font-size: 12.5px; color: var(--ink-3); }
+
+.kpis { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; }
+.kpi { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; color: var(--ink-3); }
+.kpi b { font-size: 20px; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+.kpi.neg b { color: var(--neg); } .kpi.pos b { color: var(--pos); } .kpi.neb b { color: var(--neb); }
+
+/* 별(리뷰) */
+.score { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; }
+.score b { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; }
+.score span { font-size: 14px; color: var(--ink-3); }
+.tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--ink-2); border: 1px solid var(--hair); }
+.voice { position: relative; padding: 2px 0 2px 16px; }
+.voice::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 3px; background: currentColor; box-shadow: 0 0 12px currentColor; }
+.voice .vk { font-size: 12px; font-weight: 500; letter-spacing: 0.005em; }
+.voice blockquote { margin: 6px 0 0; font: 500 17px/1.55 var(--f-prose); color: var(--ink); letter-spacing: -0.015em; }
+.rev { display: flex; flex-direction: column; gap: 10px; }
+.rev-tabs { display: inline-flex; align-self: flex-start; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hair-2); }
+.rev-tabs button { border: 0; background: none; height: 26px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; }
+.rev-tabs button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.12); color: var(--ink); }
+.prose { margin: 0; font: 400 14.5px/1.72 var(--f-prose); color: var(--ink-2); white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+.prose mark { background: none; color: var(--ink); box-shadow: inset 0 -0.42em 0 var(--mk, rgba(255, 114, 98, 0.22)); border-radius: 2px; }
+.sig { font-size: 12.5px; color: var(--ink-2); }
+
+/* 북극성 패널 */
+.big { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; }
+.big b { font-size: 44px; font-weight: 700; letter-spacing: -0.03em; color: #f6fbff; text-shadow: 0 0 24px rgba(160, 200, 255, 0.35); }
+.big .u { font-size: 18px; color: var(--polar); }
+.scope { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
+.mx { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; }
+.mx > div { display: contents; }
+.mx .k { padding: 10px 0; border-bottom: 1px solid var(--hair-2); font-size: 13.5px; color: var(--ink-2); }
+.mx .v { padding: 10px 0; border-bottom: 1px solid var(--hair-2); font-size: 15px; font-weight: 600; text-align: right; color: var(--ink); white-space: nowrap; }
+.mx .v small { font-size: 11.5px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+.grid-ota { display: grid; grid-template-columns: auto repeat(2, minmax(0, 1fr)); gap: 0 14px; font-size: 13px; }
+.grid-ota > span { padding: 7px 0; border-bottom: 1px solid var(--hair-2); }
+.grid-ota .h { color: var(--ink-3); font-size: 12px; font-weight: 500; }
+.grid-ota .c { color: var(--ink-2); }
+.grid-ota .s { text-align: right; font-weight: 500; }
+.grid-ota .s small { color: var(--ink-3); font-size: 11px; font-weight: 400; }
+
+/* 아래 */
+.hud-bottom {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; pointer-events: none;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+.legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--ink-2); transition: opacity 0.3s ease; }
+.legend .lg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.legend .it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend .sw { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.legend .sw.seed { background: none; border: 1.5px dashed currentColor; box-shadow: none; width: 8px; height: 8px; }
+.legend .ln { width: 22px; height: 2px; border-radius: 2px; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.legend .ln.dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); box-shadow: none; width: 16px; }
+.legend .k { color: var(--ink-3); }
+.hint { font-size: 12px; color: var(--ink-3); text-align: right; transition: opacity 0.4s ease; white-space: nowrap; }
+.hint.gone { opacity: 0; }
+#app.panel-open .hud-bottom { right: calc(var(--panel-w) + 16px); }
+
+.gal-index { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.gal-index:focus-within { width: auto; height: auto; clip-path: none; left: 16px; top: 70px; z-index: 7; padding: 10px; border-radius: 14px; background: var(--glass-hi); display: flex; flex-wrap: wrap; gap: 6px; max-width: 520px; }
+.gal-index button { border: 1px solid var(--hair); background: none; border-radius: 999px; padding: 4px 10px; font-size: 12.5px; cursor: pointer; }
+
+.boot-msg { position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 9; padding: 10px 16px; border-radius: 12px; background: var(--glass-hi); font-size: 13px; color: var(--ink); }
+
+/* 휴대폰: 패널은 아래에서 올라오는 시트 */
+@media (max-width: 720px) {
+  :root { --panel-w: 100%; }
+  .hud-top { flex-wrap: wrap; row-gap: 8px; }
+  .crumbs { flex: 1 1 100%; order: 2; height: 34px; }
+  .crumbs button, .crumbs .cur { height: 28px; padding: 0 8px; font-size: 12.5px; }
+  .crumbs .cur { line-height: 28px; }
+  .tools { order: 1; flex: 1 1 100%; justify-content: flex-end; gap: 6px; }
+  .tools .sample-tag { margin-right: auto; }
+  .btn { height: 34px; padding: 0 10px; }
+  .btn .t { display: none; }
+  .seg { height: 34px; }
+  .seg button { height: 26px; padding: 0 11px; font-size: 12.5px; }
+  .seg-ind { height: 26px; }
+  .panel {
+    left: 0; right: 0; bottom: 0; top: auto; width: auto; height: var(--sheet-h, 46vh); max-height: calc(100% - 120px);
+    border-radius: 22px 22px 0 0; border-bottom: 0; transform-origin: 50% 100%;
+    transition: transform 0.34s var(--ease-drawer, cubic-bezier(0.32, 0.72, 0, 1)), opacity 0.24s ease, height 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .panel.dragging { transition: none; }
+  .panel.enter { transform: translateY(40px); opacity: 0; }
+  .panel .grab { display: flex; justify-content: center; padding: 8px 0 2px; touch-action: none; cursor: grab; }
+  .panel .grab span { width: 38px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.28); }
+  .p-close { top: 10px; }
+  .p-body { padding: 8px 18px 22px; gap: 16px; }
+  .p-title { font-size: 20px; }
+  #app.panel-open .hud-bottom { opacity: 0; }
+  .hud-bottom { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .hint { text-align: left; }
+  .legend { font-size: 11.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel, .seg-ind, .btn, #sky0, .lb, .hint, .legend { transition-duration: 0.01s !important; }
+  .p-body.swap { animation: pfade 0.2s ease; }
+  .bars .b i { animation: none; }
+  @keyframes pfade { from { opacity: 0; } to { opacity: 1; } }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .panel { background: #0c1124; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="app" class="lv0">
+  <canvas id="sky0" aria-hidden="true"></canvas>
+  <div id="gl" role="img" aria-label="북극성 아래 은하 9개가 떠 있는 3D 우주. 은하를 누르면 그 은하로 들어갑니다."></div>
+  <div id="labels" aria-hidden="true"></div>
+  <div id="veil" aria-hidden="true"></div>
+
+  <header class="hud-top">
+    <nav class="crumbs glass" id="crumbs" aria-label="경로"></nav>
+    <div class="tools">
+      <span class="sample-tag" id="sample-tag" hidden>예시 데이터</span>
+      <div class="seg glass" id="seg" role="radiogroup" aria-label="지점">
+        <span class="seg-ind" aria-hidden="true"></span>
+        <button type="button" role="radio" id="br-all" data-br="전체" aria-checked="true">전체</button>
+        <button type="button" role="radio" id="br-ssd" data-br="신설" aria-checked="false">신설</button>
+        <button type="button" role="radio" id="br-ddm" data-br="동대문" aria-checked="false">동대문</button>
+      </div>
+      <button type="button" class="btn glass" id="btn-spin" aria-pressed="true" aria-label="자동 회전">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.2 7.5A6.6 6.6 0 1 0 16.6 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16.9 3.6v4.3h-4.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="t">회전</span>
+      </button>
+      <button type="button" class="btn glass" id="btn-home">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.6l1.5 5.9 5.9 1.5-5.9 1.5L10 17.4l-1.5-5.9L2.6 10l5.9-1.5z" fill="currentColor"/></svg>
+        <span class="t">우주 전체</span>
+      </button>
+    </div>
+  </header>
+
+  <aside id="panel" class="panel glass" aria-live="polite" hidden>
+    <div class="grab" id="grab" aria-hidden="true"><span></span></div>
+    <button type="button" class="p-close" id="p-close" aria-label="닫기">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+    <div class="p-scroll" id="p-scroll"><div class="p-body" id="p-body"></div></div>
+  </aside>
+
+  <nav class="gal-index" id="gal-index" aria-label="은하 목록"></nav>
+
+  <footer class="hud-bottom">
+    <div class="legend" id="legend"></div>
+    <div class="hint" id="hint"></div>
+  </footer>
+
+  <div class="boot-msg" id="boot-msg" hidden></div>
+</div>
+
+<script type="application/json" id="voc-data">/*@@DATA@@*/</script>
+<script>
+/* 첫 화면: 3D가 뜨기 전에도 바로 밤하늘이 보이도록 2D로 먼저 그린다 */
+(function(){
+  var c=document.getElementById("sky0");if(!c)return;
+  var dpr=Math.min(2,window.devicePixelRatio||1),w=innerWidth,h=innerHeight;
+  c.width=w*dpr;c.height=h*dpr;var g=c.getContext("2d");g.scale(dpr,dpr);
+  var bg=g.createRadialGradient(w*.5,h*.22,0,w*.5,h*.4,Math.max(w,h)*.9);
+  bg.addColorStop(0,"#0b1330");bg.addColorStop(.45,"#050816");bg.addColorStop(1,"#020309");
+  g.fillStyle=bg;g.fillRect(0,0,w,h);
+  var s=7;function r(){s=(s*1664525+1013904223)>>>0;return s/4294967296;}
+  var th=-.42,ux=Math.cos(th),uy=Math.sin(th),vx=-uy,vy=ux,i;
+  for(i=0;i<9;i++){var t=(r()-.5)*1.6*w,o=(r()-.5)*h*.12,x=w/2+ux*t+vx*o,y=h*.55+uy*t+vy*o,rr=Math.max(w,h)*(.12+r()*.12);
+    var hg=g.createRadialGradient(x,y,0,x,y,rr);hg.addColorStop(0,i%3?"rgba(120,140,255,.05)":"rgba(255,190,150,.035)");hg.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=hg;g.fillRect(x-rr,y-rr,rr*2,rr*2);}
+  var n=Math.round(w*h/700);
+  for(i=0;i<n;i++){var x2=r()*w,y2=r()*h,m=r();g.fillStyle="rgba("+(m<.15?"255,226,196":"212,224,255")+","+(.12+m*.55)+")";g.fillRect(x2,y2,m>.97?1.6:.9,m>.97?1.6:.9);}
+  var px=w*.5,py=h*.21,gl=g.createRadialGradient(px,py,0,px,py,90);
+  gl.addColorStop(0,"rgba(235,246,255,.95)");gl.addColorStop(.06,"rgba(190,220,255,.5)");gl.addColorStop(.3,"rgba(120,160,255,.08)");gl.addColorStop(1,"rgba(0,0,0,0)");
+  g.fillStyle=gl;g.fillRect(px-90,py-90,180,180);
+  g.strokeStyle="rgba(220,236,255,.55)";g.lineWidth=1;g.beginPath();g.moveTo(px-34,py);g.lineTo(px+34,py);g.moveTo(px,py-34);g.lineTo(px,py+34);g.stroke();
+  setTimeout(function(){if(!window.__vocBooted){var m=document.getElementById("boot-msg");if(m){m.hidden=false;m.textContent="3D 화면을 불러오지 못했습니다. 새로고침해 주세요.";}}},12000);
+})();
+</script>
+<script type="module">
+// ── 00 core: 모듈, 유틸, 데이터 모델 ─────────────────────────────────────
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+
+window.__vocBooted = true;
+const V3 = THREE.Vector3;
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const COARSE = matchMedia('(pointer: coarse)').matches;
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const easeIO = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function rngOf(seed) {
+  let s = 0; const str = String(seed);
+  for (let i = 0; i < str.length; i++) s = (Math.imul(s, 31) + str.charCodeAt(i)) >>> 0;
+  s = s || 0x9e3779b9;
+  return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const CLOCK = { t: performance.now(), scale: 1, last: performance.now() };
+function tick() { const n = performance.now(); CLOCK.t += (n - CLOCK.last) * CLOCK.scale; CLOCK.last = n; return CLOCK.t; }
+const gauss = (r) => { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); };
+
+// 날짜
+const dayNum = (iso) => { if (!iso) return NaN; const p = String(iso).slice(0, 10).split('-').map(Number); return Date.UTC(p[0], (p[1] || 1) - 1, p[2] || 15) / 864e5; };
+const isoOfDay = (n) => new Date(Math.round(n) * 864e5).toISOString().slice(0, 10);
+const fmtDate = (iso) => (iso ? String(iso).slice(0, 10).replace(/-/g, '.') : '');
+const fmtMD = (iso) => (iso ? String(iso).slice(5, 10).replace('-', '.') : '');
+const weekLabel = (iso) => { const m = +String(iso).slice(5, 7), d = +String(iso).slice(8, 10); return `${m}월 ${Math.min(5, Math.ceil(d / 7))}주`; };
+const fmtScore = (v, scale) => (v == null || isNaN(v) ? '—' : (scale === 5 ? (+v).toFixed(1) : (+v).toFixed(1)));
+const pct = (v, d = 1) => (v == null || isNaN(v) ? '—' : (v * 100).toFixed(d));
+
+// 이름표
+const CH_KO = { Agoda: '아고다', agoda: '아고다', Booking: '부킹닷컴', 'Booking.com': '부킹닷컴', 'Trip.com': '트립닷컴', Trip: '트립닷컴', Expedia: '익스피디아', Airbnb: '에어비앤비', NOL: '야놀자', Yanolja: '야놀자', '여기어때': '여기어때' };
+const chName = (c) => CH_KO[c] || c || '채널 미상';
+const OWNER_KO = { X: '운영 밖', x: '운영 밖', OUT: '운영 밖', outside: '운영 밖' };
+const ownerName = (o) => OWNER_KO[o] || o || '—';
+const SIG_KO = { E: '감정 고조', R: '재문의', C: '보상 요구', P: '평판 리스크' };
+const sigName = (s) => SIG_KO[s] || s;
+const GAL_DEFAULT = ['청결', '소음', '시설', '응대/환대/커뮤니티', '체크인/체크아웃', '위치/접근성', '어메니티', '가격', '기타'];
+const GAL_ALIAS = { '직원서비스': '응대/환대/커뮤니티', '직원 서비스': '응대/환대/커뮤니티' };
+const galName = (g) => GAL_ALIAS[g] || g || '기타';
+
+// 상태
+const NEG_ORDER = ['열림', '재발', '수행과제 진행', '관찰', '성운', '씨앗'];
+function stClass(c) {
+  if (!c) return 'c-dust';
+  if (c.status === '성운' || c.status === '관찰') return 'c-neb';
+  if (c.status === '씨앗') return 'c-dust';
+  if (c.polarity === 'pos') return c.status === '흐려짐' ? 'c-dust' : 'c-pos';
+  if (c.status === '수행과제 진행') return 'c-amber';
+  return 'c-neg';
+}
+const polClass = (p) => (p === 'pos' ? 'c-pos' : 'c-neg');
+const relapseCount = (c) => (c.history || []).filter((h) => /relapse|재발/.test(h.type || '')).length || (c.status === '재발' ? 1 : 0);
+const closeDay = (c) => {
+  const hs = (c.history || []).filter((h) => /close|closed|관찰|observe|nebula|성운/.test(h.type || '') && h.at);
+  if (!hs.length) return null;
+  return dayNum(hs.map((h) => h.at).sort()[0]);
+};
+
+// ── 데이터 모델 ──
+function buildModel(raw) {
+  const meta = raw.meta || {};
+  const branches = Array.isArray(meta.branches) && meta.branches.length ? meta.branches.slice() : ['신설', '동대문'];
+  const asOf = meta.as_of || (meta.period && meta.period.to) || isoOfDay(Math.floor(Date.now() / 864e5));
+  const from = (meta.period && meta.period.from) || '2026-06-01';
+  const day0 = dayNum(from), day1 = Math.max(dayNum(asOf), day0 + 7);
+
+  let gals = (raw.galaxies || []).map((g, i) => ({ ...g, id: galName(g.id || g.name), name: galName(g.name || g.id), order: g.order ?? i }));
+  if (!gals.length) gals = GAL_DEFAULT.map((n, i) => ({ id: n, name: n, order: i }));
+  gals.sort((a, b) => a.order - b.order);
+  const galById = new Map(gals.map((g) => [g.id, g]));
+
+  const stars = (raw.stars || []).filter((s) => s && s.id).map((s) => {
+    const g = galName(s.galaxy);
+    if (!galById.has(g)) { const ng = { id: g, name: g, order: gals.length }; gals.push(ng); galById.set(g, ng); }
+    let day = dayNum(s.date);
+    if (isNaN(day)) day = day0;
+    return { ...s, galaxy: g, day, polarity: s.polarity === 'pos' ? 'pos' : 'neg', branch: s.branch || branches[0] };
+  });
+  stars.forEach((s) => { if (!branches.includes(s.branch)) branches.push(s.branch); });
+  const starById = new Map(stars.map((s) => [s.id, s]));
+
+  const cons = (raw.constellations || []).filter((c) => c && c.id).map((c) => ({ ...c, galaxy: galName(c.galaxy), polarity: c.polarity === 'pos' ? 'pos' : 'neg' }));
+  const conById = new Map(cons.map((c) => [c.id, c]));
+  cons.forEach((c) => {
+    let ss = (c.star_ids || []).map((id) => starById.get(id)).filter(Boolean);
+    if (!ss.length) ss = stars.filter((s) => s.constellation_id === c.id);
+    ss.sort((a, b) => a.day - b.day || (a.id < b.id ? -1 : 1));
+    c.stars = ss;
+    ss.forEach((s) => { s.con = c; });
+    if (!c.status) c.status = ss.length >= 3 ? (c.polarity === 'pos' ? '유지' : '열림') : '씨앗';
+    c.seed = c.status === '씨앗';
+    c.first_date = c.first_date || (ss[0] && ss[0].date);
+    c.last_date = c.last_date || (ss[ss.length - 1] && ss[ss.length - 1].date);
+    c.lastDay = ss.length ? ss[ss.length - 1].day : dayNum(c.last_date);
+    if (c.recent_4w == null) c.recent_4w = ss.filter((s) => s.day > day1 - 28).length;
+    if (!c.monthly) { c.monthly = {}; ss.forEach((s) => { const k = s.date.slice(0, 7); c.monthly[k] = (c.monthly[k] || 0) + 1; }); }
+    if (!c.channels) { c.channels = {}; ss.forEach((s) => { c.channels[s.channel] = (c.channels[s.channel] || 0) + 1; }); }
+    c.branch = c.branch || (ss[0] && ss[0].branch) || branches[0];
+  });
+  stars.forEach((s) => { if (!s.con && s.constellation_id && conById.has(s.constellation_id)) s.con = conById.get(s.constellation_id); });
+
+  const reviews = raw.reviews || {};
+  const starsByReview = new Map();
+  stars.forEach((s) => { if (!s.review_id) return; if (!starsByReview.has(s.review_id)) starsByReview.set(s.review_id, []); starsByReview.get(s.review_id).push(s); });
+
+  // 월 목록(기간 안의 달)
+  const months = [];
+  { const a = new Date(day0 * 864e5), b = new Date(day1 * 864e5); let y = a.getUTCFullYear(), m = a.getUTCMonth();
+    while (y < b.getUTCFullYear() || (y === b.getUTCFullYear() && m <= b.getUTCMonth())) { months.push(`${y}-${String(m + 1).padStart(2, '0')}`); m++; if (m > 11) { m = 0; y++; } } }
+
+  return {
+    meta, branches, asOf, from, day0, day1, months, gals, galById, stars, starById, cons, conById, reviews, starsByReview,
+    ns: raw.north_star || null, core: raw.core || null, guard: raw.guardrails || null,
+    sample: !!(meta.sample || meta.is_sample),
+  };
+}
+
+// 우선순위(확정 결정 12: 최근 4주 별 수, 같으면 최근 순)
+const conOrder = (a, b) => (b.recent_4w - a.recent_4w) || (b.lastDay - a.lastDay) || (b.stars.length - a.stars.length);
+
+// ── 10 gfx: 렌더러, 후처리, 텍스처, 셰이더 재질 ─────────────────────────────
+const app = $('app'), glWrap = $('gl'), labelsEl = $('labels');
+const LOW = COARSE || Math.min(innerWidth, innerHeight) < 620;
+let W = Math.max(1, innerWidth), H = Math.max(1, innerHeight);
+const PR = Math.min(window.devicePixelRatio || 1, LOW ? 1.5 : 1.75);
+const BASE_FOV = 46;
+const COL = {
+  neg: new THREE.Color('#ff4b37'), pos: new THREE.Color('#ffc35a'), neb: new THREE.Color('#a98aff'),
+  dust: new THREE.Color('#9eb0d8'), amber: new THREE.Color('#ff9b52'), polar: new THREE.Color('#d6ebff'),
+  gold: new THREE.Color('#d9b67b'), white: new THREE.Color('#ffffff'), neutral: new THREE.Color('#b9c8ff'),
+};
+const U = { uTime: { value: 0 }, uViewH: { value: H * PR }, uMaxPx: { value: 160 } };
+
+const FINISH = {
+  uniforms: { tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(W, H) }, uTime: { value: 0 }, uVig: { value: 0.42 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uRes; uniform float uTime; uniform float uVig; varying vec2 vUv;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y;
+      float v = smoothstep(1.08, 0.18, length(q));
+      c.rgb *= mix(1.0 - uVig, 1.0, v);
+      c.rgb += (h(floor(vUv * uRes) + fract(uTime * 0.37) * 113.0) - 0.5) * 0.008;
+      gl_FragColor = c;
+    }`,
+};
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#02030a');
+const camera = new THREE.PerspectiveCamera(BASE_FOV, W / H, 0.05, 14000);
+let renderer = null, composer = null, bloom = null, finishPass = null, GL_OK = false;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false });
+  renderer.setPixelRatio(PR);
+  renderer.setSize(W, H, false);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
+  glWrap.appendChild(renderer.domElement);
+  renderer.domElement.setAttribute('tabindex', '-1');
+  const gl = renderer.getContext();
+  const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
+  U.uMaxPx.value = Math.min(range && range[1] ? range[1] : 128, 384);
+  composer = new EffectComposer(renderer);
+  composer.setPixelRatio(PR);
+  composer.setSize(W, H);
+  composer.addPass(new RenderPass(scene, camera));
+  bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.74, 0.42, 0.2);
+  composer.addPass(bloom);
+  finishPass = new ShaderPass(FINISH);
+  composer.addPass(finishPass);
+  composer.addPass(new OutputPass());
+  GL_OK = true;
+} catch (e) {
+  console.warn('WebGL을 켤 수 없음', e);
+  GL_OK = false;
+}
+
+// ── 캔버스 텍스처 ──
+function canvasTex(size, draw) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
+}
+function radial(stops) {
+  return canvasTex(128, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); stops.forEach(([o, a]) => r.addColorStop(o, `rgba(255,255,255,${a})`)); g.fillStyle = r; g.fillRect(0, 0, s, s); });
+}
+const TEX = {
+  glow: radial([[0, 1], [0.12, 0.62], [0.32, 0.17], [0.62, 0.04], [1, 0]]),
+  soft: radial([[0, 0.55], [0.45, 0.17], [1, 0]]),
+  ring: canvasTex(128, (g, s) => { g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 5, 0, Math.PI * 2); g.stroke(); }),
+};
+const NEB_CACHE = [];
+function nebulaTex(seed) {
+  if (NEB_CACHE[seed]) return NEB_CACHE[seed];
+  const size = LOW ? 112 : 160, r = rngOf('neb' + seed), N = 32, grid = new Float32Array(N * N);
+  for (let i = 0; i < grid.length; i++) grid[i] = r();
+  const vn = (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const X0 = ((xi % N) + N) % N, Y0 = ((yi % N) + N) % N, X1 = (X0 + 1) % N, Y1 = (Y0 + 1) % N;
+    const a = grid[Y0 * N + X0], b = grid[Y0 * N + X1], c = grid[Y1 * N + X0], d = grid[Y1 * N + X1];
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const g = cv.getContext('2d'), img = g.createImageData(size, size);
+  const ox = r() * N, oy = r() * N, warp = 0.9 + r() * 0.8;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const nx = x / size, ny = y / size;
+    const wx = vn(nx * 2 + ox + 5.2, ny * 2 + oy) * warp, wy = vn(nx * 2 + ox, ny * 2 + oy + 1.7) * warp;
+    let f = 0, amp = 0.5, fr = 2.6;
+    for (let o = 0; o < 5; o++) { f += amp * vn((nx + wx * 0.35) * fr + ox, (ny + wy * 0.35) * fr + oy); fr *= 2.03; amp *= 0.5; }
+    const dx = nx - 0.5, dy = ny - 0.5, d = Math.sqrt(dx * dx + dy * dy) * 2;
+    const fall = Math.max(0, 1 - d * d);
+    const a = Math.pow(clamp((f - 0.3) * 1.9, 0, 1), 1.5) * fall;
+    const i = (y * size + x) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = a * 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(cv); t.needsUpdate = true;
+  NEB_CACHE[seed] = t; return t;
+}
+
+function sprite(map, color, opacity, size, additive = true) {
+  const m = new THREE.SpriteMaterial({ map, color, transparent: true, opacity, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
+  const s = new THREE.Sprite(m); s.scale.set(size, size, 1); s.userData.op = opacity; return s;
+}
+
+// 은하 그림(부드러운 팔의 빛). 입자 아래 깔아 은하다운 결을 만든다
+function galaxyTexture(G, size, tint, tintAmt) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const g = cv.getContext('2d'), L = G.lay, R = G.R, c = size / 2, k = (size * 0.47) / (R * 1.12), r = rngOf('gt' + G.id + size);
+  const blob = (x, y, rad, rgb, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); };
+  g.globalCompositeOperation = 'lighter';
+  blob(c, c, R * 1.15 * k, '70,90,170', 0.16);
+  const tr = Math.round(tint.r * 255), tg = Math.round(tint.g * 255), tb = Math.round(tint.b * 255);
+  for (let bi = 0; bi < 2; bi++) {
+    for (let i = 0; i < 300; i++) {
+      const t = i / 300, rr = L.rc * 0.5 + t * (R * 1.04 - L.rc * 0.5);
+      const th = L.armTheta(bi, rr) + gauss(r) * (0.07 + 0.1 * t);
+      const x = c + Math.cos(th) * rr * k, y = c + Math.sin(th) * rr * k;
+      const w = (0.05 + 0.09 * t) * R * k;
+      const m = Math.min(1, t * 1.3);
+      let cr = 255 * (1 - m) + 130 * m, cg = 205 * (1 - m) + 160 * m, cb = 150 * (1 - m) + 255 * m;
+      if (r() < tintAmt * 0.5) { cr = cr * 0.4 + tr * 0.6; cg = cg * 0.4 + tg * 0.6; cb = cb * 0.4 + tb * 0.6; }
+      blob(x, y, w, `${cr | 0},${cg | 0},${cb | 0}`, 0.07 * (1 - 0.45 * t));
+      if (r() < 0.035 && t > 0.25) blob(x + gauss(r) * w * 0.3, y + gauss(r) * w * 0.3, w * 0.22, '255,120,170', 0.35);
+    }
+  }
+  blob(c, c, L.rc * 1.7 * k, '255,226,180', 0.5);
+  blob(c, c, L.rc * 0.6 * k, '255,244,225', 0.6);
+  // 먼지띠: 팔 안쪽 가장자리를 어둡게
+  g.globalCompositeOperation = 'destination-out';
+  for (let bi = 0; bi < 2; bi++) for (let i = 0; i < 220; i++) {
+    const t = 0.12 + (i / 220) * 0.85, rr = L.rc + t * (R - L.rc);
+    const th = L.armTheta(bi, rr) - (0.2 + 0.05 * t) + gauss(r) * 0.03;
+    blob(c + Math.cos(th) * rr * k, c + Math.sin(th) * rr * k, (0.02 + 0.03 * t) * R * k, '0,0,0', 0.22);
+  }
+  // 미세한 잡음으로 8비트 띠 무늬를 깬다
+  g.globalCompositeOperation = 'source-over';
+  const img = g.getImageData(0, 0, size, size), dd = img.data;
+  for (let i = 0; i < dd.length; i += 4) { if (dd[i + 3] === 0) continue; const n = (r() - 0.5) * 6; dd[i] = clamp(dd[i] + n, 0, 255); dd[i + 1] = clamp(dd[i + 1] + n, 0, 255); dd[i + 2] = clamp(dd[i + 2] + n, 0, 255); dd[i + 3] = clamp(dd[i + 3] + (r() - 0.5) * 4, 0, 255); }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
+  return tex;
+}
+function galaxyPlane(G, size, opacity, tint, tintAmt) {
+  const R = G.R, s = R * 1.12 * 2 / 0.94;
+  const m = new THREE.MeshBasicMaterial({ map: galaxyTexture(G, size, tint, tintAmt), transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(s, s), m);
+  mesh.rotation.x = -Math.PI / 2; mesh.renderOrder = 0; mesh.userData.op = opacity;
+  return mesh;
+}
+
+// ── 셰이더 ──
+const ADD = { transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor };
+const PXS = 'float pxs(vec4 mv, float s){ return s * projectionMatrix[1][1] * uViewH * 0.5 / max(-mv.z, 0.0001); }';
+
+// 데이터 별: 강조(크기·밝기·회절광)를 이전값→목표값으로 섞어 부드럽게 바꾼다
+function starMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, uViewH: U.uViewH, uMaxPx: U.uMaxPx, uMix: { value: 1 }, uOpacity: { value: 1 }, uMinPx: { value: 2.4 }, uTw: { value: RM ? 0 : 1 }, uWave: { value: -1 } },
+    vertexShader: `
+      uniform float uTime, uViewH, uMaxPx, uMix, uOpacity, uMinPx, uTw, uWave;
+      attribute float aSize; attribute vec3 aColor; attribute float aPhase; attribute float aR;
+      attribute vec3 aE0; attribute vec3 aE1;
+      varying vec3 vColor; varying float vAlpha; varying float vSpike;
+      ${PXS}
+      void main(){
+        vec3 E = mix(aE0, aE1, uMix);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float tw = 1.0 + uTw * 0.2 * sin(uTime * (0.8 + fract(aPhase * 7.31) * 1.9) + aPhase * 6.2831);
+        float wave = uWave < -0.5 ? 0.0 : exp(-pow((aR - uWave) * 6.0, 2.0));
+        float s = pxs(mv, aSize * E.x) * (1.0 + 0.7 * wave);
+        float a = E.y * uOpacity * tw * (1.0 + 1.6 * wave);
+        if (s < uMinPx) { a *= mix(0.6, 1.0, s / uMinPx); s = uMinPx; }
+        gl_PointSize = min(s, uMaxPx);
+        vColor = aColor; vAlpha = a; vSpike = E.z + wave * 0.6;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      varying vec3 vColor; varying float vAlpha; varying float vSpike;
+      void main(){
+        vec2 p = gl_PointCoord * 2.0 - 1.0;
+        float r2 = dot(p, p);
+        if (r2 > 1.0) discard;
+        float core = exp(-r2 * 30.0);
+        float halo = exp(-r2 * 6.5) * 0.4 + exp(-r2 * 2.2) * 0.06;
+        float sp = 0.0;
+        if (vSpike > 0.001) {
+          float ax = abs(p.x), ay = abs(p.y);
+          sp = (exp(-ay * 40.0) * pow(1.0 - ax, 2.2) + exp(-ax * 40.0) * pow(1.0 - ay, 2.2)) * vSpike;
+        }
+        float i = core * 1.8 + halo + sp * 0.85;
+        vec3 col = mix(vColor, vec3(1.0), clamp(core * 0.8, 0.0, 1.0));
+        gl_FragColor = vec4(col * i * vAlpha, 1.0);
+      }`,
+    ...ADD,
+  });
+}
+
+// 은하 원반 입자: uUnfold 0→1 이면 안쪽부터 바깥으로 나선이 풀리며 펼쳐진다
+function diskMaterial(dark = false) {
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, uViewH: U.uViewH, uMaxPx: { value: (dark ? 64 : 2.6) * PR }, uUnfold: { value: 1 }, uOpacity: { value: 1 }, uArmDim: { value: new THREE.Vector3(1, 1, 1) }, uMinPx: { value: 1.2 } },
+    vertexShader: `
+      uniform float uTime, uViewH, uMaxPx, uUnfold, uOpacity, uMinPx; uniform vec3 uArmDim;
+      attribute float aSize; attribute vec3 aColor; attribute float aAlpha; attribute float aR; attribute float aArm;
+      varying vec3 vColor; varying float vAlpha;
+      ${PXS}
+      void main(){
+        float p = smoothstep(aR * 0.6, aR * 0.6 + 0.4, uUnfold);
+        float ang = (1.0 - p) * 2.4;
+        float c = cos(ang), s = sin(ang);
+        vec3 pos = position;
+        pos.xz = vec2(c * pos.x - s * pos.z, s * pos.x + c * pos.z) * mix(0.05, 1.0, p);
+        pos.y *= p;
+        vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+        float sz = pxs(mv, aSize);
+        float dim = aArm < 0.5 ? uArmDim.x : (aArm < 1.5 ? uArmDim.y : uArmDim.z);
+        float a = aAlpha * uOpacity * p * dim;
+        if (sz < uMinPx) { a *= sz / uMinPx; sz = uMinPx; }
+        gl_PointSize = min(sz, uMaxPx);
+        vColor = aColor; vAlpha = a;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: dark ? `
+      varying vec3 vColor; varying float vAlpha;
+      void main(){ vec2 p = gl_PointCoord * 2.0 - 1.0; float r2 = dot(p, p); if (r2 > 1.0) discard;
+        gl_FragColor = vec4(vColor, exp(-r2 * 2.6) * vAlpha); }` : `
+      varying vec3 vColor; varying float vAlpha;
+      void main(){ vec2 p = gl_PointCoord * 2.0 - 1.0; float r2 = dot(p, p); if (r2 > 1.0) discard;
+        float a = (exp(-r2 * 5.0) + exp(-r2 * 1.8) * 0.12) * vAlpha; gl_FragColor = vec4(vColor * a, 1.0); }`,
+    transparent: true, depthWrite: false,
+  });
+  if (dark) m.blending = THREE.NormalBlending;
+  else Object.assign(m, { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor });
+  return m;
+}
+
+// 배경 별(화면 픽셀 크기 고정)
+function skyMaterial(opacity = 1) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, uPR: { value: PR }, uOpacity: { value: opacity }, uTw: { value: RM ? 0 : 1 } },
+    vertexShader: `uniform float uTime, uPR, uOpacity, uTw; attribute float aSize; attribute vec3 aColor; attribute float aPhase;
+      varying vec3 vColor; varying float vAlpha;
+      void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float tw = 1.0 + uTw * 0.3 * sin(uTime * (0.5 + fract(aPhase * 3.71) * 2.3) + aPhase * 6.2831);
+        float s = aSize * uPR, a = uOpacity * tw;
+        if (s < 1.6) { a *= s / 1.6; s = 1.6; }
+        gl_PointSize = s; vColor = aColor; vAlpha = a; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `varying vec3 vColor; varying float vAlpha;
+      void main(){ vec2 p = gl_PointCoord * 2.0 - 1.0; float r2 = dot(p, p); if (r2 > 1.0) discard;
+        float a = (exp(-r2 * 10.0) + exp(-r2 * 2.6) * 0.14) * vAlpha; gl_FragColor = vec4(vColor * a, 1.0); }`,
+    ...ADD,
+  });
+}
+
+// 북극성으로 오르는 빛 알갱이
+function beadMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, uViewH: U.uViewH, uMaxPx: U.uMaxPx, uOpacity: { value: 1 }, uSpeed: { value: RM ? 0 : 0.075 }, uSize: { value: 2.6 } },
+    vertexShader: `uniform float uTime, uViewH, uMaxPx, uOpacity, uSpeed, uSize;
+      attribute vec3 aA; attribute vec3 aB; attribute float aPhase; attribute vec3 aColor;
+      varying vec3 vColor; varying float vAlpha;
+      ${PXS}
+      void main(){ float t = fract(aPhase + uTime * uSpeed); vec3 pos = mix(aA, aB, t);
+        vec4 mv = modelViewMatrix * vec4(pos, 1.0); float s = max(pxs(mv, uSize), 3.0);
+        gl_PointSize = min(s, uMaxPx); vColor = aColor; vAlpha = uOpacity * pow(sin(3.14159 * t), 0.8);
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `varying vec3 vColor; varying float vAlpha;
+      void main(){ vec2 p = gl_PointCoord * 2.0 - 1.0; float r2 = dot(p, p); if (r2 > 1.0) discard;
+        float i = exp(-r2 * 16.0) * 1.6 + exp(-r2 * 4.0) * 0.3; gl_FragColor = vec4(mix(vColor, vec3(1.0), exp(-r2 * 30.0) * 0.7) * i * vAlpha, 1.0); }`,
+    ...ADD,
+  });
+}
+
+// 북극성(화면을 향하는 판, 회절광 4+4갈래)
+function polarisMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, uSize: { value: 120 }, uI: { value: 1 }, uPulse: { value: RM ? 0 : 1 } },
+    vertexShader: `uniform float uSize; varying vec2 vUv;
+      void main(){ vUv = position.xy; vec4 mv = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0); mv.xy += position.xy * uSize; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uTime, uI, uPulse; varying vec2 vUv;
+      void main(){
+        vec2 p = vUv * 2.0; float r = length(p);
+        float pulse = 1.0 + uPulse * 0.08 * sin(uTime * 1.45);
+        float core = exp(-r * r * 5200.0) * 2.6 + exp(-r * r * 520.0) * 0.42;
+        float halo = exp(-r * 16.0) * 0.2 + exp(-r * 4.5) * 0.025;
+        float sx = exp(-abs(p.y) * 380.0) * exp(-abs(p.x) * 4.6);
+        float sy = exp(-abs(p.x) * 380.0) * exp(-abs(p.y) * 4.6);
+        vec2 q = vec2(p.x + p.y, p.y - p.x) * 0.70710678;
+        float sd = (exp(-abs(q.y) * 600.0) * exp(-abs(q.x) * 12.0) + exp(-abs(q.x) * 600.0) * exp(-abs(q.y) * 12.0)) * 0.32;
+        float ring = exp(-pow((r - 0.12) * 140.0, 2.0)) * 0.035;
+        float I = (core + halo * pulse + (sx + sy) * 0.7 * pulse + sd + ring) * uI;
+        vec3 col = mix(vec3(0.6, 0.78, 1.0), vec3(1.0), clamp(core * 0.9, 0.0, 1.0));
+        gl_FragColor = vec4(col * I, 1.0);
+      }`,
+    ...ADD,
+  });
+}
+
+// 굵은 선(픽셀 단위 두께)
+const LINE_MATS = new Set();
+function lineMat(opts) {
+  const m = new LineMaterial({
+    color: 0xffffff, linewidth: 1.4, vertexColors: true, transparent: true, depthWrite: false, depthTest: true,
+    dashed: false, dashScale: 1, dashSize: 1, gapSize: 1, ...opts,
+  });
+  m.blending = THREE.AdditiveBlending;
+  m.resolution.set(W, H);
+  LINE_MATS.add(m);
+  return m;
+}
+
+// ── 20 sky: 여러 겹의 별밭, 은하수 띠, 먼 성운, 북극성을 축으로 도는 장노출 궤적 ──
+const NS_POS = new V3(0, 122, 0);
+const sky = { far: null, mw: null, mid: null, near: null, trails: null, nebulae: [] };
+
+function starTemp(r) {
+  // 별의 색온도: 대부분 푸른 흰색, 일부 노랑·주황
+  const x = r();
+  if (x < 0.62) return new THREE.Color().setRGB(0.78 + r() * 0.1, 0.85 + r() * 0.08, 1.0);
+  if (x < 0.86) return new THREE.Color().setRGB(1.0, 0.95, 0.86);
+  if (x < 0.96) return new THREE.Color().setRGB(1.0, 0.83, 0.62);
+  return new THREE.Color().setRGB(1.0, 0.68, 0.5);
+}
+function pointsGeo(n, fill) {
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n), ph = new Float32Array(n);
+  for (let i = 0; i < n; i++) fill(i, pos, col, size, ph);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  g.setAttribute('aPhase', new THREE.BufferAttribute(ph, 1));
+  return g;
+}
+const MW_N = new V3(0.5, -0.8, 0.33).normalize(); // 은하수 띠의 축(첫 화면을 비스듬히 가로지르게)
+
+function buildSky() {
+  const r = rngOf('sky');
+  // 1) 먼 별(무한 원경, 카메라를 따라감)
+  const nFar = LOW ? 4200 : 9000;
+  const farG = pointsGeo(nFar, (i, pos, col, size, ph) => {
+    const u = r() * 2 - 1, th = r() * Math.PI * 2, s = Math.sqrt(1 - u * u), R = 5200;
+    pos[i * 3] = s * Math.cos(th) * R; pos[i * 3 + 1] = u * R; pos[i * 3 + 2] = s * Math.sin(th) * R;
+    const m = Math.pow(r(), 3.2), c = starTemp(r), b = 0.25 + m * 1.6;
+    col[i * 3] = c.r * b; col[i * 3 + 1] = c.g * b; col[i * 3 + 2] = c.b * b;
+    size[i] = 0.7 + m * 2.4; ph[i] = r();
+  });
+  sky.far = new THREE.Points(farG, skyMaterial(1));
+  sky.far.frustumCulled = false; sky.far.renderOrder = -10;
+  scene.add(sky.far);
+
+  // 2) 은하수 띠(원경): 가우스 폭, 경도 방향 밝기 변화, 먼지 틈
+  const nMw = LOW ? 9000 : 24000;
+  const e1 = new V3(1, 0, 0).cross(MW_N).normalize(), e2 = MW_N.clone().cross(e1).normalize();
+  const vd = new V3(0, -0.38, -0.92).normalize(), lonC = Math.atan2(vd.dot(e2), vd.dot(e1)) + 0.35; // 밝은 부분을 화면 가운데 근처로
+  const mwG = pointsGeo(nMw, (i, pos, col, size, ph) => {
+    let lon = r() * Math.PI * 2;
+    const dens = 0.45 + 0.35 * Math.sin(lon * 2 + 0.6) * Math.sin(lon * 3.1 + 1.3) + 0.45 * Math.max(0, Math.cos(lon - lonC));
+    const lat = gauss(r) * (0.07 + 0.06 * dens) + Math.sin(lon * 5.0) * 0.025;
+    const R = 5000, cl = Math.cos(lat);
+    const v = e1.clone().multiplyScalar(Math.cos(lon) * cl).addScaledVector(e2, Math.sin(lon) * cl).addScaledVector(MW_N, Math.sin(lat));
+    pos[i * 3] = v.x * R; pos[i * 3 + 1] = v.y * R; pos[i * 3 + 2] = v.z * R;
+    const warm = Math.max(0, Math.cos(lon - lonC)) * 0.7;
+    const rift = Math.exp(-Math.pow(lat / 0.018, 2)) * (0.5 + 0.5 * Math.sin(lon * 7.0));
+    const b = (0.2 + Math.pow(r(), 4) * 1.25) * (0.55 + dens * 0.75) * (1 - rift * 0.78);
+    col[i * 3] = (0.72 + warm * 0.3) * b; col[i * 3 + 1] = (0.78 + warm * 0.12) * b; col[i * 3 + 2] = (1.0 - warm * 0.25) * b;
+    size[i] = 0.7 + r() * 1.3; ph[i] = r();
+  });
+  sky.mw = new THREE.Points(mwG, skyMaterial(1));
+  sky.mw.frustumCulled = false; sky.mw.renderOrder = -9;
+  scene.add(sky.mw);
+  // 은하수 빛 구름
+  sky.mwGlow = new THREE.Group(); sky.mwGlow.renderOrder = -8;
+  const nG = LOW ? 16 : 30;
+  for (let i = 0; i < nG; i++) {
+    const lon = r() * Math.PI * 2, lat = gauss(r) * 0.05;
+    const cl = Math.cos(lat), R = 4800;
+    const v = e1.clone().multiplyScalar(Math.cos(lon) * cl).addScaledVector(e2, Math.sin(lon) * cl).addScaledVector(MW_N, Math.sin(lat));
+    const warm = Math.max(0, Math.cos(lon - lonC));
+    const c = new THREE.Color().setRGB(0.55 + warm * 0.3, 0.58 + warm * 0.04, 1.0 - warm * 0.12);
+    const s = sprite(nebulaTex(i % 5), c, (0.03 + r() * 0.035) * (0.6 + 0.6 * warm), 700 + r() * 900);
+    s.position.copy(v.multiplyScalar(R)); s.material.rotation = r() * 6.28;
+    sky.mwGlow.add(s);
+  }
+  scene.add(sky.mwGlow);
+
+  // 3) 먼 성운(색 있는 가스, 아주 옅게)
+  const nebs = [[new V3(-0.75, 0.32, -0.58), '#7d5cff', 0.1, 1700], [new V3(0.86, -0.12, -0.5), '#ff6f9c', 0.035, 1500], [new V3(0.1, -0.55, 0.83), '#3fa3ff', 0.07, 2000], [new V3(-0.4, -0.2, 0.9), '#9a7bff', 0.05, 1600], [new V3(0.6, 0.5, 0.62), '#ffb38a', 0.045, 1400]];
+  nebs.forEach(([d, c, o, s], i) => {
+    const sp = sprite(nebulaTex(10 + i), new THREE.Color(c), o, s);
+    sp.position.copy(d.normalize().multiplyScalar(4300)); sp.material.rotation = i * 1.3;
+    sky.nebulae.push(sp); sky.mwGlow.add(sp);
+  });
+
+  // 4) 중간 별(시차가 생기는 층)
+  const nMid = LOW ? 1000 : 2400;
+  const midG = pointsGeo(nMid, (i, pos, col, size, ph) => {
+    const u = r() * 2 - 1, th = r() * Math.PI * 2, s = Math.sqrt(1 - u * u), R = 900 + r() * 1800;
+    pos[i * 3] = s * Math.cos(th) * R; pos[i * 3 + 1] = u * R + 60; pos[i * 3 + 2] = s * Math.sin(th) * R;
+    const m = Math.pow(r(), 2.6), c = starTemp(r), b = 0.3 + m * 1.4;
+    col[i * 3] = c.r * b; col[i * 3 + 1] = c.g * b; col[i * 3 + 2] = c.b * b;
+    size[i] = 0.9 + m * 2.2; ph[i] = r();
+  });
+  sky.mid = new THREE.Points(midG, skyMaterial(1));
+  sky.mid.frustumCulled = false;
+  scene.add(sky.mid);
+
+  // 5) 가까운 먼지 별(날아갈 때 스쳐 지나감)
+  const nNear = LOW ? 500 : 1300;
+  const nearG = pointsGeo(nNear, (i, pos, col, size, ph) => {
+    const u = r() * 2 - 1, th = r() * Math.PI * 2, s = Math.sqrt(1 - u * u), R = 40 + Math.pow(r(), 0.7) * 520;
+    pos[i * 3] = s * Math.cos(th) * R; pos[i * 3 + 1] = u * R * 0.6 + 40; pos[i * 3 + 2] = s * Math.sin(th) * R;
+    const b = 0.26 + r() * 0.42;
+    col[i * 3] = 0.75 * b; col[i * 3 + 1] = 0.82 * b; col[i * 3 + 2] = 1.0 * b;
+    size[i] = 0.8 + r() * 1.3; ph[i] = r();
+  });
+  sky.near = new THREE.Points(nearG, skyMaterial(1));
+  sky.near.frustumCulled = false;
+  scene.add(sky.near);
+
+  // 6) 장노출 별 궤적: 북극성을 중심으로 한 동심 호(첫 화면에서 북극성을 둘러싸게)
+  const nT = LOW ? 60 : 130, segs = 48;
+  const tp = [], tc = [];
+  for (let i = 0; i < nT; i++) {
+    const rr = 70 + Math.pow(r(), 0.75) * 1400, yy = (r() - 0.5) * 40;
+    const a0 = r() * Math.PI * 2, len = 0.16 + r() * 0.6;
+    const c = starTemp(r), b = 0.05 + Math.pow(r(), 2.2) * 0.26;
+    for (let k = 0; k < segs; k++) {
+      const a1 = a0 + (len * k) / segs, a2 = a0 + (len * (k + 1)) / segs;
+      const f1 = Math.pow(k / segs, 1.8) * b, f2 = Math.pow((k + 1) / segs, 1.8) * b;
+      tp.push(Math.cos(a1) * rr, yy, Math.sin(a1) * rr, Math.cos(a2) * rr, yy, Math.sin(a2) * rr);
+      tc.push(c.r * f1, c.g * f1, c.b * f1, c.r * f2, c.g * f2, c.b * f2);
+    }
+  }
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
+  tg.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3));
+  sky.trails = new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sky.trails.frustumCulled = false;
+  sky.trailsPivot = new THREE.Group();
+  sky.trailsPivot.position.copy(NS_POS);
+  sky.trailsPivot.add(sky.trails);
+  scene.add(sky.trailsPivot);
+}
+// 궤적 축을 첫 화면 카메라 쪽으로(북극성을 중심으로 동심원처럼 보이게)
+function aimTrails(camPos) {
+  const dir = camPos.clone().sub(NS_POS).normalize();
+  sky.trailsPivot.quaternion.setFromUnitVectors(new V3(0, 1, 0), dir);
+}
+
+const _sq = new THREE.Quaternion(), _sd = new V3(), _sy = new V3(0, 1, 0);
+function updateSky(dt, spinK) {
+  _sd.copy(camera.position).sub(NS_POS).normalize();
+  _sq.setFromUnitVectors(_sy, _sd);
+  sky.trailsPivot.quaternion.slerp(_sq, 1 - Math.exp(-dt * 1.2));
+  sky.trails.material.opacity += ((S.level === 0 ? 0.9 : 0.0) - sky.trails.material.opacity) * (1 - Math.exp(-dt * 3));
+  sky.trails.visible = sky.trails.material.opacity > 0.004;
+  // 원경은 카메라를 따라가 무한히 먼 것처럼
+  sky.far.position.copy(camera.position);
+  sky.mw.position.copy(camera.position);
+  sky.mwGlow.position.copy(camera.position);
+  if (!RM) sky.trails.rotation.y += dt * (Math.PI * 2 / 900) * (0.35 + 0.65 * spinK);
+}
+
+// ── 30 universe: 북극성, 기준 원, 은하 9개(원반과 데이터 별 배치), 북극성을 향한 선 ──
+const RING_R = 106;
+const universe = new THREE.Group();
+const GAL = [];
+const GAL_BY_ID = new Map();
+let M = null;                      // 데이터 모델
+const branchOn = (b) => S.branch === '전체' || S.branch === b;
+const bIdx = (b) => Math.max(0, M.branches.indexOf(b));
+const NS = { mesh: null, glow: null, axis: null };
+const PTR = { group: new THREE.Group(), gold: null, vio: null, brk: null, beads: null, marks: null, op: 1 };
+
+function buildUniverse() {
+  scene.add(universe);
+  // 북극성
+  NS.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), polarisMaterial());
+  NS.mesh.position.copy(NS_POS); NS.mesh.frustumCulled = false; NS.mesh.renderOrder = 8;
+  NS.mesh.material.uniforms.uSize.value = 150;
+  scene.add(NS.mesh);
+  NS.glow = sprite(TEX.glow, COL.polar.clone().multiplyScalar(0.9), 0.5, 40); NS.glow.position.copy(NS_POS); NS.glow.renderOrder = 7;
+  scene.add(NS.glow);
+  NS.bloom = sprite(TEX.soft, new THREE.Color('#5d86ff'), 0.12, 220); NS.bloom.position.copy(NS_POS);
+  scene.add(NS.bloom);
+  // 천구 축(바닥 원의 중심 → 북극성)
+  {
+    const g = new THREE.BufferGeometry().setFromPoints([new V3(0, 0, 0), new V3(0, NS_POS.y - 9, 0)]);
+    NS.axis = new THREE.Line(g, new THREE.LineDashedMaterial({ color: COL.polar, dashSize: 1.6, gapSize: 3.2, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
+    NS.axis.computeLineDistances(); scene.add(NS.axis);
+  }
+  // 은하가 떠 있는 기울어진 원판의 기준 원
+  const ringMat = (op, dash) => new THREE.LineDashedMaterial({ color: COL.gold, dashSize: dash, gapSize: dash * 1.6, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending });
+  [[RING_R, 0.2, 2.2], [RING_R * 0.5, 0.07, 1.4], [RING_R * 1.32, 0.05, 3]].forEach(([rr, op, dash]) => {
+    const pts = []; for (let i = 0; i <= 256; i++) { const a = (i / 256) * Math.PI * 2; pts.push(new V3(Math.cos(a) * rr, 0, Math.sin(a) * rr)); }
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ringMat(op, dash)); l.computeLineDistances(); l.userData.op = op;
+    universe.add(l); (universe.userData.rings = universe.userData.rings || []).push(l);
+  });
+
+  const maxStars = Math.max(1, ...M.gals.map((g) => M.stars.filter((s) => s.galaxy === g.id).length));
+  M.gals.forEach((g, i) => { const G = makeGalaxy(g, i, M.gals.length, maxStars); GAL.push(G); GAL_BY_ID.set(G.id, G); });
+  universe.add(PTR.group);
+  buildPointers();
+}
+
+// 은하 원반이 관찰자 쪽(위·앞)으로 살짝 고개를 든다. 우주가 돌아도 매 프레임 같은 방향을 본다.
+const FACE_PT = new V3(0, 420, 640), _gq = new THREE.Quaternion(), _gq2 = new THREE.Quaternion(), _gn = new V3(), _gw = new V3(), _gy = new V3(0, 1, 0);
+function orientGalaxies() {
+  universe.updateMatrixWorld();
+  universe.getWorldQuaternion(_gq2).invert();
+  GAL.forEach((G) => {
+    G.group.getWorldPosition(_gw);
+    _gn.copy(FACE_PT).sub(_gw).normalize().multiplyScalar(0.62);
+    _gn.y += 0.38; _gn.normalize();
+    _gq.setFromUnitVectors(_gy, _gn);
+    G.group.quaternion.copy(_gq2).multiply(_gq);
+  });
+}
+
+// ── 은하 하나 ──
+function makeGalaxy(g, i, n, maxStars) {
+  const r = rngOf('gal' + g.id);
+  const stars = M.stars.filter((s) => s.galaxy === g.id);
+  const cons = M.cons.filter((c) => c.galaxy === g.id);
+  const R = 10 + 12 * Math.sqrt(stars.length / maxStars);
+  const a = -Math.PI / 2 + (i * Math.PI * 2) / n;
+  const group = new THREE.Group();
+  group.position.set(Math.cos(a) * RING_R, (r() - 0.5) * 16, Math.sin(a) * RING_R);
+  universe.add(group);
+  const inner = new THREE.Group(); inner.rotation.y = r() * Math.PI * 2; group.add(inner);
+  const G = { id: g.id, g, idx: i, R, angle: a, group, inner, stars, cons, unfold: 0, unf: { from: 0, to: 0, t0: 0, dur: 1 }, wave: { t0: -1 }, detail: null, figs: null, op: 1 };
+  G.lay = makeLayout(G);
+  layoutStars(G);
+  G.tint = new THREE.Color();
+  G.base = new THREE.Points(genDisk(G, Math.round((LOW ? 1400 : 3000) * (0.55 + 0.45 * R / 22)), false), diskMaterial(false));
+  G.base.renderOrder = 1; inner.add(G.base);
+  G.core = sprite(TEX.glow, new THREE.Color('#ffe0b0'), 0.75, R * 0.42); G.core.renderOrder = 2; inner.add(G.core);
+  G.haze = sprite(TEX.soft, new THREE.Color('#8fa4ff'), 0.2, R * 2.5); G.haze.renderOrder = 0; inner.add(G.haze);
+  buildDataStars(G);
+  updateTint(G);
+  G.plane = galaxyPlane(G, LOW ? 192 : 256, 0.75, G.tint, G.tintAmt); inner.add(G.plane);
+  return G;
+}
+
+function makeLayout(G) {
+  const R = G.R, rc = R * 0.17, rOut = R * 0.93;
+  const span = Math.max(7, M.day1 - M.day0);
+  const rOfDay = (d) => rc + (rOut - rc) * clamp((d - M.day0) / span, -0.02, 1.02);
+  const k = 4.4 / Math.log(rOut / rc);
+  const nb = Math.max(2, M.branches.length);
+  const armTheta = (bi, rr) => (bi * Math.PI * 2) / nb + k * Math.log(Math.max(rr, rc * 0.45) / rc);
+  return { R, rc, rOut, rOfDay, armTheta, k, span };
+}
+
+// 자리 배치에만 쓰는 날짜 흩뿌림(월 기준·수집일 기준 날짜가 한 원에 몰리지 않게). 카드에는 원래 날짜를 쓴다.
+function layoutDay(s) {
+  const r = rngOf('d' + s.id);
+  if (s.date_source === 'month') return s.day + (r() - 0.5) * 24;
+  if (s.date_source === 'collected') return s.day - r() * 6;
+  return s.day + (r() - 0.5) * 0.8;
+}
+
+function layoutStars(G) {
+  const L = G.lay, R = G.R;
+  // 지점 팔마다 별자리 차선: 시간 구간이 겹치지 않으면 같은 차선을 함께 쓴다
+  const byB = new Map();
+  G.cons.forEach((c) => { const b = bIdx(c.branch); if (!byB.has(b)) byB.set(b, []); byB.get(b).push(c); });
+  const seq = []; for (let i = 0; i < 40; i++) seq.push(i + 0.5, -(i + 0.5));
+  for (const [b, list] of byB) {
+    list.sort((x, y) => (x.seed - y.seed) || (y.stars.length - x.stars.length) || conOrder(x, y));
+    const lanes = [];
+    list.forEach((c) => {
+      const d0 = c.stars.length ? c.stars[0].day - 9 : 0, d1 = c.stars.length ? c.stars[c.stars.length - 1].day + 9 : 0;
+      let li = 0;
+      for (; li < lanes.length; li++) if (lanes[li].every(([p, q]) => d1 < p || d0 > q)) break;
+      if (li === lanes.length) lanes.push([]);
+      lanes[li].push([d0, d1]); c._lane = li;
+    });
+    const spacing = Math.min(0.24, 2.1 / Math.max(1, lanes.length + 0.5));
+    list.forEach((c) => { c._off = seq[c._lane] * spacing; c._bi = b; });
+  }
+  // 별 위치(은하 안쪽 좌표). 반지름 = 시간, 팔 = 지점
+  G.list = [];
+  G.densK = clamp(Math.sqrt(260 / Math.max(1, G.stars.length)), 0.55, 1);
+  const put = (s, kind, latPhys, radJit, yJit) => {
+    const dd = layoutDay(s);
+    let rr = L.rOfDay(dd) + radJit;
+    rr = Math.max(L.rc * 0.6, rr);
+    const bi = s.con && s.con._bi != null ? s.con._bi : bIdx(s.branch);
+    const off = s.con && s.con.galaxy === G.id ? s.con._off : 0;
+    const th = L.armTheta(bi, rr) + off + clamp(latPhys / rr, -0.6, 0.6);
+    const p = new V3(Math.cos(th) * rr, yJit, Math.sin(th) * rr);
+    const rec = { s, kind, pos: p, rr, aR: rr / R, i: G.list.length };
+    G.list.push(rec);
+    return rec;
+  };
+  G.byStar = new Map();
+  G.conRec = new Map();
+  G.cons.forEach((c) => {
+    const rs = rngOf('c' + c.id);
+    const big = c.stars.length > 16;
+    const weeks = new Map();
+    c.stars.forEach((s) => { const wk = s.week || String(Math.floor((s.day - 4) / 7)); if (!weeks.has(wk)) weeks.set(wk, []); weeks.get(wk).push(s); });
+    const recs = [], figs = [];
+    for (const [, list] of weeks) {
+      list.forEach((s, j) => {
+        const fan = j === 0 ? clamp(gauss(rs), -2, 2) * R * 0.03 : (j % 2 ? 1 : -1) * R * (0.035 + 0.024 * Math.ceil(j / 2)) + gauss(rs) * R * 0.01;
+        const kind = c.seed ? 'seed' : (big && j > 0 ? 'mem' : 'fig');
+        const rec = put(s, kind, fan * (big ? 1.2 : 1), gauss(rs) * R * 0.006, gauss(rs) * R * 0.012);
+        recs.push(rec); if (kind !== 'mem') figs.push(rec);
+        G.byStar.set(s.id, rec);
+      });
+    }
+    recs.sort((a, b) => a.s.day - b.s.day);
+    figs.sort((a, b) => a.s.day - b.s.day);
+    const head = recs[recs.length - 1];
+    if (head && head.kind === 'mem') { head.kind = 'fig'; figs.push(head); }
+    G.conRec.set(c.id, { c, recs, figs, head });
+  });
+  G.stars.filter((s) => !G.byStar.has(s.id)).forEach((s) => {
+    const rs = rngOf('s' + s.id);
+    const side = rs() < 0.5 ? -1 : 1;
+    const dd = layoutDay(s);
+    const rr = Math.max(L.rc * 0.7, L.rOfDay(dd) + gauss(rs) * R * 0.012);
+    const th = L.armTheta(bIdx(s.branch), rr) + side * (1.15 + rs() * 0.35);
+    const rec = { s, kind: 'single', pos: new V3(Math.cos(th) * rr, gauss(rs) * R * 0.02, Math.sin(th) * rr), rr, aR: rr / R, i: G.list.length };
+    G.list.push(rec); G.byStar.set(s.id, rec);
+  });
+}
+
+// ── 원반 입자 생성(L0 작은 은하와 L1 상세 원반이 같은 함수를 쓴다) ──
+function genDisk(G, N, detail) {
+  const r = rngOf((detail ? 'dd' : 'db') + G.id), L = G.lay, R = G.R;
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), alpha = new Float32Array(N), aR = new Float32Array(N), arm = new Float32Array(N);
+  const warm = new THREE.Color(1.0, 0.8, 0.56), young = new THREE.Color(0.6, 0.72, 1.0), pink = new THREE.Color(1.0, 0.42, 0.68), c = new THREE.Color();
+  const nb = Math.min(2, Math.max(2, M.branches.length));
+  for (let i = 0; i < N; i++) {
+    const u = r();
+    let x, y, z, rr, a, s, al, am = 2;
+    if (u < 0.13) { // 중심 팽대부
+      rr = Math.abs(gauss(r)) * R * 0.13; a = r() * Math.PI * 2;
+      x = Math.cos(a) * rr; z = Math.sin(a) * rr; y = gauss(r) * R * 0.055 * Math.max(0.2, 1 - rr / (R * 0.25));
+      c.copy(warm).lerp(COL.white, r() * 0.35); s = R * (0.005 + r() * 0.007); al = 0.3 + r() * 0.35;
+    } else if (u < 0.74) { // 나선팔(지점)
+      const bi = r() < 0.5 ? 0 : 1; am = bi;
+      const t = Math.pow(r(), 0.85);
+      rr = L.rc * 0.55 + t * (R * 1.04 - L.rc * 0.55);
+      const w = (0.2 + 0.24 * t) * (r() < 0.82 ? 1 : 2.4);
+      a = L.armTheta(bi % nb, rr) + gauss(r) * w;
+      x = Math.cos(a) * rr; z = Math.sin(a) * rr; y = gauss(r) * R * 0.013 * (1 - 0.5 * t);
+      c.copy(warm).lerp(young, Math.min(1, t * 1.25));
+      if (r() < 0.025 && t > 0.2) c.copy(pink);
+      s = R * (0.004 + r() * 0.006) * (r() < 0.012 ? 2.6 : 1); al = (0.3 + r() * 0.55) * (1 - 0.3 * t);
+    } else { // 팔 사이 원반
+      rr = Math.min(R * 1.12, -Math.log(1 - r() * 0.97) * R * 0.32); a = r() * Math.PI * 2;
+      x = Math.cos(a) * rr; z = Math.sin(a) * rr; y = gauss(r) * R * 0.02;
+      c.copy(young).lerp(warm, Math.max(0, 0.6 - rr / R)).multiplyScalar(0.8); s = R * (0.004 + r() * 0.005); al = 0.08 + r() * 0.2;
+    }
+    if (!detail) { s *= 1.7; al *= 1.1; } else al *= 0.55;
+    const k = 0.55 + r() * 0.45;
+    pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+    col[i * 3] = c.r * k; col[i * 3 + 1] = c.g * k; col[i * 3 + 2] = c.b * k;
+    size[i] = s; alpha[i] = al; aR[i] = Math.min(1.1, rr / R); arm[i] = am;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  geo.setAttribute('aAlpha', new THREE.BufferAttribute(alpha, 1));
+  geo.setAttribute('aR', new THREE.BufferAttribute(aR, 1));
+  geo.setAttribute('aArm', new THREE.BufferAttribute(arm, 1));
+  geo.userData.baseCol = col.slice();
+  return geo;
+}
+
+// 먼지띠(어두운 입자, 일반 합성으로 빛을 가린다)
+function genDust(G, N) {
+  const r = rngOf('dust' + G.id), L = G.lay, R = G.R;
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), alpha = new Float32Array(N), aR = new Float32Array(N), arm = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const bi = r() < 0.5 ? 0 : 1;
+    const t = 0.12 + Math.pow(r(), 0.9) * 0.82, rr = L.rc + t * (R - L.rc);
+    const a = L.armTheta(bi, rr) - (0.22 + 0.06 * t) + gauss(r) * 0.07;
+    pos[i * 3] = Math.cos(a) * rr; pos[i * 3 + 1] = gauss(r) * R * 0.006 + R * 0.004; pos[i * 3 + 2] = Math.sin(a) * rr;
+    col[i * 3] = 0.018; col[i * 3 + 1] = 0.012; col[i * 3 + 2] = 0.02;
+    size[i] = R * (0.025 + r() * 0.04); alpha[i] = 0.16 + r() * 0.24; aR[i] = rr / R; arm[i] = bi;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  geo.setAttribute('aAlpha', new THREE.BufferAttribute(alpha, 1));
+  geo.setAttribute('aR', new THREE.BufferAttribute(aR, 1));
+  geo.setAttribute('aArm', new THREE.BufferAttribute(arm, 1));
+  return geo;
+}
+
+// 은하 색조: 부정 많으면 붉게, 긍정 많으면 금빛
+function galStats(G) {
+  const ss = G.stars.filter((s) => branchOn(s.branch));
+  const cs = G.cons.filter((c) => branchOn(c.branch));
+  return {
+    stars: ss.length, neg: ss.filter((s) => s.polarity === 'neg').length, pos: ss.filter((s) => s.polarity === 'pos').length,
+    cons: cs.filter((c) => !c.seed).length, seeds: cs.filter((c) => c.seed).length, nebulae: cs.filter((c) => c.status === '성운').length,
+    singles: ss.filter((s) => !s.con).length,
+  };
+}
+function updateTint(G) {
+  const st = galStats(G);
+  const tot = st.neg + st.pos;
+  const s = tot ? st.pos / tot : 0.5;
+  const t = new THREE.Color();
+  if (s < 0.5) t.copy(COL.neg).lerp(COL.neutral, s / 0.5); else t.copy(COL.neutral).lerp(COL.pos, (s - 0.5) / 0.5);
+  G.tint.copy(t);
+  G.tintAmt = tot ? Math.min(1, Math.abs(s - 0.5) * 2) : 0;
+  G.haze.material.color.copy(t);
+  G.haze.userData.op = tot ? 0.22 : 0.1;
+  // 원반 입자 일부를 색조로 물들임
+  const tintGeo = (geo, amt) => {
+    const col = geo.attributes.aColor.array, base = geo.userData.baseCol, rr = rngOf('tint' + G.id);
+    for (let i = 0; i < col.length; i += 3) {
+      const m = rr() < 0.42 ? amt * (0.35 + rr() * 0.45) : 0;
+      col[i] = base[i] + (t.r - base[i]) * m; col[i + 1] = base[i + 1] + (t.g - base[i + 1]) * m; col[i + 2] = base[i + 2] + (t.b - base[i + 2]) * m;
+    }
+    geo.attributes.aColor.needsUpdate = true;
+  };
+  tintGeo(G.base.geometry, 0.25 + 0.6 * G.tintAmt);
+  if (G.detail) tintGeo(G.detail.disk.geometry, 0.12 + 0.35 * G.tintAmt);
+  G.st = st;
+}
+
+// ── 데이터 별(별자리·씨앗·단발) ──
+const KIND_SIZE = { fig: 0.052, mem: 0.036, seed: 0.04, single: 0.026 };
+function starBase(G, rec) {
+  const s = rec.s, c = s.con && s.con.galaxy === G.id ? s.con : null, R = G.R;
+  let color = (s.polarity === 'pos' ? COL.pos : COL.neg).clone(), a = 1, size = KIND_SIZE[rec.kind] * R * (0.72 + 0.28 * G.densK), spike = 0;
+  if (s.polarity === 'pos') { a = 0.68; size *= 0.88; }
+  if (rec.kind === 'mem') a *= 0.72;
+  if (rec.kind === 'single') { color.lerp(COL.dust, 0.5); a = 0.5; }
+  if (c) {
+    if (c.seed) a = 0.62;
+    if (c.status === '성운') { color.copy(COL.neb); a = 0.8; }
+    else if (c.status === '관찰') { color.lerp(COL.neb, 0.65); a = 0.9; }
+    else if (c.status === '흐려짐') { a = 0.32; }
+    else if (c.status === '재발') { const cd = closeDay(c); if (cd != null && s.day <= cd) { color.copy(COL.neb); a = 0.75; } }
+    const cr = G.conRec.get(c.id);
+    if (cr && cr.head === rec && !c.seed) { size *= 1.25; spike = c.status === '흐려짐' ? 0 : 0.5; }
+  }
+  return { color, a, size, spike };
+}
+function buildDataStars(G) {
+  const n = G.list.length;
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n), ph = new Float32Array(n), aR = new Float32Array(n), e0 = new Float32Array(n * 3), e1 = new Float32Array(n * 3);
+  G.list.forEach((rec, i) => {
+    const b = starBase(G, rec); rec.base = b;
+    pos[i * 3] = rec.pos.x; pos[i * 3 + 1] = rec.pos.y; pos[i * 3 + 2] = rec.pos.z;
+    col[i * 3] = b.color.r; col[i * 3 + 1] = b.color.g; col[i * 3 + 2] = b.color.b;
+    size[i] = b.size; ph[i] = rngOf('p' + rec.s.id)(); aR[i] = rec.aR;
+    e0[i * 3] = e1[i * 3] = 1; e0[i * 3 + 1] = e1[i * 3 + 1] = b.a; e0[i * 3 + 2] = e1[i * 3 + 2] = b.spike;
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  geo.setAttribute('aPhase', new THREE.BufferAttribute(ph, 1));
+  geo.setAttribute('aR', new THREE.BufferAttribute(aR, 1));
+  geo.setAttribute('aE0', new THREE.BufferAttribute(e0, 3));
+  geo.setAttribute('aE1', new THREE.BufferAttribute(e1, 3));
+  G.dots = new THREE.Points(geo, starMaterial());
+  G.dots.material.uniforms.uMinPx.value = lerp(1.7, 2.4, (G.densK - 0.55) / 0.45);
+  G.dots.renderOrder = 5; G.dots.frustumCulled = false;
+  G.inner.add(G.dots);
+  G.emix = { t0: 0, dur: 0.24 };
+}
+
+// ── 북극성을 향한 선 ──
+function buildPointers() {
+  ['gold', 'vio', 'brk', 'beads', 'marks'].forEach((k) => { if (PTR[k]) { PTR.group.remove(PTR[k]); PTR[k].geometry.dispose(); PTR[k] = null; } });
+  const gold = [], goldC = [], vio = [], vioC = [], brk = [], brkC = [], bA = [], bB = [], bP = [], bC = [], mk = [], mkC = [];
+  const top = NS_POS.clone().add(new V3(0, -3, 0));
+  GAL.forEach((G) => {
+    const cs = G.cons.filter((c) => branchOn(c.branch));
+    const nKeep = cs.filter((c) => c.polarity === 'pos' && c.status === '유지').length;
+    const nNeb = cs.filter((c) => c.status === '성운').length;
+    const nRel = cs.filter((c) => c.status === '재발').length;
+    const p = G.group.position.clone();
+    const side = new V3().subVectors(top, p).cross(new V3(0, 1, 0)).normalize();
+    const src = (k) => p.clone().addScaledVector(side, k * G.R * 0.16).add(new V3(0, G.R * 0.08, 0));
+    if (nKeep) {
+      const a = src(0), b = top, inten = 0.5 + 0.14 * Math.min(nKeep, 4);
+      gold.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      goldC.push(COL.pos.r * inten * 0.45, COL.pos.g * inten * 0.45, COL.pos.b * inten * 0.45, COL.pos.r * inten, COL.pos.g * inten, COL.pos.b * inten);
+      const nb = 2 + Math.min(nKeep, 4);
+      for (let j = 0; j < nb; j++) { bA.push(a.x, a.y, a.z); bB.push(b.x, b.y, b.z); bP.push(j / nb + rngOf('b' + G.id + j)() * 0.08); bC.push(COL.pos.r, COL.pos.g, COL.pos.b); }
+    }
+    if (nNeb) {
+      const a = src(1), b = top, inten = 0.55 + 0.15 * Math.min(nNeb, 3);
+      vio.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      vioC.push(COL.neb.r * inten * 0.5, COL.neb.g * inten * 0.5, COL.neb.b * inten * 0.5, COL.neb.r * inten, COL.neb.g * inten, COL.neb.b * inten);
+    }
+    if (nRel) {
+      const a = src(-1), b = a.clone().lerp(top, 0.52), inten = 0.85;
+      const c1 = COL.neg.clone().lerp(COL.neb, 0.35);
+      brk.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      brkC.push(c1.r * inten, c1.g * inten, c1.b * inten, c1.r * 0.3, c1.g * 0.3, c1.b * 0.3);
+      mk.push(b.x, b.y, b.z); mkC.push(COL.neg.r, COL.neg.g, COL.neg.b);
+    }
+  });
+  const mkLines = (arr, colArr, mat) => {
+    if (!arr.length) return null;
+    const g = new LineSegmentsGeometry(); g.setPositions(arr); g.setColors(colArr);
+    const l = new LineSegments2(g, mat); l.computeLineDistances(); l.renderOrder = 4; l.frustumCulled = false; PTR.group.add(l); return l;
+  };
+  PTR.gold = mkLines(gold, goldC, PTR.goldMat || (PTR.goldMat = lineMat({ linewidth: 1.7, opacity: 0.9 })));
+  PTR.vio = mkLines(vio, vioC, PTR.vioMat || (PTR.vioMat = lineMat({ linewidth: 1.7, opacity: 0.9 })));
+  PTR.brk = mkLines(brk, brkC, PTR.brkMat || (PTR.brkMat = lineMat({ linewidth: 1.5, opacity: 0.95, dashed: true, dashSize: 2.6, gapSize: 2.2 })));
+  if (bA.length) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(bA, 3));
+    g.setAttribute('aA', new THREE.Float32BufferAttribute(bA, 3));
+    g.setAttribute('aB', new THREE.Float32BufferAttribute(bB, 3));
+    g.setAttribute('aPhase', new THREE.Float32BufferAttribute(bP, 1));
+    g.setAttribute('aColor', new THREE.Float32BufferAttribute(bC, 3));
+    PTR.beads = new THREE.Points(g, PTR.beadMat || (PTR.beadMat = beadMaterial()));
+    PTR.beads.frustumCulled = false; PTR.beads.renderOrder = 6; PTR.group.add(PTR.beads);
+  }
+  if (mk.length) {
+    const g = new THREE.BufferGeometry();
+    const n = mk.length / 3, sz = new Float32Array(n).fill(2.2), ph = new Float32Array(n), aR = new Float32Array(n), e = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { e[i * 3] = 1; e[i * 3 + 1] = 0.9; e[i * 3 + 2] = 0.3; ph[i] = i * 0.37; }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(mk, 3));
+    g.setAttribute('aColor', new THREE.Float32BufferAttribute(mkC, 3));
+    g.setAttribute('aSize', new THREE.BufferAttribute(sz, 1));
+    g.setAttribute('aPhase', new THREE.BufferAttribute(ph, 1));
+    g.setAttribute('aR', new THREE.BufferAttribute(aR, 1));
+    g.setAttribute('aE0', new THREE.BufferAttribute(e, 3));
+    g.setAttribute('aE1', new THREE.BufferAttribute(e.slice(), 3));
+    PTR.marks = new THREE.Points(g, PTR.markMat || (PTR.markMat = starMaterial()));
+    PTR.marks.frustumCulled = false; PTR.marks.renderOrder = 6; PTR.group.add(PTR.marks);
+  }
+  setPointerOpacity(PTR.op);
+}
+function setPointerOpacity(k) {
+  PTR.op = k;
+  if (PTR.goldMat) PTR.goldMat.opacity = 0.9 * k;
+  if (PTR.vioMat) PTR.vioMat.opacity = 0.9 * k;
+  if (PTR.brkMat) PTR.brkMat.opacity = 0.95 * k;
+  if (PTR.beadMat) PTR.beadMat.uniforms.uOpacity.value = k;
+  if (PTR.markMat) PTR.markMat.uniforms.uOpacity.value = k;
+  PTR.group.visible = k > 0.01;
+}
+
+const _dv = new V3();
+// ── 40 detail: 은하에 들어갔을 때 펼쳐지는 상세(원반, 먼지띠, 월 궤도, 별자리 선, 성단·성운) ──
+function mst(recs) {
+  const n = recs.length; if (n < 2) return [];
+  const inT = new Array(n).fill(false), best = new Array(n).fill(Infinity), par = new Array(n).fill(-1), edges = [];
+  best[0] = 0;
+  for (let it = 0; it < n; it++) {
+    let u = -1;
+    for (let i = 0; i < n; i++) if (!inT[i] && (u < 0 || best[i] < best[u])) u = i;
+    inT[u] = true; if (par[u] >= 0) edges.push([par[u], u]);
+    for (let v = 0; v < n; v++) if (!inT[v]) { const d = recs[u].pos.distanceTo(recs[v].pos); if (d < best[v]) { best[v] = d; par[v] = u; } }
+  }
+  return edges;
+}
+
+function conStyle(c) {
+  const neg = c.polarity !== 'pos';
+  if (c.seed) return { color: neg ? COL.neg : COL.pos, op: 0.5, dashed: true, w: 1.15 };
+  switch (c.status) {
+    case '성운': return { color: COL.neb, op: 0.6, w: 1.25 };
+    case '관찰': return { color: COL.neb, op: 0.75, dashed: true, w: 1.35 };
+    case '흐려짐': return { color: COL.pos, op: 0.28, dashed: true, w: 1.1 };
+    case '수행과제 진행': return { color: COL.neg, op: 0.9, dashed: true, flow: true, w: 1.55 };
+    case '유지': return { color: COL.pos, op: 0.5, w: 1.35 };
+    default: return { color: COL.neg, op: 0.9, w: 1.55 };
+  }
+}
+
+function buildDetail(G) {
+  if (G.detail) return G.detail;
+  const R = G.R, L = G.lay, D = { cons: new Map(), rings: [], glows: [], labels: [] }; // L: 은하 배치(반지름=시간, 팔=지점)
+  // 상세 원반 + 먼지띠
+  D.disk = new THREE.Points(genDisk(G, LOW ? 13000 : 34000, true), diskMaterial(false));
+  D.disk.renderOrder = 1; D.disk.frustumCulled = false; G.inner.add(D.disk);
+  D.dust = new THREE.Points(genDust(G, LOW ? 900 : 2400), diskMaterial(true));
+  D.dust.renderOrder = 2; D.dust.frustumCulled = false; G.inner.add(D.dust);
+  // 중심 핵의 빛
+  D.coreA = sprite(TEX.glow, new THREE.Color('#ffd9a6'), 0, R * 0.55); D.coreA.renderOrder = 2; G.inner.add(D.coreA);
+  D.coreB = sprite(TEX.soft, new THREE.Color('#7f8cff'), 0, R * 1.6); D.coreB.renderOrder = 0; G.inner.add(D.coreB);
+  D.plane = galaxyPlane(G, LOW ? 384 : 512, 0.3, G.tint, G.tintAmt); D.plane.visible = false; G.inner.add(D.plane);
+  // 월 궤도(얇은 금빛) — 가운데 6월, 바깥으로 최근
+  const ringAt = (rr, op, dash, solid) => {
+    const pts = []; for (let i = 0; i <= 200; i++) { const a = (i / 200) * Math.PI * 2; pts.push(new V3(Math.cos(a) * rr, 0, Math.sin(a) * rr)); }
+    const mat = solid ? new THREE.LineBasicMaterial({ color: COL.gold, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })
+      : new THREE.LineDashedMaterial({ color: COL.gold, dashSize: dash, gapSize: dash * 1.7, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+    if (!solid) l.computeLineDistances();
+    l.userData = { op, aR: rr / R }; l.renderOrder = 3; G.inner.add(l); D.rings.push(l); return l;
+  };
+  D.monthMarks = [];
+  M.months.forEach((m, i) => {
+    const d = dayNum(m + '-01');
+    if (i === 0) { D.monthMarks.push({ m, rr: L.rc * 0.82, first: true }); return; }
+    const rr = L.rOfDay(d); ringAt(rr, 0.2, R * 0.012, false);
+    D.monthMarks.push({ m, rr });
+  });
+  const rWeek = L.rOfDay(M.day1 - 6);
+  ringAt(rWeek, 0.16, R * 0.008, false);
+  const rNow = L.rOfDay(M.day1);
+  ringAt(rNow, 0.32, 0, true);
+  D.weekR = (rWeek + rNow) / 2; D.nowR = rNow;
+  // 별자리 선과 빛
+  for (const [cid, cr] of G.conRec) {
+    const c = cr.c, st = conStyle(c);
+    const edges = c.seed ? (cr.figs.length >= 2 ? [[0, 1]] : []) : mst(cr.figs);
+    const pairs = edges.map(([a, b]) => {
+      const A = cr.figs[a], B = cr.figs[b];
+      return A.s.day <= B.s.day ? [A, B] : [B, A];
+    });
+    const cd = c.status === '재발' ? closeDay(c) : null;
+    const bi = c._bi != null ? c._bi : bIdx(c.branch);
+    const latOf = (x) => { const d = Math.atan2(x.pos.z, x.pos.x) - L.armTheta(bi, x.rr); return Math.atan2(Math.sin(d), Math.cos(d)); };
+    const subs = [];
+    pairs.forEach(([A, B]) => {
+      const chord = A.pos.distanceTo(B.pos);
+      const n = clamp(Math.ceil(chord / (R * 0.045)), 1, 30);
+      const la = latOf(A), lb = latOf(B), pts = [];
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, rr = lerp(A.rr, B.rr, t), th = L.armTheta(bi, rr) + lerp(la, lb, t);
+        pts.push(new V3(Math.cos(th) * rr, lerp(A.pos.y, B.pos.y, t), Math.sin(th) * rr));
+      }
+      pts[0].copy(A.pos); pts[n].copy(B.pos);
+      const gap = Math.min(chord * 0.3, R * 0.02);
+      const d0 = new V3().subVectors(pts[1], pts[0]), d1 = new V3().subVectors(pts[n - 1], pts[n]);
+      pts[0].addScaledVector(d0.normalize(), Math.min(gap, pts[0].distanceTo(pts[1]) * 0.9));
+      pts[n].addScaledVector(d1.normalize(), Math.min(gap, pts[n].distanceTo(pts[n - 1]) * 0.9));
+      const cc = cd != null && B.s.day <= cd ? COL.neb : st.color;
+      for (let i = 0; i < n; i++) subs.push({ a: pts[i], b: pts[i + 1], k1: lerp(0.7, 1, i / n), k2: lerp(0.7, 1, (i + 1) / n), cc, ar: Math.max(pts[i].length(), pts[i + 1].length()) / R });
+    });
+    subs.sort((p, q) => p.ar - q.ar);
+    const pos = [], col = [], segAR = [];
+    subs.forEach((x) => {
+      pos.push(x.a.x, x.a.y, x.a.z, x.b.x, x.b.y, x.b.z);
+      col.push(x.cc.r * x.k1, x.cc.g * x.k1, x.cc.b * x.k1, x.cc.r * x.k2, x.cc.g * x.k2, x.cc.b * x.k2);
+      segAR.push(x.ar);
+    });
+    const rec = { c, cr, st, segAR, line: null, mat: null, op: 0, glows: [], fog: [], ring: null };
+    if (pos.length) {
+      const g = new LineSegmentsGeometry(); g.setPositions(pos); g.setColors(col);
+      rec.mat = lineMat({ linewidth: st.w, opacity: 0, dashed: !!st.dashed, dashSize: R * 0.022, gapSize: R * 0.016 });
+      rec.line = new LineSegments2(g, rec.mat); rec.line.computeLineDistances(); rec.line.renderOrder = 4; rec.line.frustumCulled = false;
+      G.inner.add(rec.line);
+    }
+    // 성단: 한 달에 같은 별자리 별 3개 이상
+    if (!c.seed) {
+      const byM = new Map();
+      cr.recs.forEach((r2) => { const k = r2.s.date.slice(0, 7); if (!byM.has(k)) byM.set(k, []); byM.get(k).push(r2); });
+      for (const [, list] of byM) {
+        if (list.length < 3) continue;
+        const cen = new V3(); list.forEach((x) => cen.add(x.pos)); cen.divideScalar(list.length);
+        let spread = 0; list.forEach((x) => { spread = Math.max(spread, x.pos.distanceTo(cen)); });
+        const color = c.status === '성운' ? COL.neb : (c.polarity === 'pos' ? COL.pos : COL.neg);
+        const gl = sprite(TEX.glow, color.clone(), 0, Math.min(R * 0.22, spread * 1.1 + R * (0.05 + 0.006 * Math.min(list.length, 12))));
+        gl.position.copy(cen); gl.renderOrder = 3; gl.userData.aR = cen.length() / R;
+        gl.userData.op = c.polarity === 'pos' ? Math.min(0.12, 0.05 + 0.008 * list.length) : Math.min(0.26, 0.1 + 0.02 * list.length);
+        G.inner.add(gl); rec.glows.push(gl);
+      }
+    }
+    // 성운(보랏빛 안개): 성운, 관찰, 재발 전 닫혔던 구간
+    let fogRecs = null, fogOp = 0;
+    if (c.status === '성운') { fogRecs = cr.recs; fogOp = 0.55; }
+    else if (c.status === '관찰') { fogRecs = cr.recs; fogOp = 0.28; }
+    else if (c.status === '재발' && cd != null) { fogRecs = cr.recs.filter((x) => x.s.day <= cd); fogOp = 0.4; }
+    if (fogRecs && fogRecs.length) {
+      const pts = fogRecs.map((x) => x.pos);
+      const step = Math.max(1, Math.ceil(pts.length / 12));
+      const picks = pts.filter((_, i) => i % step === 0);
+      if (picks.length === 1 || pts.length <= 2) { const cen = new V3(); pts.forEach((p) => cen.add(p)); cen.divideScalar(pts.length); picks.splice(0, picks.length, cen); }
+      const fr = rngOf('fog' + cid), cols = [COL.neb, new THREE.Color('#6f8cff'), new THREE.Color('#d08cff')];
+      picks.forEach((p, j) => {
+        const f = sprite(nebulaTex(20 + ((cid.length + j) % 6)), cols[j % 3].clone(), 0, R * (0.2 + fr() * 0.12) * (picks.length === 1 ? 1.4 : 1));
+        f.position.copy(p).add(new V3(gauss(fr) * R * 0.02, R * 0.01, gauss(fr) * R * 0.02)); f.material.rotation = fr() * 6.28;
+        f.userData.op = fogOp * (j % 3 === 0 ? 0.85 : 0.6); f.userData.aR = p.length() / R; f.renderOrder = 3;
+        G.inner.add(f); rec.fog.push(f);
+      });
+    }
+    // 재발: 마지막 별의 붉은 맥동 고리
+    if (c.status === '재발' && cr.head) {
+      rec.ring = sprite(TEX.ring, COL.neg.clone(), 0, R * 0.05); rec.ring.position.copy(cr.head.pos); rec.ring.renderOrder = 6;
+      rec.ring.userData.op = 0.9; G.inner.add(rec.ring);
+    }
+    D.cons.set(cid, rec);
+  }
+  G.detail = D;
+  updateTint(G);
+  buildDetailLabels(G);
+  return D;
+}
+
+// 펼침 정도에 따라 상세 요소의 투명도를 맞춘다(매 프레임)
+function updateDetail(G, dt) {
+  const D = G.detail; if (!D) return;
+  const u = G.unfold;
+  D.disk.material.uniforms.uUnfold.value = u;
+  D.dust.material.uniforms.uUnfold.value = u;
+  D.disk.visible = D.dust.visible = u > 0.002;
+  D.coreA.material.opacity = 0.32 * smooth(0.1, 0.6, u);
+  D.coreB.material.opacity = 0.07 * smooth(0.2, 0.8, u);
+  D.plane.visible = u > 0.002;
+  const dcam = camera.position.distanceTo(G.group.getWorldPosition(_dv));
+  D.plane.material.opacity = D.plane.userData.op * smooth(0.0, 0.9, u) * (0.18 + 0.82 * smooth(G.R * 0.9, G.R * 2.1, dcam));
+  { const k2 = lerp(0.08, 1, easeOut(u)); D.plane.scale.set(k2, k2, 1); D.plane.rotation.z = (1 - u) * 2.4; }
+  const ringK = S.level >= 2 ? 0.45 : 1;
+  D.rings.forEach((l) => { l.material.opacity = l.userData.op * ringK * smooth(l.userData.aR * 0.7 + 0.15, l.userData.aR * 0.7 + 0.35, u) * G.focusK; l.visible = l.material.opacity > 0.002; });
+  const wave = G.waveVal;
+  for (const [, rec] of D.cons) {
+    const target = rec.target ?? 0;
+    rec.op += (target - rec.op) * (1 - Math.exp(-dt * 9));
+    const vis = rec.op > 0.004;
+    if (rec.line) {
+      rec.line.visible = vis;
+      rec.mat.opacity = Math.min(1, rec.st.op * rec.op * (rec.c.polarity === 'pos' && S.level === 1 ? G.densK : 1));
+      if (rec.st.flow && !RM) rec.mat.dashOffset -= dt * G.R * 0.05;
+      // 시간 순으로 선이 그려진다(안쪽 6월 → 바깥 이번 주)
+      const total = rec.segAR.length;
+      let n = total;
+      if (wave > -0.5) { n = 0; while (n < total && rec.segAR[n] <= wave) n++; }
+      rec.line.geometry.instanceCount = n;
+    }
+    const gk = rec.op * (rec.glowK ?? 1) * (rec.c.polarity === 'pos' ? G.densK * G.densK : 1);
+    rec.glows.forEach((g) => { const w = wave < -0.5 || g.userData.aR <= wave ? 1 : 0; g.material.opacity = g.userData.op * gk * w; g.visible = g.material.opacity > 0.003; });
+    rec.fog.forEach((f) => { const w = wave < -0.5 || f.userData.aR <= wave ? 1 : 0; f.material.opacity = f.userData.op * gk * w; f.visible = f.material.opacity > 0.003; });
+    if (rec.ring) {
+      const ph = RM ? 0.35 : (U.uTime.value % 2.4) / 2.4;
+      const s = G.R * (0.03 + ph * 0.12); rec.ring.scale.set(s, s, 1);
+      rec.ring.material.opacity = (1 - ph) * 0.9 * rec.op; rec.ring.visible = rec.op > 0.01;
+    }
+  }
+}
+
+// ── 50 labels: 3D 위치를 화면에 투영한 이름표(은하·별자리 이름만), 겹치면 우선순위 낮은 것을 숨긴다 ──
+const LB = [];
+const _lv = new V3(), _lv2 = new V3();
+function addLabel(kind, html, anchor, opts = {}) {
+  const el = document.createElement('div'); el.className = 'lb ' + kind;
+  const inner = document.createElement('div'); inner.innerHTML = html; el.appendChild(inner);
+  labelsEl.appendChild(el);
+  const L = { el, inner, kind, anchor, prio: opts.prio || 0, place: opts.place || 'below', gap: opts.gap ?? 6, radius: opts.radius || 0, data: opts.data || null,
+    active: false, shown: false, dim: false, hot: false, sel: false, w: 0, h: 0, x: -1e4, y: -1e4, rect: null, force: !!opts.force };
+  LB.push(L); L.w = inner.offsetWidth; L.h = inner.offsetHeight;
+  return L;
+}
+function setLabelHTML(L, html) { if (L.inner.innerHTML !== html) { L.inner.innerHTML = html; L.w = L.inner.offsetWidth; L.h = L.inner.offsetHeight; } }
+function measureLabels() { LB.forEach((L) => { L.w = L.inner.offsetWidth; L.h = L.inner.offsetHeight; }); }
+
+function screenRadius(world, radius) {
+  _lv2.copy(world).applyMatrix4(camera.matrixWorldInverse);
+  const depth = Math.max(0.01, -_lv2.z);
+  return radius * camera.projectionMatrix.elements[5] * H * 0.5 / depth;
+}
+function exclusionRects() {
+  const ex = [];
+  const add = (el) => { if (!el || el.hidden) return; const b = el.getBoundingClientRect(); if (b.width && b.height) ex.push({ l: b.left - 6, r: b.right + 6, t: b.top - 6, b: b.bottom + 6 }); };
+  add($('crumbs')); add(document.querySelector('.tools')); add($('panel'));
+  const lg = $('legend'); if (lg && lg.offsetParent && getComputedStyle(lg).opacity > 0.1) add(lg);
+  return ex;
+}
+let EX_CACHE = [], EX_T = 0;
+function updateLabels(now) {
+  if (now - EX_T > 250) { EX_CACHE = exclusionRects(); EX_T = now; }
+  const cand = [];
+  for (const L of LB) {
+    if (!L.active) { if (L.shown) { L.el.classList.remove('on', 'dim'); L.shown = false; L.rect = null; } continue; }
+    L.anchor(_lv);
+    const wx = _lv.x, wy = _lv.y, wz = _lv.z;
+    _lv.project(camera);
+    if (_lv.z > 1 || _lv.z < -1) { hideLabel(L); continue; }
+    let x = ((_lv.x + 1) / 2) * W, y = ((1 - _lv.y) / 2) * H;
+    if (L.place === 'below') y += (L.radius ? screenRadius(_lv2.set(wx, wy, wz), L.radius) : 0) + L.gap;
+    else if (L.place === 'above') y -= (L.radius ? screenRadius(_lv2.set(wx, wy, wz), L.radius) : 0) + L.gap + L.h;
+    else y -= L.h / 2;
+    if (x < -L.w || x > W + L.w || y < -L.h - 20 || y > H + 20) { hideLabel(L); continue; }
+    if (L.kind !== 'mon') x = clamp(x, L.w / 2 + 8, W - L.w / 2 - 8);
+    cand.push({ L, x, y });
+  }
+  cand.sort((a, b) => score(b.L) - score(a.L));
+  const placed = [];
+  for (const c of cand) {
+    const L = c.L, hw = L.w / 2 + 5;
+    const r = { l: c.x - hw, r: c.x + hw, t: c.y - 3, b: c.y + L.h + 3 };
+    let blocked = !L.force && (EX_CACHE.some((e) => overlap(r, e)) || placed.some((p) => overlap(r, p)));
+    if (L.hot || L.sel) blocked = EX_CACHE.some((e) => overlap(r, e));
+    if (blocked) { hideLabel(L); continue; }
+    placed.push(r); L.rect = r;
+    if (Math.abs(c.x - L.x) > 0.25 || Math.abs(c.y - L.y) > 0.25) { L.x = c.x; L.y = c.y; L.el.style.transform = `translate3d(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px, 0)`; }
+    if (!L.shown) { L.el.classList.add('on'); L.shown = true; }
+    L.el.classList.toggle('dim', L.dim && !L.hot && !L.sel);
+    L.el.classList.toggle('hot', L.hot);
+    L.el.classList.toggle('sel', L.sel);
+  }
+}
+function score(L) { return L.prio + (L.shown ? 0.6 : 0) + (L.hot ? 1000 : 0) + (L.sel ? 2000 : 0); }
+function overlap(a, b) { return a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t; }
+function hideLabel(L) { if (L.shown) { L.el.classList.remove('on', 'dim', 'hot', 'sel'); L.shown = false; } L.rect = null; }
+
+// ── 라벨 만들기 ──
+const LBL = { ns: null, gal: new Map(), con: new Map() };
+function buildUniverseLabels() {
+  LBL.ns = addLabel('ns', '', (v) => v.copy(NS_POS), { place: 'below', gap: 30, prio: 100, force: true });
+  updateNSLabel();
+  GAL.forEach((G) => {
+    const L = addLabel('gal', '', (v) => G.group.getWorldPosition(v), { place: 'below', radius: G.R * 0.62, gap: 4, prio: 50 + G.st.stars / 100, data: { gid: G.id } });
+    LBL.gal.set(G.id, L);
+  });
+  updateGalaxyLabels();
+}
+function updateNSLabel() {
+  const ns = M.ns;
+  const has = ns && ns.value != null && !isNaN(ns.value);
+  const tags = has ? ((ns.is_estimate ? '<span class="tag">추정</span>' : '') + (M.sample ? '<span class="tag">예시</span>' : '')) : `<span class="tag">${esc((ns && ns.scope) || '계산 전')}</span>`;
+  setLabelHTML(LBL.ns, `<span class="k">북극성 · ${esc((ns && ns.label) || '불편 없이 끝난 체류 비율')}</span><span class="v"><b class="num">${has ? pct(ns.value) : '—'}</b>${has ? '<span class="u">%</span>' : ''}${tags}</span>`);
+}
+function updateGalaxyLabels() {
+  GAL.forEach((G) => {
+    const st = G.st, L = LBL.gal.get(G.id); if (!L) return;
+    const mix = new THREE.Color('#eef2fb').lerp(G.tint, 0.35 + 0.35 * G.tintAmt);
+    L.inner.style.setProperty('--gcol', `#${mix.getHexString()}`);
+    setLabelHTML(L, `<b>${esc(G.g.name)}</b><small class="num">별자리 ${st.cons} · 별 ${st.stars}</small>`);
+    L.prio = 50 + st.stars / 100;
+  });
+}
+function buildDetailLabels(G) {
+  const D = G.detail, R = G.R, L = G.lay;
+  D.labAng = 0;
+  const mk = (rr, html, kind, prio) => addLabel(kind, html, (v) => G.inner.localToWorld(v.set(Math.cos(D.labAng) * rr, 0, Math.sin(D.labAng) * rr)), { place: 'center', prio, data: { gid: G.id } });
+  D.monthMarks.forEach((mm) => {
+    const mo = +mm.m.slice(5, 7);
+    mm.label = mk(mm.first ? L.rc * 0.5 : mm.rr, `${mo}월`, 'mon', 8);
+  });
+  D.weekLabel = mk(D.nowR + R * 0.05, '이번 주', 'mon', 9);
+  D.armLabels = M.branches.slice(0, 2).map((b, bi) => {
+    const th = L.armTheta(bi, R * 0.98), rr = R * 1.1;
+    return addLabel('arm', esc(b), (v) => G.inner.localToWorld(v.set(Math.cos(th) * rr, 0, Math.sin(th) * rr)), { place: 'center', prio: 30, data: { gid: G.id, branch: b } });
+  });
+  for (const [cid, rec] of D.cons) {
+    const c = rec.c, head = rec.cr.head; if (!head) continue;
+    const cls = 'con' + (c.seed ? ' seed' : '');
+    const color = c.status === '성운' || c.status === '관찰' ? '#c8b3ff' : (c.polarity === 'pos' ? '#ffe2a6' : '#ffb0a6');
+    const lab = addLabel(cls, esc(c.name), (v) => G.inner.localToWorld(v.copy(head.pos)), { place: 'above', radius: G.R * 0.03, gap: 6, prio: (c.seed ? 5 : 20) + Math.min(10, c.recent_4w) + Math.min(5, c.stars.length / 10), data: { cid } });
+    lab.inner.style.setProperty('--ccol', color);
+    LBL.con.set(cid, lab);
+  }
+}
+
+// ── 60 camera: 카메라 리그(구면 좌표 + 기준 틀), 곡선 비행, 화면 맞춤, 드래그·휠·핀치 ──
+const rig = { target: new V3(0, 30, 0), q: new THREE.Quaternion(), upq: new THREE.Quaternion(), r: 340, phi: 1.17, theta: Math.PI / 2, rGoal: null, vTh: 0, vPh: 0 };
+const VIEW = { ox: 0, oy: 0, tox: 0, toy: 0 };
+const LIM = { phiMin: 0.25, phiMax: 1.52, rMin: 80, rMax: 900 };
+let flight = null;
+const _fc = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.05, 14000);
+const _fv = new V3(), _fm = new V3(), _fu = new V3(), _ft = new V3(), _q = new THREE.Quaternion();
+
+function sph(r, phi, theta, out) { const s = Math.sin(phi); return out.set(r * s * Math.cos(theta), r * Math.cos(phi), r * s * Math.sin(theta)); }
+function applyRig() {
+  sph(rig.r, rig.phi, rig.theta, camera.position).applyQuaternion(rig.q).add(rig.target);
+  camera.up.set(0, 1, 0).applyQuaternion(rig.upq);
+  camera.lookAt(rig.target);
+  camera.updateMatrixWorld();
+}
+function setViewOffset(cam, dx, dy) {
+  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+    cam.fov = BASE_FOV; cam.aspect = W / H; cam.clearViewOffset();
+  } else {
+    const cx = W / 2 + dx, cy = H / 2 + dy;
+    let fw, ox, fh, oy;
+    if (cx < W / 2) { fw = 2 * (W - cx); ox = fw - W; } else { fw = 2 * cx; ox = 0; }
+    if (cy < H / 2) { fh = 2 * (H - cy); oy = fh - H; } else { fh = 2 * cy; oy = 0; }
+    cam.aspect = fw / fh;
+    cam.fov = (2 * Math.atan(Math.tan((BASE_FOV * Math.PI) / 360) * (fh / H)) * 180) / Math.PI;
+    cam.setViewOffset(fw, fh, ox, oy, W, H);
+  }
+  cam.updateProjectionMatrix();
+}
+function fits(st, r, pts, safe) {
+  sph(r, st.phi, st.theta, _fc.position).applyQuaternion(st.q).add(st.target);
+  _fc.up.set(0, 1, 0).applyQuaternion(st.q); _fc.lookAt(st.target); _fc.updateMatrixWorld();
+  for (const p of pts) {
+    _fv.copy(p).project(_fc);
+    if (_fv.z > 1 || _fv.z < -1) return false;
+    const x = ((_fv.x + 1) / 2) * W, y = ((1 - _fv.y) / 2) * H;
+    if (x < safe.l || x > safe.r || y < safe.t || y > safe.b) return false;
+  }
+  return true;
+}
+function fitR(st, pts, safe, ox, oy, rMin, rMax) {
+  setViewOffset(_fc, ox, oy);
+  if (!fits(st, rMax, pts, safe)) return rMax;
+  let lo = rMin, hi = rMax;
+  for (let i = 0; i < 26; i++) { const mid = Math.sqrt(lo * hi); if (fits(st, mid, pts, safe)) hi = mid; else lo = mid; }
+  return hi;
+}
+// 현재 카메라 위치를 새 기준 틀의 구면 좌표로
+function localAngles(target, q) {
+  _fv.copy(camera.position).sub(target).applyQuaternion(_q.copy(q).invert());
+  const r = Math.max(0.01, _fv.length());
+  return { r, phi: Math.acos(clamp(_fv.y / r, -1, 1)), theta: Math.atan2(_fv.z, _fv.x) };
+}
+
+// goal: { target: V3 | fn, q, r, phi, theta?, dur, lift, bump }
+function flyTo(goal, done) {
+  const tgt0 = typeof goal.target === 'function' ? goal.target(new V3()) : goal.target;
+  const la = localAngles(rig.target, goal.q);
+  const from = { target: rig.target.clone(), upq: rig.upq.clone(), r: la.r, phi: la.phi, theta: la.theta };
+  rig.q.copy(goal.q); rig.r = from.r; rig.phi = from.phi; rig.theta = from.theta;
+  const th1 = goal.theta == null ? from.theta : goal.theta;
+  const dth = Math.atan2(Math.sin(th1 - from.theta), Math.cos(th1 - from.theta));
+  rig.vTh = rig.vPh = 0; rig.rGoal = null;
+  flight = { t0: CLOCK.t / 1000, dur: RM ? 0 : goal.dur ?? 1.2, from, goal, dth, done, tgt0 };
+  if (RM) updateFlight(CLOCK.t / 1000);
+}
+function updateFlight(now) {
+  if (!flight) return;
+  const f = flight, u = f.dur ? clamp((now - f.t0) / f.dur, 0, 1) : 1;
+  const e = f.dur >= 0.95 ? easeIO(u) : easeOut(u);
+  const P0 = f.from.target, P2 = typeof f.goal.target === 'function' ? f.goal.target(_ft) : f.goal.target;
+  const lift = (f.goal.lift || 0) * P0.distanceTo(P2);
+  _fm.copy(P0).add(P2).multiplyScalar(0.5); _fm.y += lift;
+  const a = (1 - e) * (1 - e), b = 2 * (1 - e) * e, c = e * e;
+  rig.target.set(P0.x * a + _fm.x * b + P2.x * c, P0.y * a + _fm.y * b + P2.y * c, P0.z * a + _fm.z * b + P2.z * c);
+  rig.r = Math.exp(lerp(Math.log(f.from.r), Math.log(f.goal.r), e)) * (1 + (f.goal.bump || 0) * Math.sin(Math.PI * e));
+  rig.phi = lerp(f.from.phi, f.goal.phi, e);
+  rig.theta = f.from.theta + f.dth * e;
+  rig.upq.slerpQuaternions(f.from.upq, f.goal.q, e);
+  if (u >= 1) { const d = f.done; flight = null; if (d) d(); }
+}
+
+// ── 입력 ──
+const P = { pts: new Map(), drag: false, moved: 0, sx: 0, sy: 0, lx: 0, ly: 0, t0: 0, pinch: 0, hist: [], last: 0, hoverQ: null };
+function bindInput() {
+  const el = renderer.domElement;
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    el.setPointerCapture(e.pointerId);
+    P.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (P.pts.size === 1) {
+      P.drag = false; P.moved = 0; P.sx = P.lx = e.clientX; P.sy = P.ly = e.clientY; P.t0 = performance.now();
+      P.hist = [{ x: e.clientX, y: e.clientY, t: P.t0 }]; rig.vTh = rig.vPh = 0;
+    } else if (P.pts.size === 2) {
+      const [a, b] = [...P.pts.values()]; P.pinch = Math.hypot(a.x - b.x, a.y - b.y); P.moved += 30;
+    }
+    P.last = performance.now();
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!P.pts.has(e.pointerId)) { if (e.pointerType === 'mouse') { P.hoverQ = { x: e.clientX, y: e.clientY }; } return; }
+    P.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const now = performance.now(); P.last = now;
+    if (P.pts.size >= 2) {
+      const [a, b] = [...P.pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (P.pinch > 0 && !flight) { rig.rGoal = clamp((rig.rGoal ?? rig.r) * (P.pinch / d), LIM.rMin, LIM.rMax); rig.r = rig.rGoal; }
+      P.pinch = d; return;
+    }
+    const dx = e.clientX - P.lx, dy = e.clientY - P.ly; P.lx = e.clientX; P.ly = e.clientY;
+    P.moved += Math.abs(dx) + Math.abs(dy);
+    if (!P.drag && Math.hypot(e.clientX - P.sx, e.clientY - P.sy) > 7) {
+      P.drag = true; glWrap.classList.add('dragging');
+      if (flight) { flight = null; }
+      setHover(null);
+    }
+    if (P.drag) {
+      rig.theta += dx * 0.0052; rig.phi = clamp(rig.phi - dy * 0.0045, LIM.phiMin, LIM.phiMax);
+      P.hist.push({ x: e.clientX, y: e.clientY, t: now }); while (P.hist.length > 2 && now - P.hist[0].t > 90) P.hist.shift();
+    }
+  });
+  const up = (e) => {
+    if (!P.pts.has(e.pointerId)) return;
+    P.pts.delete(e.pointerId);
+    if (P.pts.size === 1) { const [p] = [...P.pts.values()]; P.lx = p.x; P.ly = p.y; P.pinch = 0; return; }
+    if (P.pts.size) return;
+    glWrap.classList.remove('dragging');
+    if (!P.drag && P.moved < 12 && e.type === 'pointerup') onTap(e.clientX, e.clientY, e.pointerType !== 'mouse');
+    else if (P.drag && P.hist.length > 1) {
+      const a = P.hist[0], b = P.hist[P.hist.length - 1], dt = Math.max(16, b.t - a.t) / 1000;
+      rig.vTh = clamp(((b.x - a.x) * 0.0052) / dt, -3, 3); rig.vPh = clamp((-(b.y - a.y) * 0.0045) / dt, -2, 2);
+    }
+    P.drag = false; P.pinch = 0; P.last = performance.now();
+  };
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+  el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !P.pts.size) { P.hoverQ = null; setHover(null); } });
+  el.addEventListener('wheel', (e) => {
+    e.preventDefault(); if (flight) return;
+    const k = Math.exp(e.deltaY * (e.deltaMode === 1 ? 0.04 : 0.0011));
+    rig.rGoal = clamp((rig.rGoal ?? rig.r) * k, LIM.rMin, LIM.rMax); P.last = performance.now();
+  }, { passive: false });
+}
+
+function updateRig(dt, now) {
+  if (flight) { updateFlight(now / 1000); applyRig(); return; }
+  if (!P.drag) {
+    rig.theta += rig.vTh * dt; rig.phi = clamp(rig.phi + rig.vPh * dt, LIM.phiMin, LIM.phiMax);
+    const k = Math.exp(-dt * 3.4); rig.vTh *= k; rig.vPh *= k;
+    if (Math.abs(rig.vTh) < 1e-4) rig.vTh = 0; if (Math.abs(rig.vPh) < 1e-4) rig.vPh = 0;
+  }
+  if (rig.rGoal != null) { rig.r += (rig.rGoal - rig.r) * (1 - Math.exp(-dt * 9)); if (Math.abs(rig.rGoal - rig.r) < rig.r * 0.0005) rig.rGoal = null; }
+  // 한계 밖이면 부드럽게 되돌림
+  if (rig.r < LIM.rMin) rig.r += (LIM.rMin - rig.r) * (1 - Math.exp(-dt * 6));
+  if (rig.r > LIM.rMax) rig.r += (LIM.rMax - rig.r) * (1 - Math.exp(-dt * 6));
+  rig.phi = clamp(rig.phi, LIM.phiMin, LIM.phiMax);
+  rig.upq.slerp(rig.q, 1 - Math.exp(-dt * 5));
+  // 은하 안에서의 자동 회전(카메라가 천천히 돈다)
+  const idle = performance.now() - P.last > 2600 && !P.pts.size;
+  if (S.spin && !RM && idle && S.level === 1) rig.theta += dt * ((Math.PI * 2) / 260) * SPIN.k;
+  if (S.spin && !RM && idle && S.level === 0 && !S.ns) rig.theta -= dt * ((Math.PI * 2) / 1100) * SPIN.k;
+  applyRig();
+}
+
+function updateViewOffset(dt) {
+  const k = 1 - Math.exp(-dt * 7);
+  VIEW.ox += (VIEW.tox - VIEW.ox) * k; VIEW.oy += (VIEW.toy - VIEW.oy) * k;
+  if (Math.abs(VIEW.tox - VIEW.ox) < 0.2) VIEW.ox = VIEW.tox;
+  if (Math.abs(VIEW.toy - VIEW.oy) < 0.2) VIEW.oy = VIEW.toy;
+  setViewOffset(camera, VIEW.ox, VIEW.oy);
+}
+
+// ── 70 nav: 상태, 이동(우주 → 은하 → 별자리 → 별), 강조, 고르기 ──
+const S = { level: 0, gid: null, cid: null, sid: null, ns: false, branch: '전체', spin: !RM, hover: null, panelHidden: false, tab: 'ko' };
+const SPIN = { k: RM ? 0 : 1 };
+const isPhone = () => W <= 720;
+const nowS = () => CLOCK.t / 1000;
+
+// ── 화면 맞춤에 쓰는 안전 영역 ──
+function hudBottom() { const t = document.querySelector('.hud-top'); if (!t) return 70; let b = 0; t.querySelectorAll('.crumbs, .tools').forEach((el) => { b = Math.max(b, el.getBoundingClientRect().bottom); }); return b || 70; }
+function panelWanted() { return !S.panelHidden && (S.ns || S.level >= 1); }
+function sheetPx() { const p = $('panel'); return p && !p.hidden ? p.getBoundingClientRect().height : 0; }
+function bottomEdge() {
+  // 휴대폰: 시트가 열려 있으면 시트 위, 아니면 범례 위 / 데스크톱: 화면 아래
+  if (isPhone()) {
+    if (panelWanted()) return H - sheetTargetPx();
+    const hb = document.querySelector('.hud-bottom'); return H - ((hb && hb.offsetHeight) || 90) - 8;
+  }
+  return H;
+}
+// 화면 중심을 옮길 양(원하는 중심 - 창 중심)
+function targetOffsets(level) {
+  if (isPhone()) { const top = hudBottom() + 8; return { ox: 0, oy: Math.round((top + bottomEdge()) / 2 - H / 2) }; }
+  if (!panelWanted()) return { ox: 0, oy: 0 };
+  const pw = $('panel').offsetWidth || 384;
+  return { ox: -Math.round((pw + 32) / 2), oy: 0 };
+}
+function safeRect(level, pad = 0) {
+  const t = hudBottom() + 14 + pad;
+  let l = 18 + pad, r = W - 18 - pad, b = H - 20 - pad;
+  if (isPhone()) b = Math.min(b, bottomEdge() - 12 - pad);
+  else {
+    if (panelWanted()) r = W - (($('panel').offsetWidth || 384) + 32) - 8 - pad;
+    const lg = $('legend'); if (lg) b = Math.min(b, H - (lg.offsetHeight || 40) - 34);
+  }
+  return { l, r, t, b };
+}
+
+// ── 카메라 목표 ──
+function homeGoal(keepTheta) {
+  const portrait = H > W * 1.15;
+  const st = { target: new V3(0, portrait ? NS_POS.y * 0.4 : 34, 0), q: new THREE.Quaternion(), phi: portrait ? 0.8 : 1.18, theta: keepTheta ?? Math.PI / 2 };
+  const pts = [NS_POS.clone().add(new V3(0, 10, 0)), NS_POS.clone().add(new V3(0, -26, 0))];
+  const maxR = Math.max(...GAL.map((G) => G.R));
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2, rr = RING_R + maxR * 0.9;
+    pts.push(new V3(Math.cos(a) * rr, 9, Math.sin(a) * rr), new V3(Math.cos(a) * RING_R, -maxR * 1.25 - 9, Math.sin(a) * RING_R));
+  }
+  const off = targetOffsets(0);
+  st.r = fitR(st, pts, safeRect(0), off.ox, off.oy, 120, 1600);
+  return st;
+}
+function galTarget(G) { return (v) => G.group.getWorldPosition(v); }
+function galGoal(G, level = 1) {
+  const q = G.inner.getWorldQuaternion(new THREE.Quaternion());
+  const target = G.group.getWorldPosition(new V3());
+  const la = localAngles(target, q);
+  const portrait = H > W * 1.15;
+  const st = { target, q, phi: portrait ? 0.5 : 0.9, theta: la.theta };
+  const pts = [], rim = portrait ? 0.98 : 1.13;
+  for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; pts.push(G.inner.localToWorld(new V3(Math.cos(a) * G.R * rim, 0, Math.sin(a) * G.R * rim))); }
+  const off = targetOffsets(level);
+  st.r = fitR(st, pts, safeRect(level), off.ox, off.oy, G.R * 0.9, G.R * 14);
+  st.target = galTarget(G);
+  return st;
+}
+function conGoal(c) {
+  const G = GAL_BY_ID.get(c.galaxy), cr = G.conRec.get(c.id);
+  const q = G.inner.getWorldQuaternion(new THREE.Quaternion());
+  const pts = cr.recs.map((r) => G.inner.localToWorld(r.pos.clone()));
+  const cen = new V3(); pts.forEach((p) => cen.add(p)); cen.divideScalar(Math.max(1, pts.length));
+  const la = localAngles(cen, q);
+  const st = { target: cen, q, phi: clamp(la.phi * 0.6, 0.32, 0.6), theta: la.theta };
+  const off = targetOffsets(2);
+  st.r = fitR(st, pts, safeRect(2, 60), off.ox, off.oy, G.R * 0.34, G.R * 8);
+  return st;
+}
+function starGoal(s) {
+  const G = GAL_BY_ID.get(s.galaxy), rec = G.byStar.get(s.id);
+  const q = G.inner.getWorldQuaternion(new THREE.Quaternion());
+  const wp = G.inner.localToWorld(rec.pos.clone());
+  if (s.con && s.con.galaxy === G.id) {
+    const cg = conGoal(s.con);
+    return { target: cg.target.clone().lerp(wp, 0.38), q, phi: cg.phi, theta: cg.theta, r: cg.r * 0.9 };
+  }
+  const la = localAngles(wp, q);
+  return { target: wp, q, phi: clamp(la.phi, 0.55, 0.95), theta: la.theta, r: G.R * 0.62 };
+}
+function setLimits() {
+  if (S.level === 0) { const h = homeGoal(rig.theta).r; Object.assign(LIM, { phiMin: 0.22, phiMax: 1.5, rMin: h * 0.42, rMax: h * 1.9 }); return; }
+  const G = GAL_BY_ID.get(S.gid); if (!G) return;
+  if (S.level === 1) Object.assign(LIM, { phiMin: 0.04, phiMax: 1.42, rMin: G.R * 0.7, rMax: G.R * 9 });
+  else Object.assign(LIM, { phiMin: 0.04, phiMax: 1.45, rMin: G.R * 0.18, rMax: G.R * 7 });
+}
+
+// ── 이동 ──
+const nav = {
+  universe(opts = {}) { go({ level: 0, gid: null, cid: null, sid: null, ns: false }, opts); },
+  northStar() { go({ level: 0, gid: null, cid: null, sid: null, ns: true }); },
+  galaxy(gid) { if (!GAL_BY_ID.has(gid)) return; go({ level: 1, gid, cid: null, sid: null, ns: false }); },
+  con(cid) { const c = M.conById.get(cid); if (!c) return; if (!branchOn(c.branch)) setBranch('전체', true); go({ level: 2, gid: c.galaxy, cid, sid: null, ns: false }); },
+  star(sid) { const s = M.starById.get(sid); if (!s) return; if (!branchOn(s.branch)) setBranch('전체', true); go({ level: 3, gid: s.galaxy, cid: s.con && s.con.galaxy === s.galaxy ? s.con.id : null, sid, ns: false }); },
+  up() {
+    if (S.level === 3) { if (S.cid) nav.con(S.cid); else nav.galaxy(S.gid); }
+    else if (S.level === 2) nav.galaxy(S.gid);
+    else if (S.level === 1 || S.ns) nav.universe();
+  },
+};
+
+function go(next, opts = {}) {
+  const prev = { ...S };
+  const t = nowS();
+  Object.assign(S, next);
+  S.hover = null; S.panelHidden = false;
+  const prevG = prev.level >= 1 ? GAL_BY_ID.get(prev.gid) : null;
+  const nextG = S.level >= 1 ? GAL_BY_ID.get(S.gid) : null;
+  if (prevG && prevG !== nextG) { prevG.unf = { from: prevG.unfold, to: 0, t0: t, dur: RM ? 0.01 : 0.95 }; prevG.wave.t0 = -1; }
+  if (nextG) {
+    buildDetail(nextG);
+    if (prevG !== nextG) {
+      nextG.unf = { from: nextG.unfold, to: 1, t0: t + (RM ? 0 : 0.28), dur: RM ? 0.01 : 1.55 };
+      nextG.wave = RM ? { t0: -1 } : { t0: t + 0.8, dur: 1.5 };
+      nextG.readyAt = t + (RM ? 0 : 1.9);
+      const la = localAngles(nextG.group.getWorldPosition(new V3()), nextG.inner.getWorldQuaternion(new THREE.Quaternion()));
+      nextG.detail.labAng = la.theta + 0.1;
+    }
+  }
+  renderUI();
+  // 카메라
+  let goal, dur;
+  if (S.level === 0) {
+    const la = localAngles(new V3(0, NS_POS.y * 0.3, 0), new THREE.Quaternion());
+    goal = homeGoal(opts.reset ? Math.PI / 2 : la.theta);
+    if (S.ns) { goal.target = NS_POS.clone().add(new V3(0, -38, 0)); goal.r *= 0.72; goal.phi = Math.min(goal.phi, 1.12); }
+    dur = prev.level >= 1 ? 1.85 : 1.3; goal.lift = prev.level >= 1 ? 0.1 : 0;
+  } else if (S.level === 1) {
+    goal = galGoal(nextG, 1);
+    if (prev.level === 0) { dur = 2.0; goal.lift = 0.16; goal.bump = 0.12; }
+    else if (prevG !== nextG) { dur = 2.2; goal.lift = 0.08; goal.bump = 0.3; }
+    else { dur = 1.15; }
+  } else if (S.level === 2) {
+    goal = conGoal(M.conById.get(S.cid));
+    dur = prevG !== nextG ? (prev.level === 0 ? 2.2 : 2.3) : (prev.level === 3 ? 0.8 : 1.15);
+    if (prevG !== nextG) { goal.lift = 0.12; goal.bump = 0.25; }
+  } else {
+    goal = starGoal(M.starById.get(S.sid));
+    dur = prevG !== nextG ? 2.3 : (prev.level === 3 && prev.cid === S.cid ? 0.6 : 0.85);
+    if (prevG !== nextG) { goal.lift = 0.12; goal.bump = 0.25; }
+  }
+  goal.dur = dur;
+  const after = () => { setLimits(); };
+  if (RM) {
+    const veil = $('veil'); veil.classList.add('on');
+    setTimeout(() => { flyTo(goal, after); applyRig(); veil.classList.remove('on'); }, 180);
+  } else flyTo(goal, after);
+  applyEmphasisAll();
+  setTimeout(setLimits, (dur || 0) * 1000 + 30);
+}
+
+// ── 지점 필터 ──
+function setBranch(b, silent) {
+  S.branch = b;
+  ['br-all', 'br-ssd', 'br-ddm'].forEach((id) => { const el = $(id); if (el) el.setAttribute('aria-checked', el.dataset.br === b ? 'true' : 'false'); });
+  moveSegInd();
+  GAL.forEach((G) => {
+    updateTint(G);
+    const dim = new THREE.Vector3(1, 1, 1);
+    M.branches.slice(0, 2).forEach((br, i) => { dim.setComponent(i, branchOn(br) ? 1 : 0.32); });
+    G.base.material.uniforms.uArmDim.value.copy(dim);
+    if (G.detail) { G.detail.disk.material.uniforms.uArmDim.value.copy(dim); G.detail.dust.material.uniforms.uArmDim.value.copy(dim); }
+  });
+  updateGalaxyLabels();
+  buildPointers();
+  if (S.level >= 2 && S.cid && !branchOn(M.conById.get(S.cid).branch) && !silent) { nav.galaxy(S.gid); return; }
+  if (S.level === 3 && S.sid && !branchOn(M.starById.get(S.sid).branch) && !silent) { nav.galaxy(S.gid); return; }
+  if (!silent) renderUI();
+  applyEmphasisAll();
+}
+
+// ── 강조(별 크기·밝기·회절광, 별자리 선) ──
+function applyEmphasisAll() { GAL.forEach((G) => { applyEmphasis(G); applyConTargets(G); }); }
+function applyEmphasis(G) {
+  const geo = G.dots.geometry, e0 = geo.attributes.aE0.array, e1 = geo.attributes.aE1.array;
+  const m = G.dots.material.uniforms.uMix.value;
+  for (let i = 0; i < e0.length; i++) e0[i] += (e1[i] - e0[i]) * m;
+  const inG = S.level >= 1 && S.gid === G.id;
+  const hv = S.hover;
+  G.list.forEach((rec, i) => {
+    const b = rec.base, s = rec.s, c = s.con && s.con.galaxy === G.id ? s.con : null;
+    let sz = 1, a = b.a, sp = b.spike;
+    if (!inG) {
+      if (rec.kind === 'single') a *= 0.32;
+      if (c && c.seed) a *= 0.55;
+      if (S.level >= 1) a *= 0.35;
+      sp = 0; sz = 1;
+    } else if (S.level === 1) {
+      if (s.polarity === 'pos' || rec.kind === 'single') a *= G.densK;
+      if (hv && hv.type === 'con') {
+        if (c && c.id === hv.id) { sz = 1.3; a = Math.min(1, a * 1.3); sp = Math.max(sp, 0.4); } else a *= 0.5;
+      } else if (hv && hv.type === 'star' && hv.id === s.id) { sz = 1.5; sp = Math.max(sp, 0.7); a = 1; }
+    } else {
+      const focus = c && c.id === S.cid;
+      if (focus) { sz = 1.65; a = Math.max(a, 0.9); sp = Math.max(sp, 0.32); }
+      else if (hv && hv.type === 'con' && c && c.id === hv.id) { sz = 1.15; a *= 0.85; }
+      else a *= rec.kind === 'single' ? 0.14 : 0.13;
+      if (S.level === 3 && s.id === S.sid) { sz = 2.9; a = 1; sp = 1.6; }
+      if (hv && hv.type === 'star' && hv.id === s.id && s.id !== S.sid) { sz *= 1.38; a = Math.max(a, 0.95); sp = Math.max(sp, 0.85); }
+    }
+    if (!branchOn(s.branch)) a *= 0.06;
+    e1[i * 3] = sz; e1[i * 3 + 1] = a; e1[i * 3 + 2] = sp;
+  });
+  geo.attributes.aE0.needsUpdate = true; geo.attributes.aE1.needsUpdate = true;
+  G.dots.material.uniforms.uMix.value = 0; G.emix.t0 = nowS();
+}
+function posTop(G) {
+  if (G._ptKey === S.branch && G._pt) return G._pt;
+  G._pt = new Set(G.cons.filter((c) => c.polarity === 'pos' && !c.seed && branchOn(c.branch)).sort(conOrder).slice(0, 8).map((c) => c.id));
+  G._ptKey = S.branch; return G._pt;
+}
+function applyConTargets(G) {
+  if (!G.detail) return;
+  const inG = S.level >= 1 && S.gid === G.id, hv = S.hover;
+  const pt = posTop(G);
+  for (const [cid, rec] of G.detail.cons) {
+    let t = 0, gk = 1;
+    if (inG && branchOn(rec.c.branch)) {
+      t = rec.c.polarity === 'pos' && !rec.c.seed && !pt.has(cid) && G.densK < 0.95 ? 0.22 : 1;
+      if (S.level === 1 && hv && hv.type === 'con') t = hv.id === cid ? 1.3 : t * 0.4;
+      if (S.level >= 2) { t = cid === S.cid ? 1.25 : (hv && hv.type === 'con' && hv.id === cid ? 0.75 : 0.07); gk = cid === S.cid ? 1.1 : 0.3; }
+    }
+    rec.target = t; rec.glowK = gk;
+    if (rec.mat) rec.mat.linewidth = rec.st.w * (S.level >= 2 && cid === S.cid ? 1.45 : 1);
+  }
+}
+
+// ── 라벨 켜고 끄기(매 프레임) ──
+function topConIds(G) {
+  if (G._topKey === S.branch && G._top) return G._top;
+  const list = G.cons.filter((c) => !c.seed && branchOn(c.branch)).sort(conOrder).slice(0, 10).map((c) => c.id);
+  G._top = new Set(list); G._topKey = S.branch; return G._top;
+}
+function applyLabels(t) {
+  LBL.ns.active = S.level === 0;
+  for (const [gid, L] of LBL.gal) { L.active = S.level === 0; L.hot = !!(S.hover && S.hover.type === 'gal' && S.hover.id === gid); }
+  GAL.forEach((G) => {
+    const D = G.detail; if (!D) return;
+    const inG = S.level >= 1 && S.gid === G.id, ready = inG && t >= (G.readyAt || 0);
+    D.monthMarks.forEach((mm) => { mm.label.active = ready && S.level === 1; });
+    D.weekLabel.active = ready && S.level === 1;
+    D.armLabels.forEach((L) => { L.active = ready && S.level <= 2 && branchOn(L.data.branch); });
+    const top = topConIds(G);
+    for (const [cid, rec] of D.cons) {
+      const L = LBL.con.get(cid); if (!L) continue;
+      const hov = !!(S.hover && S.hover.type === 'con' && S.hover.id === cid);
+      const vis = ready && branchOn(rec.c.branch);
+      L.active = vis && (S.level === 1 ? (top.has(cid) || hov) : (cid === S.cid || hov));
+      L.hot = hov; L.sel = S.level >= 2 && cid === S.cid;
+      L.dim = S.level === 1 && !!(S.hover && S.hover.type === 'con') && !hov;
+    }
+  });
+}
+
+// ── 고르기(화면 좌표 → 무엇) ──
+const _pv = new V3();
+function toScreen(v) { _pv.copy(v).project(camera); return { x: ((_pv.x + 1) / 2) * W, y: ((1 - _pv.y) / 2) * H, z: _pv.z }; }
+function pick(cx, cy, touch) {
+  // 라벨 먼저
+  for (const L of LB) {
+    if (!L.shown || !L.rect || !L.data) continue;
+    if (L.kind.startsWith('con') && cx >= L.rect.l && cx <= L.rect.r && cy >= L.rect.t && cy <= L.rect.b) return { type: 'con', id: L.data.cid };
+    if (L.kind === 'gal' && cx >= L.rect.l && cx <= L.rect.r && cy >= L.rect.t && cy <= L.rect.b) return { type: 'gal', id: L.data.gid };
+  }
+  if (S.level === 0) {
+    const ns = toScreen(NS_POS); if (ns.z < 1 && Math.hypot(ns.x - cx, ns.y - cy) < (touch ? 52 : 40)) return { type: 'ns' };
+    let best = null, bd = 1e9;
+    GAL.forEach((G) => {
+      const w = G.group.getWorldPosition(new V3()), p = toScreen(w); if (p.z > 1) return;
+      const rad = Math.max(touch ? 36 : 28, screenRadius(w, G.R) * 1.05), d = Math.hypot(p.x - cx, p.y - cy);
+      if (d < rad && d < bd) { bd = d; best = { type: 'gal', id: G.id }; }
+    });
+    return best;
+  }
+  const G = GAL_BY_ID.get(S.gid); if (!G) return null;
+  const thr = touch ? 26 : 16, thrF = touch ? 34 : 24;
+  let best = null, bd = 1e9;
+  G.inner.updateMatrixWorld();
+  for (const rec of G.list) {
+    const s = rec.s; if (!branchOn(s.branch)) continue;
+    const c = s.con && s.con.galaxy === G.id ? s.con : null;
+    const focus = S.level >= 2 && c && c.id === S.cid;
+    _pv.copy(rec.pos).applyMatrix4(G.inner.matrixWorld);
+    const p = toScreen(_pv); if (p.z > 1) continue;
+    let d = Math.hypot(p.x - cx, p.y - cy);
+    const lim = focus ? thrF : thr;
+    if (d > lim) continue;
+    if (focus) d -= 12;                   // 초점 별자리의 별을 먼저
+    if (rec.kind === 'single') d += 4;
+    if (d < bd) { bd = d; best = rec; }
+  }
+  if (best) {
+    const c = best.s.con && best.s.con.galaxy === G.id ? best.s.con : null;
+    if (!c) return { type: 'star', id: best.s.id };
+    if (S.level === 1) return { type: 'con', id: c.id };
+    if (c.id === S.cid) return { type: 'star', id: best.s.id };
+    return { type: 'con', id: c.id };
+  }
+  // 멀리 보이는 다른 은하
+  let gb = null, gd = 1e9;
+  GAL.forEach((O) => {
+    if (O === G) return;
+    const w = O.group.getWorldPosition(new V3()), p = toScreen(w); if (p.z > 1) return;
+    const rad = Math.max(touch ? 30 : 22, screenRadius(w, O.R) * 0.9), d = Math.hypot(p.x - cx, p.y - cy);
+    if (d < rad && d < gd) { gd = d; gb = { type: 'gal', id: O.id }; }
+  });
+  if (gb) return gb;
+  const ns = toScreen(NS_POS); if (ns.z < 1 && Math.hypot(ns.x - cx, ns.y - cy) < (touch ? 44 : 32)) return { type: 'ns' };
+  return null;
+}
+function onTap(cx, cy, touch) {
+  const h = pick(cx, cy, touch);
+  if (!h) return;
+  if (h.type === 'ns') nav.northStar();
+  else if (h.type === 'gal') nav.galaxy(h.id);
+  else if (h.type === 'con') nav.con(h.id);
+  else if (h.type === 'star') nav.star(h.id);
+}
+function setHover(h) {
+  const same = (a, b) => (!a && !b) || (a && b && a.type === b.type && a.id === b.id);
+  if (same(S.hover, h)) return;
+  S.hover = h;
+  glWrap.classList.toggle('point', !!h);
+  applyEmphasisAll();
+  syncRowHighlight();
+}
+function processHover() {
+  if (!P.hoverQ || P.drag || P.pts.size) return;
+  const { x, y } = P.hoverQ; P.hoverQ = null;
+  let h = pick(x, y, false);
+  if (h && S.level >= 2 && h.type === 'con' && h.id === S.cid) h = null;
+  if (h && h.type === 'star' && S.level === 3 && h.id === S.sid) h = { ...h };
+  setHover(h);
+}
+
+// ── 80 ui: 경로, 패널(북극성·은하·별자리·별), 범례, 조작 한 줄, 지점 필터, 휴대폰 시트 ──
+const ICON_BACK = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_POLAR = '<svg class="home-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.8l1.6 6.6 6.6 1.6-6.6 1.6L10 18.2l-1.6-6.6L1.8 10l6.6-1.6z" fill="currentColor"/></svg>';
+const SEP = '<span class="sep" aria-hidden="true">›</span>';
+let PANEL_KEY = null;
+
+function renderUI() {
+  renderCrumbs();
+  renderPanel();
+  renderLegend();
+  renderHint();
+  app.className = 'lv' + S.level + (panelWanted() ? ' panel-open' : '');
+  const off = targetOffsets(S.level); VIEW.tox = off.ox; VIEW.toy = off.oy;
+}
+
+function renderCrumbs() {
+  const parts = [];
+  if (S.level > 0 || S.ns) parts.push(`<button type="button" class="back" data-nav="up" aria-label="뒤로">${ICON_BACK}</button>`);
+  parts.push(S.level === 0 && !S.ns ? `<span class="cur">${ICON_POLAR} 우주</span>` : `<button type="button" data-nav="home">${ICON_POLAR}우주</button>`);
+  if (S.ns) parts.push(SEP, '<span class="cur">북극성</span>');
+  const cur = (html) => (S.panelHidden ? `<button type="button" class="cur-btn" data-nav="panel" aria-label="패널 열기">${html}</button>` : `<span class="cur">${html}</span>`);
+  if (S.level >= 1) {
+    const G = GAL_BY_ID.get(S.gid);
+    parts.push(SEP, S.level === 1 ? cur(esc(G.g.name)) : `<button type="button" data-nav="gal">${esc(G.g.name)}</button>`);
+  }
+  if (S.level >= 2 && S.cid) {
+    const c = M.conById.get(S.cid);
+    parts.push(SEP, S.level === 2 ? cur(esc(c.name)) : `<button type="button" data-nav="con">${esc(c.name)}</button>`);
+  }
+  if (S.level === 3) parts.push(SEP, cur(`별 <span class="num">${fmtMD(M.starById.get(S.sid).date)}</span>`));
+  $('crumbs').innerHTML = parts.join('');
+}
+
+function renderLegend() {
+  const lg = $('legend');
+  if (S.level === 0) {
+    lg.innerHTML = `<div class="lg-row"><span class="it c-neg"><i class="sw"></i>불편</span><span class="it c-pos"><i class="sw"></i>칭찬</span><span class="it c-neb"><i class="sw"></i>성운</span></div>
+      <div class="lg-row"><span class="k">북극성으로 향하는 선</span><span class="it c-pos"><i class="ln"></i>유지</span><span class="it c-neb"><i class="ln"></i>성운</span><span class="it c-neg"><i class="ln dash"></i>재발</span></div>`;
+  } else {
+    lg.innerHTML = `<div class="lg-row"><span class="it c-neg"><i class="sw"></i>불편</span><span class="it c-pos"><i class="sw"></i>칭찬</span><span class="it c-neb"><i class="sw"></i>성운</span><span class="it c-dust"><i class="sw seed"></i>씨앗</span><span class="it c-dust"><i class="sw" style="opacity:.55;box-shadow:none"></i>단발</span></div>
+      <div class="lg-row"><span class="k">가운데 6월 → 바깥 이번 주 · 두 팔 = ${M.branches.slice(0, 2).map(esc).join(' / ')}</span></div>`;
+  }
+}
+function renderHint() {
+  const h = $('hint');
+  const t = S.ns ? '' : S.level === 0 ? (COARSE ? '드래그 회전 · 두 손가락 확대 · 은하를 눌러 들어가기' : '드래그 회전 · 휠 확대 · 은하를 눌러 들어가기')
+    : S.level === 1 ? (COARSE ? '별자리를 누르면 요약' : '별자리를 누르면 요약 · Esc 뒤로')
+    : S.level === 2 ? '별을 누르면 리뷰' : '';
+  h.textContent = t; h.classList.toggle('gone', !t);
+}
+
+// ── 패널 ──
+function renderPanel() {
+  const p = $('panel'), body = $('p-body');
+  if (!panelWanted()) { hidePanel(); return; }
+  let key, html;
+  if (S.ns) { key = 'ns'; html = nsPanel(); }
+  else if (S.level === 1) { key = 'g:' + S.gid + ':' + S.branch; html = galPanel(GAL_BY_ID.get(S.gid)); }
+  else if (S.level === 2) { key = 'c:' + S.cid; html = conPanel(M.conById.get(S.cid)); }
+  else { key = 's:' + S.sid + ':' + S.tab; html = starPanel(M.starById.get(S.sid)); }
+  if (p.hidden) {
+    p.hidden = false; p.classList.add('enter');
+    requestAnimationFrame(() => requestAnimationFrame(() => p.classList.remove('enter')));
+  }
+  const lvKey = key.split(':')[0];
+  if (isPhone() && (!PANEL_KEY || PANEL_KEY.split(':')[0] !== lvKey)) setSheet(defaultSheet(), true);
+  if (PANEL_KEY !== key) {
+    body.innerHTML = html;
+    body.classList.remove('swap'); void body.offsetWidth; body.classList.add('swap');
+    $('p-scroll').scrollTop = 0; PANEL_KEY = key;
+  }
+}
+function hidePanel() {
+  const p = $('panel'); if (p.hidden) return;
+  p.classList.add('enter'); PANEL_KEY = null;
+  setTimeout(() => { if (p.classList.contains('enter') && !panelWanted()) p.hidden = true; }, 280);
+}
+
+function nsPanel() {
+  const ns = M.ns || {}, core = M.core || {}, g = M.guard || {};
+  const has = ns.value != null && !isNaN(ns.value);
+  const v = has ? pct(ns.value) : '—';
+  const tags = has ? (ns.is_estimate ? '<span class="tag">추정</span>' : '') + (M.sample ? '<span class="tag">예시</span>' : '') : '';
+  const frac = (o) => (o && o.den ? `<span class="num">${o.num} / ${o.den}</span><small class="num">${pct(o.num / o.den, 0)}%</small>` : `<span class="num">${o && o.num != null ? o.num : 0} / 0</span><small>표본 없음</small>`);
+  const ota = Array.isArray(g.ota_rating) ? g.ota_rating : [];
+  const brs = M.branches.filter((b) => ota.some((x) => x.branch === b));
+  const chs = [...new Set(ota.map((x) => x.channel))];
+  const cell = (b, ch) => { const x = ota.find((o) => o.branch === b && o.channel === ch); return x ? `<span class="s num">${fmtScore(x.score, x.scale)}<small> / ${x.scale}</small></span>` : '<span class="s">—</span>'; };
+  const otaGrid = brs.length ? `<div class="grid-ota" style="grid-template-columns:auto repeat(${brs.length},minmax(0,1fr))"><span class="h">채널</span>${brs.map((b) => `<span class="h s">${esc(b)}</span>`).join('')}
+      ${chs.map((ch) => `<span class="c">${esc(chName(ch))}</span>${brs.map((b) => cell(b, ch)).join('')}`).join('')}</div>` : '<div class="foot-k">기록 없음</div>';
+  const vr = Array.isArray(g.voice_ratio) ? g.voice_ratio : [];
+  const vrRows = vr.length ? vr.map((x) => `<div><span class="k">${esc(x.branch)} · ${esc(chName(x.channel))}</span><span class="v num">${pct(x.ratio)}%<small class="num">${x.weeks}주</small></span></div>`).join('') : '<div><span class="k">기록 없음</span><span class="v">—</span></div>';
+  return `<div><div class="eyebrow"><span class="c-polar">북극성</span>${M.sample ? '<span class="tag">예시 데이터</span>' : ''}</div>
+      <h2 class="p-title">${esc(ns.label || '불편 없이 끝난 체류 비율')}</h2>
+      <div class="big"><b class="num">${v}</b>${has ? '<span class="u">%</span>' : ''}${tags}</div>
+      ${ns.scope ? `<div class="scope">${esc(ns.scope)}</div>` : ''}</div>
+    <div><div class="sect-k"><span class="t">핵심</span></div><div class="mx">
+      <div><span class="k">구조 해결 수 · 성운</span><span class="v num">${core.structural_solved ?? 0}<small>개</small></span></div>
+      <div><span class="k">재발률</span><span class="v">${frac(core.relapse_rate)}</span></div>
+      <div><span class="k">성과 유지율</span><span class="v">${frac(core.keep_rate)}</span></div></div></div>
+    <div><div class="sect-k"><span class="t">가드레일 · OTA 평점</span><span>목표로 쫓지 않음</span></div>${otaGrid}</div>
+    <div><div class="sect-k"><span class="t">가드레일 · 목소리 비율</span></div><div class="mx">${vrRows}</div></div>
+    <div class="foot-k num">${fmtDate(M.asOf)} 기준</div>`;
+}
+
+function galPanel(G) {
+  const st = galStats(G);
+  const cs = G.cons.filter((c) => branchOn(c.branch));
+  const negs = cs.filter((c) => !c.seed && c.polarity !== 'pos').sort(conOrder), poss = cs.filter((c) => !c.seed && c.polarity === 'pos').sort(conOrder), seeds = cs.filter((c) => c.seed).sort(conOrder);
+  const row = (c) => `<button type="button" class="row" data-con="${esc(c.id)}">
+      <span class="dot ${stClass(c)}${c.seed ? ' ring' : ''}"></span>
+      <span class="nm">${esc(c.name)}<small>${esc(c.branch)}${c.recent_4w ? ` · 최근 4주 <span class="num">${c.recent_4w}</span>` : ''}</small></span>
+      <span class="st ${stClass(c)}">${esc(c.status)}</span><span class="n num">${c.stars.length}</span></button>`;
+  return `<div><div class="eyebrow">은하${S.branch !== '전체' ? ` · ${esc(S.branch)}` : ''}</div>
+      <h2 class="p-title">${esc(G.g.name)}</h2>
+      <div class="kpis"><span class="kpi"><b class="num">${st.stars}</b>별</span><span class="kpi neg"><b class="num">${st.neg}</b>불편</span><span class="kpi pos"><b class="num">${st.pos}</b>칭찬</span><span class="kpi neb"><b class="num">${st.nebulae}</b>성운</span></div></div>
+    <div><div class="sect-k"><span class="t">불편 별자리<b class="num">${negs.length}</b></span><span>최근 4주 별 수 순</span></div>
+      <div class="rows">${negs.length ? negs.map(row).join('') : '<div class="foot-k" style="padding:10px 0">없음</div>'}</div></div>
+    <div><div class="sect-k"><span class="t">칭찬 별자리<b class="num">${poss.length}</b></span><span>최근 4주 별 수 순</span></div>
+      <div class="rows">${poss.length ? poss.map(row).join('') : '<div class="foot-k" style="padding:10px 0">없음</div>'}</div></div>
+    ${seeds.length ? `<div><div class="sect-k"><span class="t">씨앗<b class="num">${seeds.length}</b></span></div><div class="rows">${seeds.map(row).join('')}</div></div>` : ''}
+    <div class="foot-k">단발 별 <span class="num">${st.singles}</span></div>`;
+}
+
+function monthBars(c, cls) {
+  const ms = M.months, counts = ms.map((m) => (c.monthly && c.monthly[m]) || 0), mx = Math.max(1, ...counts);
+  return `<div class="bars ${cls}" role="img" aria-label="월별 별 수 ${ms.map((m, i) => `${+m.slice(5)}월 ${counts[i]}`).join(', ')}">${ms.map((m, i) => `<div class="b${counts[i] ? '' : ' zero'}" title="${+m.slice(5)}월 · 별 ${counts[i]}개"><b class="num">${counts[i]}</b><i style="height:${Math.max(2, (counts[i] / mx) * 58)}px"></i><span>${+m.slice(5)}월</span></div>`).join('')}</div>`;
+}
+function nextStep(c) {
+  if (c.polarity === 'pos') {
+    const wk = c.stars.filter((s) => s.day > M.day1 - 7).length;
+    return { k: '이번 주', v: `긍정 리뷰 <b class="num">${wk}</b>건` };
+  }
+  if (c.seed) return { k: '다음 단계', v: '주간 리포트 대상 · 별자리 조건 전' };
+  const rc = relapseCount(c);
+  const t = c.task && c.task.title ? `수행과제 · ${esc(c.task.title)} <span class="st">· ${esc(c.task.status || '상태 미상')}</span>` : null;
+  if (c.status === '재발' && rc >= 2) return { k: '다음 단계', v: `재발 ${rc}회 · FO 원인 진단부터` + (t ? `<br>${t}` : '') };
+  if (t) return { k: '다음 단계', v: t };
+  if (c.status === '성운') return { k: '다음 단계', v: '3개월 재발 0건 · 성운' };
+  return { k: '다음 단계', v: '수행과제 등록 여부 FO 결정 대기' };
+}
+function conPanel(c) {
+  const G = GAL_BY_ID.get(c.galaxy), cls = stClass(c);
+  const chs = Object.entries(c.channels || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${esc(chName(k))} <span class="num">${n}</span>`).join(' · ');
+  const span = c.first_date && c.last_date ? (weekLabel(c.first_date) === weekLabel(c.last_date) ? weekLabel(c.first_date) : `${weekLabel(c.first_date)} ~ ${weekLabel(c.last_date)}`) : '—';
+  const rc = relapseCount(c);
+  const badge = `<span class="badge ${cls}">${esc(c.status)}${c.status === '재발' && rc ? ` <span class="num">${rc}</span>회` : ''}</span>`;
+  const ns = nextStep(c);
+  const stars = c.stars.slice().sort((a, b) => b.day - a.day || (a.id < b.id ? 1 : -1));
+  const rows = stars.map((s) => {
+    const rv = M.reviews[s.review_id] || {};
+    const sc = rv.rating != null ? `${fmtScore(rv.rating, rv.scale)}<span> / ${rv.scale || 10}</span>` : '<span>—</span>';
+    return `<button type="button" class="row star" data-star="${esc(s.id)}"><span class="dot ${polClass(s.polarity)}"></span><span class="d num">${fmtMD(s.date)}</span><span class="ch">${esc(chName(s.channel))}</span><span class="sc num">${sc}</span></button>`;
+  }).join('');
+  return `<div><div class="eyebrow"><span class="id">${esc(c.id)}</span>· ${esc(G ? G.g.name : c.galaxy)}</div>
+      <h2 class="p-title">${esc(c.name)}</h2>
+      <div class="badges">${badge}<span class="badge ghost">${esc(c.branch)}</span>${c.polarity === 'pos' ? '<span class="badge ghost">긍정</span>' : ''}</div></div>
+    <dl class="facts">
+      <dt>별</dt><dd><span class="num">${c.stars.length}</span>개</dd>
+      <dt>원천</dt><dd>${chs || '—'}</dd>
+      <dt>기간</dt><dd>${span}</dd>
+      <dt>받는 쪽</dt><dd>${esc(ownerName(c.owner))}</dd>
+    </dl>
+    ${monthBars(c, cls)}
+    ${c.summary ? `<p class="summary">${esc(c.summary)}</p>` : ''}
+    <div class="next"><span class="k">${ns.k}</span><span class="v">${ns.v}</span></div>
+    <div><div class="sect-k"><span class="t">별<b class="num">${c.stars.length}</b></span><span>최근 순</span></div><div class="rows">${rows}</div></div>`;
+}
+
+function markQuote(text, quote) {
+  const t = esc(text || ''), q = esc(quote || '');
+  if (!q || !t.includes(q)) return t;
+  return t.replace(q, `<mark>${q}</mark>`);
+}
+function starPanel(s) {
+  const rv = M.reviews[s.review_id] || {};
+  const G = GAL_BY_ID.get(s.galaxy), c = s.con && s.con.galaxy === s.galaxy ? s.con : null;
+  const dsTag = s.date_source === 'collected' ? '<span class="tag">수집일</span>' : s.date_source === 'month' ? '<span class="tag">월 기준</span>' : '';
+  const dateTxt = s.date_source === 'month' ? `${s.date.slice(0, 4)}.${s.date.slice(5, 7)}` : fmtDate(s.date);
+  const ko = rv.text_ko || '', orig = rv.text_orig || '';
+  const hasOrig = orig && orig.trim() && orig.trim() !== ko.trim();
+  const showOrig = S.tab === 'orig' && hasOrig;
+  const body = showOrig ? esc(orig) : markQuote(ko, s.quote);
+  const pc = s.polarity === 'pos' ? 'c-pos' : 'c-neg';
+  const sib = (M.starsByReview.get(s.review_id) || []).filter((x) => x.id !== s.id);
+  const sibRows = sib.map((x) => `<button type="button" class="row" data-star="${esc(x.id)}"><span class="dot ${polClass(x.polarity)}"></span><span class="nm">${esc(x.phenomenon || '')}<small>${esc(x.galaxy)} · ${x.con ? esc(x.con.status) : '단발'}</small></span><span class="st ${polClass(x.polarity)}">${x.polarity === 'pos' ? '칭찬' : '불편'}</span><span class="n"></span></button>`).join('');
+  return `<div><div class="eyebrow">${esc(s.branch)} · ${esc(chName(s.channel))} · <span class="num">${dateTxt}</span>${dsTag}</div>
+      <div class="score"><b class="num">${rv.rating != null ? fmtScore(rv.rating, rv.scale) : '—'}</b><span class="num">/ ${rv.scale || 10}</span></div></div>
+    <div class="voice ${pc}" style="--mk:${s.polarity === 'pos' ? 'rgba(255,210,124,.22)' : 'rgba(255,114,98,.22)'}">
+      <div class="vk">${s.polarity === 'pos' ? '칭찬' : '불편'} · ${esc(G ? G.g.name : s.galaxy)} · ${esc(c ? c.name : s.phenomenon || '')}${c ? '' : ' · 단발'}</div>
+      <blockquote>${esc(s.quote || '')}</blockquote>
+      ${s.relation_signal ? `<div class="sig">CR 신호 · ${esc(sigName(s.relation_signal))}</div>` : ''}
+    </div>
+    <div class="rev">
+      <div class="sect-k"><span class="t">리뷰 전문</span>${hasOrig ? '' : '<span>원문 한국어</span>'}</div>
+      ${hasOrig ? `<div class="rev-tabs" role="group" aria-label="언어"><button type="button" data-tab="ko" aria-pressed="${!showOrig}">번역</button><button type="button" data-tab="orig" aria-pressed="${showOrig}">원문</button></div>` : ''}
+      <p class="prose" style="--mk:${s.polarity === 'pos' ? 'rgba(255,210,124,.24)' : 'rgba(255,114,98,.24)'}">${body || '<span class="foot-k">본문 없음</span>'}</p>
+    </div>
+    ${sib.length ? `<div><div class="sect-k"><span class="t">같은 리뷰의 다른 별<b class="num">${sib.length}</b></span></div><div class="rows">${sibRows}</div></div>` : ''}`;
+}
+
+function updateReviewTab() {
+  const s = M.starById.get(S.sid); if (!s) return;
+  const rv = M.reviews[s.review_id] || {}, ko = rv.text_ko || '', orig = rv.text_orig || '';
+  const showOrig = S.tab === 'orig' && orig.trim() && orig.trim() !== ko.trim();
+  const pr = document.querySelector('#p-body .prose');
+  if (pr) pr.innerHTML = (showOrig ? esc(orig) : markQuote(ko, s.quote)) || '<span class="foot-k">본문 없음</span>';
+  document.querySelectorAll('#p-body [data-tab]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tab === (showOrig ? 'orig' : 'ko') ? 'true' : 'false'));
+  PANEL_KEY = 's:' + S.sid + ':' + S.tab;
+}
+function syncRowHighlight() {
+  const id = S.hover && S.hover.type === 'star' ? S.hover.id : null;
+  document.querySelectorAll('#p-body .row.star, #p-body .row[data-star]').forEach((el) => {
+    el.classList.toggle('hl', el.dataset.star === id);
+    el.classList.toggle('on', el.dataset.star === S.sid);
+  });
+}
+
+// ── 휴대폰 시트 ──
+let SHEET = 'half';
+function defaultSheet() { return S.level === 1 ? 'peek' : 'half'; }
+function sheetTargetPx() {
+  if (SHEET === 'peek') return Math.min(196, H * 0.3);
+  if (SHEET === 'full') return H - 128;
+  return H * (S.level === 3 ? 0.56 : 0.5);
+}
+function setSheet(st, silent) {
+  SHEET = st;
+  const p = $('panel');
+  p.style.setProperty('--sheet-h', `${Math.round(sheetTargetPx(S.level))}px`);
+  if (!silent) { const off = targetOffsets(S.level); VIEW.tox = off.ox; VIEW.toy = off.oy; }
+}
+function bindSheet() {
+  const grab = $('grab'), p = $('panel');
+  let sy = 0, sh = 0, dragging = false, hist = [];
+  grab.addEventListener('pointerdown', (e) => { if (!isPhone()) return; dragging = true; sy = e.clientY; sh = p.getBoundingClientRect().height; hist = [{ y: e.clientY, t: performance.now() }]; grab.setPointerCapture(e.pointerId); p.classList.add('dragging'); });
+  grab.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const h = clamp(sh + (sy - e.clientY), 90, H - 110);
+    p.style.setProperty('--sheet-h', `${h}px`); VIEW.toy = Math.round((hudBottom() + 8 + (H - h)) / 2 - H / 2);
+    hist.push({ y: e.clientY, t: performance.now() }); if (hist.length > 6) hist.shift();
+  });
+  const end = (e) => {
+    if (!dragging) return; dragging = false; p.classList.remove('dragging');
+    const a = hist[0], b = hist[hist.length - 1], v = (a.y - b.y) / Math.max(16, b.t - a.t) * 1000; // 위로 +
+    const cur = p.getBoundingClientRect().height + (v / 1000) * 0.998 / (1 - 0.998) * 0.12;
+    const opts = [['peek', Math.min(196, H * 0.3)], ['half', H * 0.5], ['full', H - 128]];
+    let best = opts[0]; opts.forEach((o) => { if (Math.abs(o[1] - cur) < Math.abs(best[1] - cur)) best = o; });
+    setSheet(best[0]);
+  };
+  grab.addEventListener('pointerup', end); grab.addEventListener('pointercancel', end);
+}
+
+// ── 버튼과 키 ──
+function moveSegInd() {
+  const seg = $('seg'), ind = seg.querySelector('.seg-ind'), on = seg.querySelector('[aria-checked="true"]');
+  if (!on) return;
+  ind.style.width = `${on.offsetWidth}px`;
+  ind.style.transform = `translateX(${on.offsetLeft}px)`;
+}
+function bindUI() {
+  $('crumbs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-nav]'); if (!b) return;
+    const k = b.dataset.nav;
+    if (k === 'up') nav.up(); else if (k === 'home') nav.universe(); else if (k === 'gal') nav.galaxy(S.gid); else if (k === 'con') nav.con(S.cid);
+    else if (k === 'panel') { S.panelHidden = false; renderUI(); }
+  });
+  $('seg').addEventListener('click', (e) => { const b = e.target.closest('button[data-br]'); if (b && b.dataset.br !== S.branch) setBranch(b.dataset.br); });
+  $('seg').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const bs = [...$('seg').querySelectorAll('button')], i = bs.findIndex((x) => x.dataset.br === S.branch);
+    const n = bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length]; setBranch(n.dataset.br); n.focus(); e.preventDefault();
+  });
+  $('btn-spin').addEventListener('click', () => { S.spin = !S.spin; $('btn-spin').setAttribute('aria-pressed', S.spin ? 'true' : 'false'); });
+  $('btn-home').addEventListener('click', () => nav.universe({ reset: true }));
+  $('p-close').addEventListener('click', () => {
+    if (S.ns) { nav.universe(); return; }
+    S.panelHidden = true; renderUI();
+  });
+  const body = $('p-body');
+  body.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]'); if (t) { S.tab = t.dataset.tab; updateReviewTab(); return; }
+    const c = e.target.closest('[data-con]'); if (c) { nav.con(c.dataset.con); return; }
+    const s = e.target.closest('[data-star]'); if (s) { nav.star(s.dataset.star); }
+  });
+  body.addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    const s = e.target.closest('[data-star]'), c = e.target.closest('[data-con]');
+    if (s) { const st = M.starById.get(s.dataset.star); if (st && st.galaxy === S.gid) setHover({ type: 'star', id: s.dataset.star }); }
+    else if (c) { const cc = M.conById.get(c.dataset.con); if (cc && cc.galaxy === S.gid) setHover({ type: 'con', id: c.dataset.con }); }
+  });
+  body.addEventListener('pointerleave', () => setHover(null));
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); nav.up(); }
+  });
+  // 키보드·화면 낭독용 은하 목록
+  $('gal-index').innerHTML = GAL.map((G) => `<button type="button" data-gal="${esc(G.id)}">${esc(G.g.name)}</button>`).join('') + '<button type="button" data-ns="1">북극성</button>';
+  $('gal-index').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.ns) nav.northStar(); else nav.galaxy(b.dataset.gal); });
+  bindSheet();
+}
+
+// ── 90 main: 시작, 매 프레임, 크기 변경 ─────────────────────────────────────
+const UNI = { k: RM ? 0 : 1 };
+const RAW = (() => { try { return JSON.parse($('voc-data').textContent); } catch (e) { console.error('VOC 데이터를 읽지 못함', e); return null; } })();
+let lastMs = CLOCK.t, frames = 0, firstDone = false;
+const PERF = { n: 0, sum: 0, checked: false, t0: 0 };
+
+function bootMessage(t) { const m = $('boot-msg'); m.hidden = false; m.textContent = t; }
+
+function init() {
+  if (!RAW) { bootMessage('데이터를 읽지 못했습니다.'); return; }
+  M = buildModel(RAW);
+  if (M.sample) $('sample-tag').hidden = false;
+  if (!GL_OK) { bootMessage('이 브라우저에서는 3D 화면을 켤 수 없습니다.'); return; }
+  if (H > W * 1.15) { NS_POS.y = 205; FACE_PT.set(0, 640, 420); }
+  buildSky();
+  buildUniverse();
+  buildUniverseLabels();
+  bindUI();
+  bindInput();
+  glWrap.classList.add('grab');
+  const g0 = homeGoal(Math.PI / 2);
+  rig.target.copy(g0.target); rig.r = g0.r; rig.phi = g0.phi; rig.theta = g0.theta; rig.q.identity(); rig.upq.identity();
+  orientGalaxies();
+  renderUI(); moveSegInd(); setLimits();
+  VIEW.ox = VIEW.tox; VIEW.oy = VIEW.toy; setViewOffset(camera, VIEW.ox, VIEW.oy);
+  { const g1 = homeGoal(Math.PI / 2); rig.r = g1.r; }
+  applyRig(); applyEmphasisAll();
+  aimTrails(camera.position);
+  window.addEventListener('resize', onResize);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { measureLabels(); moveSegInd(); });
+  requestAnimationFrame(loop);
+  exposeHooks();
+}
+
+function updateGalaxies(dt, t) {
+  const k = 1 - Math.exp(-dt * 5);
+  GAL.forEach((G) => {
+    const f = G.unf;
+    G.unfold = t < f.t0 ? f.from : lerp(f.from, f.to, easeIO(clamp((t - f.t0) / Math.max(0.001, f.dur), 0, 1)));
+    if (G.wave.t0 > 0) {
+      const w = (t - G.wave.t0) / G.wave.dur;
+      if (w < 0) G.waveVal = -0.08; else if (w <= 1) G.waveVal = -0.05 + 1.22 * w; else { G.waveVal = -1; G.wave.t0 = -1; }
+    } else G.waveVal = -1;
+    G.dots.material.uniforms.uWave.value = G.waveVal >= 0 ? G.waveVal : -1;
+    const inG = S.level >= 1 && S.gid === G.id;
+    const hot = S.level === 0 && S.hover && S.hover.type === 'gal' && S.hover.id === G.id;
+    const opT = S.level === 0 ? 1 : inG ? 1 : 0.16;
+    G.op += (opT - G.op) * k;
+    G.hotK = (G.hotK || 0) + ((hot ? 1 : 0) - (G.hotK || 0)) * (1 - Math.exp(-dt * 10));
+    G.base.material.uniforms.uOpacity.value = G.op * (inG ? lerp(1, 0, G.unfold) : 1) * (1 + 0.35 * G.hotK);
+    G.plane.material.opacity = G.plane.userData.op * G.op * (inG ? lerp(1, 0, G.unfold) : 1) * (1 + 0.3 * G.hotK);
+    G.plane.visible = G.plane.material.opacity > 0.003;
+    G.dots.material.uniforms.uOpacity.value = G.op;
+    G.core.material.opacity = 0.75 * G.op * (inG ? lerp(1, 0.22, G.unfold) : 1);
+    G.haze.material.opacity = G.haze.userData.op * G.op * (1 + 1.1 * G.hotK) * (inG ? lerp(1, 0.15, G.unfold) : 1);
+    G.focusK = inG ? 1 : Math.max(0, (G.focusK || 0) - dt * 2);
+    const em = clamp((t - G.emix.t0) / G.emix.dur, 0, 1);
+    G.dots.material.uniforms.uMix.value = easeOut(em);
+    updateDetail(G, dt);
+  });
+}
+
+function loop() {
+  const ms = tick();
+  const dt = Math.min(0.1, Math.max(0, (ms - lastMs) / 1000)); lastMs = ms;
+  const t = ms / 1000;
+  U.uTime.value = t;
+  if (finishPass) finishPass.uniforms.uTime.value = t;
+  const spinT = S.spin && !RM ? 1 : 0;
+  SPIN.k += (spinT - SPIN.k) * (1 - Math.exp(-dt * 2));
+  const uniT = spinT && S.level === 0 && !S.ns && !P.drag ? 1 : 0;
+  UNI.k += (uniT - UNI.k) * (1 - Math.exp(-dt * (uniT ? 1.2 : 6)));
+  if (!RM) {
+    universe.rotation.y += dt * ((Math.PI * 2) / 560) * UNI.k;
+    GAL.forEach((G) => { G.inner.rotation.y += dt * 0.03 * UNI.k; });
+  }
+  if (UNI.k > 0.0005) orientGalaxies();
+  processHover();
+  updateViewOffset(dt);
+  updateRig(dt, ms);
+  updateSky(dt, SPIN.k);
+  updateGalaxies(dt, t);
+  // 우주 단계 요소(북극성을 향한 선, 기준 원)
+  const l0 = S.level === 0 ? 1 : 0;
+  setPointerOpacity(PTR.op + (lerp(0, 1, l0) - PTR.op) * (1 - Math.exp(-dt * 4)));
+  (universe.userData.rings || []).forEach((l) => { l.material.opacity += (l.userData.op * lerp(0.0, 1, l0) - l.material.opacity) * (1 - Math.exp(-dt * 4)); l.visible = l.material.opacity > 0.003; });
+  NS.axis.material.opacity += (lerp(0, 0.2, l0) - NS.axis.material.opacity) * (1 - Math.exp(-dt * 4)); NS.axis.visible = NS.axis.material.opacity > 0.003;
+  const nsHot = S.hover && S.hover.type === 'ns' ? 1 : 0;
+  NS.mesh.material.uniforms.uI.value += ((S.ns ? 1.25 : 1) * (1 + 0.25 * nsHot) - NS.mesh.material.uniforms.uI.value) * (1 - Math.exp(-dt * 6));
+  { const Gc = S.level >= 1 ? GAL_BY_ID.get(S.gid) : null; const bt = Gc ? 0.74 * lerp(0.62, 1, (Gc.densK - 0.55) / 0.45) : 0.74; bloom.strength += (bt - bloom.strength) * (1 - Math.exp(-dt * 3)); }
+  applyLabels(t);
+  composer.render(dt);
+  updateLabels(ms);
+  if (!firstDone) {
+    firstDone = true;
+    const s0 = $('sky0'); s0.classList.add('gone'); setTimeout(() => s0.remove(), 1300);
+  }
+  perfCheck(dt, t);
+  requestAnimationFrame(loop);
+}
+
+// 느린 기기면 한 번 해상도를 낮춘다
+function perfCheck(dt, t) {
+  if (PERF.checked) return;
+  if (!PERF.t0) PERF.t0 = t;
+  if (t - PERF.t0 < 1.5) return;
+  PERF.n++; PERF.sum += dt;
+  if (PERF.n >= 90) {
+    PERF.checked = true;
+    if (PERF.sum / PERF.n > 0.034 && renderer.getPixelRatio() > 1) {
+      renderer.setPixelRatio(1); composer.setPixelRatio(1); composer.setSize(W, H); U.uViewH.value = H;
+      sky.far.material.uniforms.uPR.value = 1; sky.mw.material.uniforms.uPR.value = 1; sky.mid.material.uniforms.uPR.value = 1; sky.near.material.uniforms.uPR.value = 1;
+    }
+  }
+}
+
+function onResize() {
+  W = Math.max(1, innerWidth); H = Math.max(1, innerHeight);
+  renderer.setSize(W, H, false); composer.setSize(W, H);
+  U.uViewH.value = H * renderer.getPixelRatio();
+  finishPass.uniforms.uRes.value.set(W, H);
+  LINE_MATS.forEach((m) => m.resolution.set(W, H));
+  if (isPhone() && panelWanted()) setSheet(SHEET, true);
+  const off = targetOffsets(S.level); VIEW.tox = VIEW.ox = off.ox; VIEW.toy = VIEW.oy = off.oy;
+  moveSegInd(); measureLabels(); setLimits();
+  if (S.level === 0 && !flight) rig.r = homeGoal(rig.theta).r * (S.ns ? 0.72 : 1);
+}
+
+// 캡처·점검용(화면에는 영향 없음)
+function exposeHooks() {
+  const proj = (v) => { const p = toScreen(v); return { x: p.x, y: p.y, z: p.z }; };
+  window.__voc = {
+    ready: true,
+    state: () => ({ level: S.level, gid: S.gid, cid: S.cid, sid: S.sid, ns: S.ns, branch: S.branch }),
+    idle: () => !flight,
+    sample: () => M.sample,
+    home: () => nav.universe({ reset: true }),
+    northStar: () => nav.northStar(),
+    galaxy: (id) => nav.galaxy(id),
+    con: (id) => nav.con(id),
+    star: (id) => nav.star(id),
+    up: () => nav.up(),
+    branch: (b) => setBranch(b),
+    galaxyScreen: (id) => { const G = GAL_BY_ID.get(id); return G ? proj(G.group.getWorldPosition(new V3())) : null; },
+    starScreen: (id) => { const s = M.starById.get(id); if (!s) return null; const G = GAL_BY_ID.get(s.galaxy), r = G.byStar.get(id); return proj(G.inner.localToWorld(r.pos.clone())); },
+    picks: () => {
+      // 캡처에 쓸 대표: 별자리가 가장 많은 은하 → 그 은하의 최우선 부정 별자리 → 그 별자리의 최근 별
+      const neg = M.cons.filter((x) => !x.seed && x.polarity === 'neg');
+      const c = neg.filter((x) => x.galaxy === '시설' && /샤워 후/.test(x.name)).sort((a, b) => b.stars.length - a.stars.length)[0]
+        || neg.filter((x) => x.galaxy === '시설').sort(conOrder)[0] || neg.sort(conOrder)[0] || M.cons[0];
+      const s = c ? c.stars[c.stars.length - 1] : M.stars[0];
+      return { galaxy: c ? c.galaxy : GAL[0].id, con: c ? c.id : null, star: s ? s.id : null };
+    },
+    freeze: () => { tick(); CLOCK.scale = 0; },
+    advance: (msAdd) => { CLOCK.t += msAdd; },
+    resume: () => { tick(); CLOCK.scale = 1; },
+    findStar: (kind) => {
+      if (kind === 'orig') { const s = M.stars.find((x) => { const r = M.reviews[x.review_id]; return r && r.text_orig && r.text_ko && r.text_orig.trim() !== r.text_ko.trim(); }); return s ? s.id : null; }
+      if (kind === 'cross') { for (const s of M.stars) { const sib = (M.starsByReview.get(s.review_id) || []).find((x) => x.id !== s.id && x.galaxy !== s.galaxy); if (sib) return { from: s.id, to: sib.id }; } return null; }
+      if (kind === 'single') { const s = M.stars.find((x) => !x.con); return s ? s.id : null; }
+      return null;
+    },
+    hover: () => (S.hover ? { ...S.hover } : null),
+    reviewText: (sid) => { const s = M.starById.get(sid); const r = s && M.reviews[s.review_id]; return r ? { ko: r.text_ko || '', orig: r.text_orig || '' } : null; },
+    panelOpen: () => !$('panel').hidden,
+    view: () => ({ r: rig.r, phi: rig.phi, theta: rig.theta }),
+  };
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+</script>
+</body>
+</html>
