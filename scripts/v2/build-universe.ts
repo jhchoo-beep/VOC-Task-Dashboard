@@ -57,6 +57,29 @@ const stars: any[] = extracted.stars.map((s: any, i: number) => {
 // 별 ID: 지점 → 날짜 → 리뷰 → 발췌 위치 순(stars.extracted 정렬 그대로)
 stars.forEach((s, i) => { s.id = `S-${String(i + 1).padStart(5, '0')}` })
 
+// 한 리뷰·한 극성·한 현상 = 별 하나(정의 「별 = 리뷰 속 목소리 1개」, DB 고유 키 voc_stars_one_voice).
+// A4 합침으로 같은 리뷰에 같은 현상 별이 둘 생기면 하나만 남긴다(2026-10-13, C-신설-033 3쌍).
+// 남길 별 = 합침 전 이름이 별자리 이름과 같은 별(발췌가 이름과 맞음). 관계 신호는 남기는 별로 옮긴다.
+// ID 를 매긴 뒤에 빼므로 나머지 별의 ID 는 바뀌지 않는다(운영 표 upsert 키 유지).
+const byVoice = new Map<string, any[]>()
+for (const s of stars) {
+  const k = `${s.review_id}|${s.polarity}|${s.phenomenon}`
+  if (!byVoice.has(k)) byVoice.set(k, [])
+  byVoice.get(k)!.push(s)
+}
+const voiceDedup: { dropped: string; kept: string; phenomenon: string }[] = []
+for (const list of byVoice.values()) {
+  if (list.length < 2) continue
+  const kept = list.find(s => s.phenomenon_raw === s.phenomenon) ?? list[0]
+  for (const s of list) {
+    if (s === kept) continue
+    if (!kept.relation_signal && s.relation_signal) kept.relation_signal = s.relation_signal
+    voiceDedup.push({ dropped: s.id, kept: kept.id, phenomenon: s.phenomenon })
+  }
+}
+const droppedIds = new Set(voiceDedup.map(d => d.dropped))
+for (let i = stars.length - 1; i >= 0; i--) if (droppedIds.has(stars[i].id)) stars.splice(i, 1)
+
 // ── 2. 과제(완료일 근사) ─────────────────────────────────────────
 const day = (ts: string) => ts.substring(0, 10)
 const lastLog = new Map<string, string>()
@@ -242,11 +265,13 @@ const universe = {
     branches: BRANCHES,
     period: { from: '2026-06-01', to: asOf },
     rules: { seed: RULES.seed, constellation_min: RULES.constellationMin, distinct_weeks: RULES.distinctWeeks, window_days: RULES.windowDays },
+    voice_dedup: voiceDedup,
     counts: {
       reviews: resolved.length,
       reviews_with_text: resolved.filter(r => r.has_text).length,
       reviews_with_stars: Object.keys(reviews).length,
       duplicate_reviews: Object.keys(extracted.duplicate_of).length,
+      merged_duplicate_stars: voiceDedup.length,   // 합침 뒤 같은 리뷰·같은 현상이라 뺀 별(meta.voice_dedup)
       stars: starsOut.length,
       neg: starsOut.filter(s => s.polarity === 'neg').length,
       pos: starsOut.filter(s => s.polarity === 'pos').length,
