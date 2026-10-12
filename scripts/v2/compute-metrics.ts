@@ -144,7 +144,7 @@ const out = {
     value: overall?.value ?? null,
     scope: overall ? `신설·동대문 OTA ${overall.channels.length}채널 · ${overall.period.from}~${overall.period.to} ${overall.period.weeks}주 · ${srcLabel} · 리뷰 1건=체류 1건 추정` : '체크아웃 데이터가 있는 채널 없음',
     is_estimate: true,
-    by_branch: Object.fromEntries(Object.entries(byBranch).map(([b, a]) => [b, a ? { value: a.value, ...a.inputs } : null])),
+    by_branch: Object.fromEntries(Object.entries(byBranch).map(([b, a]) => [b, a ? { value: a.value, channels: a.channels.length, period: a.period, ...a.inputs } : null])),
     inputs: overall ? overall.inputs : null,
     checkout_source: checkoutSource,
     not_computed: [skipped.length ? `원문 리뷰 0건이라 부정 비율 없음: ${skipped.join(', ')}` : '', noCheckout.length ? `체크아웃 없음: ${noCheckout.join(', ')}` : ''].filter(Boolean).join(' / ') || '없음',
