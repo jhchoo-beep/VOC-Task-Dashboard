@@ -231,7 +231,7 @@ const core = {
 const starsOut = stars.map(s => ({
   id: s.id, review_id: s.review_id, branch: s.branch, channel: s.channel, date: s.date,
   date_source: s.date_source, week: s.week, polarity: s.polarity, galaxy: s.galaxy,
-  phenomenon: s.phenomenon, quote: s.quote, owner: s.owner, relation_signal: s.relation_signal,
+  phenomenon: s.phenomenon, quote: s.quote_exact ?? s.quote, owner: s.owner, relation_signal: s.relation_signal,
   constellation_id: cidByStar.get(s.id) ?? null,
 }))
 

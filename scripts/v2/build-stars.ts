@@ -105,9 +105,12 @@ export function locateQuote(text: string, quote: string): { start: number; len: 
   const t = normWithMap(text)
   const q = normWithMap(quote).norm.join('')
   if (!q) return null
-  const idx = t.norm.join('').indexOf(q)
-  if (idx < 0) return null
-  // join('') 기준 인덱스는 코드포인트 배열 인덱스와 같다(정규화 문자 배열이 코드포인트 단위)
+  const joined = t.norm.join('')
+  const idx16 = joined.indexOf(q)
+  if (idx16 < 0) return null
+  // indexOf 는 UTF-16 위치를 돌려준다 — 앞에 이모지(서로게이트 쌍)가 있으면 코드포인트 위치와 어긋난다.
+  // 2026-10-13 실측: 이 차이로 발췌 15건이 1~2글자 밀렸다. 코드포인트 위치로 바꿔 쓴다.
+  const idx = Array.from(joined.slice(0, idx16)).length
   const qLen = Array.from(q).length
   const startCp = t.map[idx]
   const endCp = t.map[idx + qLen - 1]
@@ -147,6 +150,12 @@ for (const f of files) {
     if (!ph || /[()]/.test(ph)) errors.push(`${f}: 현상 이름 ${id8} "${ph}"`)
     const loc = locateQuote(rv.content_ko ?? '', quote)
     if (!loc) errors.push(`${f}: 발췌 불일치 ${id8} "${quote}"`)
+    else {
+      // 위치로 잘라 낸 조각이 발췌와 같은지 다시 확인(공백만 정규화) — 위치 계산 오류를 여기서 막는다
+      const sliced = Array.from(rv.content_ko as string).slice(loc.start, loc.start + loc.len).join('')
+      const n = (x: string) => x.replace(/\s+/g, ' ').trim()
+      if (n(sliced) !== n(quote)) errors.push(`${f}: 발췌 위치 오류 ${id8} "${quote}" → "${sliced}"`)
+    }
     stars.push({
       batch: n,
       review_id: rv.id,
@@ -160,6 +169,9 @@ for (const f of files) {
       galaxy: GALAXY_BY_CODE[g],
       phenomenon: ph,
       quote,
+      // 원문 그대로의 조각(공백·줄바꿈 포함). 운영 표 적재는 서버에서 substr(content_ko, start+1, len)로
+      // 같은 조각을 만든다 — 화면 발췌와 DB 발췌가 글자 하나까지 같게 하기 위해 이 값을 정본으로 쓴다.
+      quote_exact: loc ? Array.from(rv.content_ko as string).slice(loc.start, loc.start + loc.len).join('') : quote,
       quote_start: loc?.start ?? null,
       quote_len: loc?.len ?? null,
       owner: OWNER_BY_CODE[owner],
