@@ -40,6 +40,27 @@ HIDDEN_RULE = "[hidden]:not([hidden=until-found i]){display:none!important}"
 NUM_RANGE = "U+0025, U+002B-002F, U+0030-0039, U+003A"
 NUM_CHARS = set("%+,-./0123456789:")
 MARKS = ("/*@@FONTS@@*/", "/*@@CSS@@*/", "/*@@DATA@@*/", "/*@@JS@@*/")
+# 앱에서만 붙이는 화면 탭(우주 ↔ 지표). B 소스는 건드리지 않고 묶을 때 머리 도구 줄 맨 앞에 넣는다.
+# 임베드 경로(/embed/…)에서는 ?key= 를 그대로 들고 임베드 지표 경로로 간다.
+TOOLS_OPEN = '<div class="tools">'
+V2_TABS = (
+    '<nav class="v2tabs glass" aria-label="화면">'
+    '<a class="on" id="v2tab-universe" href="/v2/universe" aria-current="page">우주</a>'
+    '<a id="v2tab-metrics" href="/v2/metrics">지표</a></nav>'
+)
+V2_TABS_CSS = (
+    ".v2tabs{display:flex;align-items:center;gap:2px;height:38px;padding:3px;border-radius:999px;flex:none}"
+    ".v2tabs a{display:flex;align-items:center;height:100%;padding:0 13px;border-radius:999px;font-size:13.5px;font-weight:600;"
+    "color:var(--ink-2);text-decoration:none;font-family:var(--f-prose)}"
+    ".v2tabs a.on{background:rgba(255,255,255,.14);color:var(--ink)}"
+    "@media (hover:hover) and (pointer:fine){.v2tabs a:not(.on):hover{color:var(--ink)}}"
+    "@media (max-width:720px){.v2tabs{height:34px}.v2tabs a{padding:0 10px;font-size:12.5px}.tools .v2tabs{margin-right:auto}}"
+)
+V2_TABS_JS = (
+    "<script>(function(){if(location.pathname.indexOf('/embed/')!==0)return;var q=location.search;"
+    "document.getElementById('v2tab-universe').href='/embed/v2-universe'+q;"
+    "document.getElementById('v2tab-metrics').href='/embed/v2-metrics'+q;})();</script>"
+)
 
 
 def arg(name, default):
@@ -110,6 +131,12 @@ def main():
     head_part, body_part = tpl[:cut].strip(), tpl[cut:].strip()
     if "/*@@DATA@@*/" not in body_part or "/*@@JS@@*/" not in body_part:
         fail("데이터·스크립트 자리가 body 쪽에 없음")
+
+    if body_part.count(TOOLS_OPEN) != 1:
+        fail(f"{TOOLS_OPEN} 가 정확히 1곳이 아님(화면 탭 자리)")
+    body_part = body_part.replace(TOOLS_OPEN, TOOLS_OPEN + "\n      " + V2_TABS, 1)
+    body_part = body_part.replace('<script type="application/json" id="voc-data">', V2_TABS_JS + '\n<script type="application/json" id="voc-data">', 1)
+    css = css + "\n" + V2_TABS_CSS
 
     faces, font_bytes = gmarket_faces(gmk)
     head_part = head_part.replace("/*@@FONTS@@*/", faces).replace("/*@@CSS@@*/", css)

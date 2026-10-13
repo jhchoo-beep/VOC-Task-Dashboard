@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="ko" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VOC 지표</title>
+<meta name="theme-color" content="#121417">
+<script>try{var t=localStorage.getItem('voc-metrics-theme');if(t==='light')document.documentElement.className='light';}catch(e){}</script>
+<style>
+@font-face{font-family:'Gmarket Sans';font-weight:400 600;font-style:normal;font-display:swap;unicode-range:U+0025, U+002B-002F, U+0030-0039, U+003A;src:url(data:font/woff2;base64,d09GMk9UVE8AAAWIAAwAAAAACBQAAAU9AAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAADYkMGjQGYAA8ATYCJANIBAYFgVQHIBckGCYbQQcAjsK2nTOKpIwwwgg+xgn+v9/vt/Y+76OWTEPypJY0M4ROqAwxQsTrT3hp96H35+nS/iwnmvC33lkw4jJS6Y3UTQ/wP0ib1lvSb5I3vfv/752+121PG1M0C3HM+082Fq9tgUQBFWgWcCdai6KxKO5TwJzNNelmH8YGqEisfDdFFCYSF1dRamFUXeeTfwkKrLyht5Ss+OtncE92919qGBf9Wa/qnQ6YFEvixGki4/rozInpud7iyqGjJ9Y2PztoZEZqLicyMjtkQTbkQC7kgZPjkmSmQwZkQhZkQw7kDsgrlZBnvttG4kxEwTlf8gdz2cIxGbgM7jHt0ENFlb/z3OinbI9v0kYBHsH70E1Be/INOG10nkCt0elC7uInZ0ErlsqD6Q0m/dW9wMHUsh+DdJB/8ZYtixdt27aoZsiQGv8gUXpenk9BcyoJyfPUJE+pNpkXb9u62L+G3z9YFJ4u/4FHFIfCKAeOcpVZMFR5A0Z9qEaQeRi2gNpYBz5zgqkFTJYS4SbFuxlwVyNgN9AkGgp2hUKBroaGqVMbGrqmhkTBBf0xkUqKHo+JyYr/PGrhaLplpeCFeBBhBhDZiF70ETTNwBnATvCJl1XI5QCBTgicAQ44IGd+OAxgZw4SJGIL5kKLk97vXoB/pIFbIyy4clJpzUU5UQPNUK+GSIheXmVneDAbrmMOeowYgRbdfc35mxNAbj2NTtGxkQ3VFjOPc3CuWliUjhX21Zo70E9koHRudX9/4Kfdu9gNHuL0d9GFTiSoQIPuvub07SEgD7YM8jnLR1h0WdnnNBC17yDDUzkIVSKq2dbO987wJs1nP/oHJihkvLCzLHbSW1AFvc9jb+kfjNHIMfI/LFOyMzUuP09huZTN5OxK4Chq8YYsyEYVcJgsprHhDYFm/rv0vdSPsYvyC+wpue4uU/99vXLxOcY/2FdgNpb7UPl8/rZFvGeEIhaG0peSl4IflmIk+wngEfWEhWmDmItHD1A95EIO0IfggTyMe4jpulbW8fpzb/BHfssp8iUvd+7sOw48aPfNmy0lHtSKwoepv5OCkqXz3dPYHnkJY2lSIVMLC9MJKwUP8Fde4v+MSt5Z/OOWn49sZ3d4iDDfwmRMMdsxUscsR6q3PFfyQlIlwyge+wGfAl6d9JQqfdDmwwc2b7hyZfOwooJBw9JFeYAKlaWPJ08d3n7/3uHqPGfpYFSIQqg0QitFPy6FSJYCcES9vPrvdnaCBw/Sh5iLOUj16ME8iNNDum4Wm/7Vz1/yPqmcAr9v3mIpcSOP2pKXu3f2HQOteHjXlU7ShsDUxsbg1NC8YNe8eYGuRlE2quaFgQYaMAfnhQLBOULP2ASphxIOaEKhuq4djhZ6UURn9xERi3SfqMEXXg7h0nfTJxlStExNEHgL8/5ZWSP5fQx36P+fYWLoOX8cDjJyQFsa9S6UiFQqJmlNXjhLIuds3Uk559d8SIC47EnTS08Pr4n2PuAjlJch8Lz/02x/dr+8Hr9GLCHU4Z09sfc/g0yMXRFCEkbAoaod8S1eulyah+PjLsnTTpziyJwTiOgFZGk9Kf4Uuz8nyUH6+fix7W7B4M9IGZ+nE0fmIfuQDggFUyhREUZMEzRHcEKko0IPzbvXMMxLDKGJRtp4mgDlTKOTp67cE7SsduvJJJV0QjewIg7rQDt8gqMw1MmTWcKx3Zlkk0KG1WSSjmPjfHvxSVFNo5PJyNxvzvCXH5sXkInqVhtRnP6dl0kvk/iXrll8RjZEcTm3+5ztJFETSY1YxRnvtL4bdobGTDUA) format('woff2')}
+@font-face{font-family:'Gmarket Sans';font-weight:700;font-style:normal;font-display:swap;unicode-range:U+0025, U+002B-002F, U+0030-0039, U+003A;src:url(data:font/woff2;base64,d09GMk9UVE8AAAVcAAwAAAAACBgAAAUQAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAADYkaGjQGYAA8ATYCJANIBAYFgUgHIBckGCYbQwdRlC5Ok+wjITfR+oEpQpShtDbE1fS543HTjy+1VLN5UjVoHWpUxGbmb2bCF6cztQs79sfzwaG++5fopEkUkGjAO4hKFav6FMnY//+90/+67WlrEIX8f2NZNMamOr41K8AssDFxbEvDwFJPHPLMrTFk9rBgsMc9RkjJmILQo3w8W0LjQtFFu2xnTJR36DvojxVev6DJKZRZc03+rrNuHkK58/z1YNHsWO1KuRUtOLrNFd/gyFijKaeooq591yH5Zbrw2OLT6RmiIBpiIBbiIJ6UwNJHgg70EAXREAOxA+MmxKgv5bQJt1A0zijL7WB2waPyrpgaW3cjMm2yK8da36N7+3HJCP6DyefhMtonbJBD9u4G7MHh7jewwCV8o4N6ujlaxlbEtu/+H7QifMdzW9m8s2e7dr16tm3ba9fRozt3mZ+sasPxdXg0ipx7m1Si/aE1l9EIJjSgCXL0B6McDGB6WJBsPMx4ImMU6YZLoRnhJSw1a44yBmvuENzo7ikBH+XSDu3Lyg63b7AcPmKxdDhSpkqJWoN1s4zpxMb8b4D0iPIwfLGOm5GFzdEHD+B+gByyIAsDxX44gC/ALBWjuNvH47AIC4vjDIbi+1AIRcfv31YlLAaw9pDxJurB94cf5ArSPLjW7z1S0QkdMVqFbOHkweNXb+3qVKyQNoOrgvxFXItbiY92mxAIx4sE7MCJBx8IPHSFPBAhECmgMF+RlsCtLuYGtEMOI366hl2WS+cPdi0ubNcpTUnEwDvCA0u37OLajqlqCul4YPIZEbOFZagDNgCyCSQRaPaWgI58iTuTuvT80gsXyEsR/NHuHSYp0matuU6GVIj/BsGe2gwcJOB52wyCwRpDeKyAYBkq4BzBc7y0AO4jLYMRPICDVEhD6hNGq9Wk3djuQ8VFEAafCIEI21IyyNYfEgi/fvveTRYi3jxalZLatiJNTSVd90+GUY2ZRJQWwMuOfyIpoIADGCABmwCLUepEMnHG1BkiFMI27EiwKz7k61MGFBGjiCZQkYVkBcK5xBrLlSt/Wu7c+bPMZKopS1SlbtoLaw/ZZkE9fBBw9w8/KCPwn7Wal1ZbFWgqE+AjLptWnFxz5SJ5IYIb8t/QgIkoeqOHQsKvZp4anj46PJ0gL2IgtAqDNEiDVi8hUMHWmoNc0bpLQVHdQctfv+49dcbcqVrZZKPkkop2BkPF0WMnLOabNy1tixRpAQToZOhIoCs85H+7vvkEuSWCCVVgMRmTUUUOTZgATZCFKGURkbZo9rzZ4rSjr/wUfH2HaDYeY/PiPnXz9yoPa7BM0YTtyEWzxBWNOCmNc1SzaWyb8zsexXxCTFGzjOh/umIqDLEpsaQpS94zO1Of+0lsz2e8uvastm2XZ8FPiMHjfg9sxiHgBCIhQGPI9/w5xBmC7PP7eT3upXV2i69fr7VzNu5FB/YFyd7arTqD9e7Pql7drihKxASa2JfHJnXd0KBzH4GW8m69jJHqA1NPX37qvykM+0Qkk0f+Fli3KVmpVdaT6T5Ns5pXq2cG8s02irndvWejSlBuKIoTi0UP7CiGiCIdq4qo4zXWdpdAMZhJP711lgVRX4NnD9RNF570wkXClaj5bH10uES9/IOVW7SvQUFru14vWhidivQiXVVO10AP6uHqm926Ye2Msb3yxJ+H6Uk9PcF83K8e075Qe48UzOuwJ0X3i2fPPEm02hqua7vmda4qvuE7boEX6Q4AAA==) format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:400;font-style:normal;font-display:swap;src:url('/fonts/Pretendard-Regular.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:500;font-style:normal;font-display:swap;src:url('/fonts/Pretendard-Medium.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:600;font-style:normal;font-display:swap;src:url('/fonts/Pretendard-SemiBold.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:700;font-style:normal;font-display:swap;src:url('/fonts/Pretendard-Bold.woff2') format('woff2')}
+[hidden]:not([hidden=until-found i]){display:none!important}
+:root{
+  --bg:#ffffff;--panel:#f5f5f7;--panel-h:#ececf0;--side:#fafafb;--line:rgba(0,0,0,.08);--line2:rgba(0,0,0,.06);
+  --ink:#1d1d1f;--mute:#5f5f64;--dim:#8e8e93;--sel:#eef4fb;--selbar:#0066cc;--know:#0058b0;
+  --bar:#d1d1d6;--bar-on:#1d1d1f;--seg:#f0f0f3;--seg-on:#ffffff;--focus:#0066cc;
+  --neg:#c4402f;--pos:#a86b00;--neb:#6b4fc4;--amber:#b3470b;--dust:#8e8e93;
+  --mk-neg:rgba(196,64,47,.16);--mk-pos:rgba(168,107,0,.16);--shadow:0 1px 2px rgba(0,0,0,.14);
+  --sheet:0 -8px 40px rgba(0,0,0,.18);
+  color-scheme:light;
+}
+:root.dark{
+  --bg:#121417;--panel:#1a1d21;--panel-h:#20252a;--side:#15181b;--line:#262a2f;--line2:#22262b;
+  --ink:#eceef1;--mute:#a3a9b1;--dim:#8a919a;--sel:#232a33;--selbar:#5b9dff;--know:#8fbaff;
+  --bar:#3a4047;--bar-on:#5b9dff;--seg:#1b1f23;--seg-on:#2f353c;--focus:#5b9dff;
+  --neg:#ff7262;--pos:#ffd27c;--neb:#b394ff;--amber:#f2a341;--dust:#8a919a;
+  --mk-neg:rgba(255,114,98,.24);--mk-pos:rgba(255,210,124,.24);--shadow:0 1px 2px rgba(0,0,0,.4);
+  --sheet:0 -8px 40px rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:'Pretendard',-apple-system,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;-webkit-font-smoothing:antialiased;word-break:keep-all;transition:background-color .3s ease,color .3s ease;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;text-align:left}
+a{color:inherit;text-decoration:none}
+button:focus-visible,a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.num{font-family:'Gmarket Sans','Pretendard',-apple-system,'Apple SD Gothic Neo',sans-serif;font-variant-numeric:tabular-nums}
+.ni{font-size:.86em;vertical-align:.09em}
+
+/* 머리 */
+.top{position:sticky;top:0;z-index:5;height:64px;display:flex;align-items:center;gap:20px;padding:0 40px;border-bottom:1px solid var(--line);background:var(--bg)}
+.tabs{display:flex;gap:2px}
+.tab{padding:8px 14px;border-radius:999px;font-size:14px;font-weight:600;color:var(--mute);transition:background-color .2s,color .2s}
+.tab.on{color:var(--ink);background:var(--panel-h)}
+@media (hover:hover) and (pointer:fine){.tab:hover{color:var(--ink);background:var(--panel)}}
+.tools{margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0}
+.seg,.thm-seg{display:flex;gap:2px;padding:3px;border-radius:999px;background:var(--seg)}
+.seg button,.thm{display:flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:700;color:var(--mute);white-space:nowrap;transition:background-color .2s,color .2s}
+.seg button[aria-checked="true"],.thm[aria-pressed="true"]{background:var(--seg-on);color:var(--ink);box-shadow:var(--shadow)}
+@media (hover:hover) and (pointer:fine){.seg button:hover,.thm:hover{color:var(--ink)}}
+.period{display:flex;align-items:center;gap:6px;height:34px;font-size:13px;font-weight:600;padding:0 13px;border-radius:999px;background:var(--panel);white-space:nowrap}
+.period .k{color:var(--mute)}
+
+/* 본문 */
+.main{max-width:1440px;margin:0 auto;padding:40px 40px 56px;display:flex;flex-direction:column;gap:28px}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.scope-k{font-size:15px;font-weight:700;color:var(--mute)}
+h1{margin:6px 0 0;font-size:40px;font-weight:700;letter-spacing:-.025em;line-height:1.15}
+.hint{font-size:14px;font-weight:600;color:var(--mute)}
+
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.card{display:flex;flex-direction:column;border-radius:22px;padding:20px 22px 20px;background:var(--panel);transition:background-color .2s ease,transform .12s ease-out;min-width:0;width:100%}
+:root.dark .card{box-shadow:inset 0 0 0 1px var(--line)}
+@media (hover:hover) and (pointer:fine){.card:hover{background:var(--panel-h)}}
+.card:active{transform:scale(.985)}
+.c-grp{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:22px}
+.c-grp .g{font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--dim)}
+.c-grp .tagx{font-size:11.5px;font-weight:700;color:var(--mute);padding:2px 9px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--line);white-space:nowrap}
+.c-lbl{display:block;margin-top:6px;font-size:14px;font-weight:700;color:var(--mute)}
+.c-val{display:flex;align-items:baseline;gap:5px;margin-top:10px}
+.c-val .v{font-size:52px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.c-val .u{font-size:17px;font-weight:700;color:var(--mute)}
+.c-viz{display:flex;flex-direction:column;justify-content:flex-end;height:52px;margin-top:16px}
+.bars{display:flex;align-items:flex-end;gap:3px;height:34px}
+.bars i{flex:1 1 0;min-width:2px;border-radius:3px;background:var(--bar)}
+.bars i.last{background:var(--bar-on)}
+.bars i.none{background:transparent;box-shadow:inset 0 -2px 0 var(--line)}
+.axis{display:flex;justify-content:space-between;gap:6px;margin-top:5px;font-size:11px;font-weight:600;color:var(--dim)}
+.fact{display:flex;align-items:center;height:34px;font-size:13px;font-weight:600;color:var(--mute);border-top:1px dashed var(--line);margin-bottom:17px}
+.c-sub{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:12px;font-size:13px;font-weight:500;color:var(--mute)}
+
+.gal-sec{display:flex;flex-direction:column;gap:12px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.sec-h h2{margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.sec-s{font-size:13px;font-weight:600;color:var(--mute)}
+.gals{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:10px}
+.gal{display:flex;flex-direction:column;gap:8px;border-radius:16px;padding:14px 14px 13px;background:var(--panel);min-width:0;transition:background-color .2s ease}
+:root.dark .gal{box-shadow:inset 0 0 0 1px var(--line)}
+@media (hover:hover) and (pointer:fine){.gal:hover{background:var(--panel-h)}}
+.gal .nm{font-size:13px;font-weight:700;color:var(--mute);line-height:1.3;min-height:2.6em}
+.gal .v{display:flex;align-items:baseline;gap:4px}
+.gal .v b{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1;color:var(--neg)}
+.gal .v span{font-size:12px;font-weight:700;color:var(--mute)}
+.gal .p{font-size:12px;font-weight:600;color:var(--dim)}
+
+/* 패널 */
+.scrim{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.28)}
+.panel{position:fixed;z-index:10;top:0;right:0;bottom:0;width:440px;max-width:100%;display:flex;flex-direction:column;background:var(--side);border-left:1px solid var(--line);box-shadow:-12px 0 40px rgba(0,0,0,.18);transform:none;transition:transform .26s cubic-bezier(.2,.8,.2,1)}
+.panel.enter{transform:translateX(100%)}
+.p-bar{display:flex;align-items:center;gap:8px;height:56px;flex:none;padding:0 14px;border-bottom:1px solid var(--line)}
+.p-btn{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--mute)}
+.p-btn svg{width:18px;height:18px}
+@media (hover:hover) and (pointer:fine){.p-btn:hover{background:var(--panel);color:var(--ink)}}
+#p-close{margin-left:auto}
+.p-uni{display:flex;align-items:center;height:32px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:700;color:var(--know);background:var(--panel)}
+@media (hover:hover) and (pointer:fine){.p-uni:hover{background:var(--panel-h)}}
+.p-scroll{flex:1 1 auto;overflow:auto;overscroll-behavior:contain}
+.p-body{padding:20px 22px 32px;display:flex;flex-direction:column;gap:20px}
+.eyebrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;font-weight:700;color:var(--dim)}
+.p-title{margin:4px 0 0;font-size:23px;line-height:1.3;font-weight:700;letter-spacing:-.02em}
+.big{display:flex;align-items:baseline;gap:6px;margin-top:8px}
+.big b{font-size:40px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.big .u{font-size:16px;font-weight:700;color:var(--mute)}
+.line{font-size:13px;font-weight:600;color:var(--mute);margin-top:8px}
+.sect-k{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px;font-weight:700;color:var(--dim);padding:0 2px 7px;border-bottom:1px solid var(--line)}
+.sect-k .t{color:var(--mute)}
+.sect-k .t b{margin-left:6px;color:var(--ink)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font-size:11.5px;font-weight:700;color:var(--dim);text-align:right;padding:7px 4px;border-bottom:1px solid var(--line)}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td{padding:8px 4px;text-align:right;font-weight:600;border-bottom:1px solid var(--line2);white-space:nowrap}
+.tbl td:first-child{white-space:normal;color:var(--mute)}
+.tbl tr.sum td{color:var(--ink);font-weight:700}
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:10px;width:calc(100% + 16px);min-height:42px;padding:6px 8px;margin:0 -8px;border-radius:10px;color:var(--ink);transition:background-color .14s ease}
+@media (hover:hover) and (pointer:fine){.row:hover{background:var(--panel)}}
+.row:active{background:var(--panel-h)}
+.row .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.row .dot.ring{background:none;border:1.5px dashed currentColor;width:9px;height:9px}
+.row .nm{font-size:14px;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .nm small{display:block;font-size:11.5px;color:var(--dim);font-weight:600;margin-top:1px}
+.row .st{font-size:11.5px;font-weight:700;white-space:nowrap}
+.row .n{font-size:13px;font-weight:600;color:var(--mute);min-width:2.2em;text-align:right}
+.row.star{grid-template-columns:10px auto minmax(0,1fr) auto}
+.row.star .d{font-size:13px;font-weight:600}
+.row.star .ch{font-size:13px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.star .sc{font-size:13px;font-weight:600}
+.row.star .sc span{color:var(--dim);font-size:11.5px}
+.empty{font-size:13px;font-weight:600;color:var(--dim);padding:10px 0}
+.c-neg{color:var(--neg)}.c-pos{color:var(--pos)}.c-neb{color:var(--neb)}.c-amber{color:var(--amber)}.c-dust{color:var(--dust)}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid currentColor;white-space:nowrap}
+.badge.ghost{color:var(--mute);border-color:var(--line)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:9px 18px;margin:0;font-size:13.5px}
+.facts dt{color:var(--dim);font-weight:600}
+.facts dd{margin:0;min-width:0;font-weight:600}
+.summary{margin:0;font-size:14.5px;line-height:1.65;color:var(--ink)}
+.score{display:flex;align-items:baseline;gap:6px;margin-top:8px}
+.score b{font-size:34px;font-weight:700;letter-spacing:-.03em}
+.score span{font-size:14px;color:var(--dim)}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;font-size:11px;font-weight:700;color:var(--mute);border:1px solid var(--line)}
+.voice{position:relative;padding:2px 0 2px 16px}
+.voice::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:3px;background:currentColor}
+.voice .vk{font-size:12px;font-weight:700}
+.voice blockquote{margin:6px 0 0;font-size:17px;line-height:1.55;font-weight:600;color:var(--ink);letter-spacing:-.015em}
+.rev{display:flex;flex-direction:column;gap:10px}
+.rev-tabs{display:inline-flex;align-self:flex-start;padding:3px;border-radius:999px;background:var(--seg)}
+.rev-tabs button{height:26px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:700;color:var(--mute)}
+.rev-tabs button[aria-pressed="true"]{background:var(--seg-on);color:var(--ink);box-shadow:var(--shadow)}
+.prose{margin:0;font-size:14.5px;line-height:1.72;color:var(--mute);white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.prose mark{background:none;color:var(--ink);box-shadow:inset 0 -.42em 0 var(--mk);border-radius:2px}
+.sig{font-size:12.5px;color:var(--mute)}
+.more{align-self:flex-start;margin-top:6px;font-size:13px;font-weight:700;color:var(--know)}
+
+@media (max-width:1180px){
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .gals{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .top{height:auto;flex-wrap:wrap;gap:8px 12px;padding:10px 16px}
+  .tools{margin-left:0;flex:1 1 100%;flex-wrap:wrap;gap:6px}
+  .period{order:3;flex:1 1 100%;height:auto;padding:6px 12px;border-radius:12px;white-space:normal}
+  .main{padding:22px 16px 40px;gap:20px}
+  .head{flex-direction:column;align-items:flex-start;gap:6px}
+  h1{font-size:30px}
+  .hint{font-size:13px}
+}
+@media (max-width:640px){
+  .cards{grid-template-columns:minmax(0,1fr)}
+  .card{padding:18px 18px 18px}
+  .c-val .v{font-size:46px}
+  .gals{gap:8px}
+  .gal{padding:12px}
+  .gal .v b{font-size:26px}
+  .panel{top:auto;left:0;width:100%;height:86vh;height:86dvh;border-left:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:var(--sheet)}
+  .panel.enter{transform:translateY(100%)}
+  .p-body{padding:16px 16px calc(28px + env(safe-area-inset-bottom))}
+  .thm span{display:none}
+  .thm{padding:0 10px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <nav class="tabs" aria-label="화면">
+      <a class="tab" id="tab-universe" href="/v2/universe">우주</a>
+      <a class="tab on" id="tab-metrics" href="/v2/metrics" aria-current="page">지표</a>
+    </nav>
+    <div class="tools">
+      <div class="seg" id="seg" role="radiogroup" aria-label="지점"></div>
+      <div class="thm-seg" role="group" aria-label="화면 색">
+        <button type="button" class="thm" data-theme="dark" aria-pressed="true">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 8.6A5.4 5.4 0 0 1 5.4 2a5.4 5.4 0 1 0 6.6 6.6z"></path></svg><span>다크</span>
+        </button>
+        <button type="button" class="thm" data-theme="light" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="2.6"></circle><path d="M7 1v1.4M7 11.6V13M1 7h1.4M11.6 7H13M2.8 2.8l1 1M10.2 10.2l1 1M2.8 11.2l1-1M10.2 3.8l1-1"></path></svg><span>라이트</span>
+        </button>
+      </div>
+      <span class="period" id="period"></span>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="head">
+      <div>
+        <div class="scope-k" id="scope-k"></div>
+        <h1>VOC 지표</h1>
+      </div>
+      <div class="hint"><span>숫자를 누르면 별자리와 별로</span></div>
+    </div>
+    <section class="cards" id="cards" aria-label="지표 6개"></section>
+    <section class="gal-sec" aria-labelledby="gal-h">
+      <div class="sec-h"><h2 id="gal-h">은하별 불편 별</h2><span class="sec-s" id="gal-s"></span></div>
+      <div class="gals" id="gals"></div>
+    </section>
+  </main>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="panel" id="panel" aria-live="polite" hidden>
+    <div class="p-bar">
+      <button type="button" class="p-btn" id="p-back" aria-label="뒤로" hidden>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <a class="p-uni" id="p-uni" href="/v2/universe"><span>우주에서 보기</span></a>
+      <button type="button" class="p-btn" id="p-close" aria-label="닫기">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="p-scroll" id="p-scroll"><div class="p-body" id="p-body"></div></div>
+  </aside>
+</div>
+<script type="application/json" id="voc-data">/*@@DATA@@*/</script>
+<script>
+// VOC 지표 화면 — 데이터는 서버가 lib/v2/metrics.ts 로 계산해 #voc-data 에 넣는다. 화면은 값을 다시 계산하지 않는다.
+(function () {
+  'use strict';
+  var D = JSON.parse(document.getElementById('voc-data').textContent);
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var ALL = '전체';
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 저장 불가 환경 */ } }
+  };
+
+  // ── 경로: 임베드 경로끼리는 ?key= 를 그대로 들고 간다 ──
+  var EMBED = location.pathname.indexOf('/embed/') === 0;
+  var QS = EMBED ? location.search : '';
+  var UNI = (EMBED ? '/embed/v2-universe' : '/v2/universe') + QS;
+  $('tab-universe').href = UNI;
+  $('tab-metrics').href = (EMBED ? '/embed/v2-metrics' : '/v2/metrics') + QS;
+  $('p-uni').href = UNI;
+
+  // ── 형식 ──
+  var n0 = function (v) { return v == null || isNaN(v) ? '—' : Math.round(v).toLocaleString('ko-KR'); };
+  var pct = function (v, d) { return v == null || isNaN(v) ? '—' : (v * 100).toFixed(d == null ? 1 : d); };
+  var N = function (s, cls) { return '<span class="num' + (cls ? ' ' + cls : '') + '">' + esc(s) + '</span>'; };
+  var NI = function (s) { return N(s, 'ni'); };
+  var md = function (iso) { return iso ? String(iso).slice(5, 10).replace('-', '.') : ''; };
+  var ymd = function (iso) { return iso ? String(iso).slice(0, 10).replace(/-/g, '.') : ''; };
+  var addDays = function (iso, n) { var p = iso.split('-').map(Number); var d = new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)); return d.toISOString().slice(0, 10); };
+  var monthKo = function (m) { return +String(m).slice(5, 7) + '월'; };
+  var CH = { Agoda: '아고다', Booking: '부킹닷컴', 'Trip.com': '트립닷컴', Expedia: '익스피디아', Airbnb: '에어비앤비', NOL: '야놀자', '여기어때': '여기어때' };
+  var ch = function (c) { return CH[c] || c || '채널 미상'; };
+  var OWNER = { X: '운영 밖', x: '운영 밖', OUT: '운영 밖', outside: '운영 밖' };
+  var SIG = { E: '감정 고조', R: '재문의', C: '보상 요구', P: '평판 리스크' };
+  // 주 라벨(월요일) = 화~월 구간의 끝
+  // 은하 이름: 직원서비스 은하는 「응대, 환대, 커뮤니티」로 표시
+  var galName = function (g) { return g === '응대/환대/커뮤니티' ? '응대, 환대, 커뮤니티' : g; };
+  var weekRange = function (mon) { return md(addDays(mon, -6)) + '~' + md(mon); };
+
+  // ── 색 ──
+  function stClass(c) {
+    if (!c) return 'c-dust';
+    if (c.status === '성운' || c.status === '관찰') return 'c-neb';
+    if (c.status === '씨앗') return 'c-dust';
+    if (c.polarity === 'pos') return c.status === '흐려짐' ? 'c-dust' : 'c-pos';
+    if (c.status === '수행과제 진행') return 'c-amber';
+    return 'c-neg';
+  }
+  var polClass = function (p) { return p === 'pos' ? 'c-pos' : 'c-neg'; };
+
+  // ── 모델 ──
+  var CON = {}, STAR = {}, STARS_BY_REVIEW = {};
+  D.constellations.forEach(function (c) { CON[c.id] = c; });
+  D.stars.forEach(function (s) {
+    STAR[s.id] = s;
+    if (s.review_id) (STARS_BY_REVIEW[s.review_id] = STARS_BY_REVIEW[s.review_id] || []).push(s);
+  });
+  var recentFirst = function (a, b) { return (b.recent_4w - a.recent_4w) || (a.last_date < b.last_date ? 1 : a.last_date > b.last_date ? -1 : 0) || a.name.localeCompare(b.name); };
+
+  var S = { branch: ALL, theme: document.documentElement.classList.contains('light') ? 'light' : 'dark', stack: [], tab: 'ko' };
+  var savedBr = store.get('voc-metrics-branch');
+  if (savedBr && D.scopes[savedBr]) S.branch = savedBr;
+
+  // ── 머리 ──
+  function renderHead() {
+    var brs = [ALL].concat(D.branches);
+    $('seg').innerHTML = brs.map(function (b) {
+      return '<button type="button" role="radio" data-br="' + esc(b) + '" aria-checked="' + (b === S.branch) + '"><span>' + esc(b) + '</span></button>';
+    }).join('');
+    var lw = D.last_week;
+    $('period').innerHTML = lw
+      ? '<span class="k">마지막 주</span><span class="num">' + esc(ymd(addDays(lw, -6))) + '~' + esc(md(lw)) + '</span><span class="k">· 별자리</span><span class="num">' + esc(ymd(D.as_of)) + '</span>'
+      : '<span class="k">별자리</span><span class="num">' + esc(ymd(D.as_of)) + '</span>';
+    $('scope-k').innerHTML = '<span>' + esc(S.branch === ALL ? D.branches.join(', ') + ' 합산' : S.branch) + '</span>';
+    document.querySelectorAll('.thm').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.theme === S.theme)); });
+  }
+
+  // ── 카드 ──
+  function bars(series, key) {
+    var vals = series.map(function (b) { return b[key || 'value']; });
+    var max = Math.max.apply(null, vals.filter(function (v) { return v != null; }).concat([0])) || 1;
+    var html = '<span class="bars" aria-hidden="true">' + series.map(function (b, i) {
+      var v = b[key || 'value'];
+      if (v == null) return '<i class="none" style="height:34px"></i>';
+      return '<i class="' + (i === series.length - 1 ? 'last' : '') + '" style="height:' + Math.max(3, Math.round(v / max * 34)) + 'px"></i>';
+    }).join('') + '</span>';
+    return html;
+  }
+  function axis(a, b) { return '<span class="axis"><span>' + a + '</span><span>' + b + '</span></span>'; }
+
+  function card(o) {
+    var viz = o.series && o.series.length
+      ? bars(o.series) + axis(o.axisA, o.axisB)
+      : '<span class="fact"><span>' + esc(o.fact || '') + '</span></span>';
+    return '<button type="button" class="card" data-open="' + o.key + '" aria-label="' + esc(o.label) + ' 목록 열기">' +
+      '<span class="c-grp"><span class="g">' + esc(o.group) + '</span>' + (o.tag ? '<span class="tagx">' + esc(o.tag) + '</span>' : '') + '</span>' +
+      '<span class="c-lbl">' + esc(o.label) + '</span>' +
+      '<span class="c-val"><span class="v num">' + esc(o.value) + '</span>' + (o.unit ? '<span class="u">' + esc(o.unit) + '</span>' : '') + '</span>' +
+      '<span class="c-viz">' + viz + '</span>' +
+      '<span class="c-sub">' + o.sub.map(function (s) { return '<span>' + s + '</span>'; }).join('') + '</span>' +
+      '</button>';
+  }
+  var frac = function (o) { return o.den ? pct(o.num / o.den, 0) : '—'; };
+  var weekAxis = function (ser) { return ser.length ? [N(md(addDays(ser[0].label, -6))), N(md(ser[ser.length - 1].label))] : ['', '']; };
+
+  function renderCards() {
+    var s = D.scopes[S.branch];
+    var ns = s.north, ota = s.ota, voc = s.voc;
+    var nsAx = ns.series.length ? [monthKo(ns.series[0].label), monthKo(ns.series[ns.series.length - 1].label)] : ['', ''];
+    var otaAx = weekAxis(ota.series), vocAx = weekAxis(voc.series);
+    var coLabel = D.checkout_source === 'wings' ? 'Wings 체크아웃' : '체크아웃';
+    var html = [
+      card({ key: 'north', group: '북극성', tag: '추정', label: '불편 없이 끝난 체류 비율', value: pct(ns.value), unit: ns.value == null ? '' : '%',
+        series: ns.series, axisA: nsAx[0], axisB: nsAx[1],
+        sub: [coLabel + ' ' + NI(n0(ns.checkouts)), '부정 추정 ' + NI(ns.est_neg == null ? '—' : ns.est_neg.toLocaleString('ko-KR'))] }),
+      card({ key: 'solved', group: '핵심', label: '구조 해결 수', value: String(s.solved.value), unit: '개',
+        fact: '첫 판정 V2 가동 3개월 뒤', sub: ['관찰 중 별자리 ' + NI(s.solved.observing)] }),
+      card({ key: 'relapse', group: '핵심', label: '재발률', value: frac(s.relapse), unit: s.relapse.den ? '%' : '',
+        fact: '첫 판정 V2 가동 3개월 뒤', sub: ['재발 ' + NI(s.relapse.num) + ' / 대상 ' + NI(s.relapse.den)] }),
+      card({ key: 'keep', group: '핵심', label: '성과 유지율', value: frac(s.keep), unit: s.keep.den ? '%' : '',
+        fact: '첫 판정 V2 가동 3개월 뒤', sub: ['유지 ' + NI(s.keep.num) + ' / 긍정 별자리 ' + NI(s.keep.den)] }),
+      card({ key: 'ota', group: '가드레일', label: 'OTA 평점', value: ota.value == null ? '—' : ota.value.toFixed(2), unit: ota.value == null ? '' : '/ 10',
+        series: ota.series, axisA: otaAx[0], axisB: otaAx[1],
+        sub: ['9.0 미만 채널 ' + NI(ota.below) + ' / ' + NI(ota.channels.length)] }),
+      card({ key: 'voc', group: '가드레일', label: 'VOC 비율', value: pct(voc.ratio), unit: voc.ratio == null ? '' : '%',
+        series: voc.series, axisA: vocAx[0], axisB: vocAx[1],
+        sub: ['리뷰 증가분 ' + NI(n0(voc.reviews)), '체크아웃 ' + NI(n0(voc.checkouts))] })
+    ];
+    $('cards').innerHTML = html.join('');
+  }
+
+  function renderGalaxies() {
+    var s = D.scopes[S.branch];
+    var neg = s.galaxies.reduce(function (a, g) { return a + g.neg; }, 0), pos = s.galaxies.reduce(function (a, g) { return a + g.pos; }, 0);
+    $('gal-s').innerHTML = '<span>불편 ' + NI(n0(neg)) + ' · 칭찬 ' + NI(n0(pos)) + '</span>';
+    $('gals').innerHTML = s.galaxies.map(function (g) {
+      var nm = galName(g.name);
+      return '<button type="button" class="gal" data-gal="' + esc(g.name) + '" aria-label="' + esc(nm) + ' 불편 별 목록 열기">' +
+        '<span class="nm">' + esc(nm) + '</span>' +
+        '<span class="v"><b class="num">' + n0(g.neg) + '</b><span>불편</span></span>' +
+        '<span class="p">칭찬 ' + NI(n0(g.pos)) + '</span></button>';
+    }).join('');
+  }
+
+  function renderAll() { renderHead(); renderCards(); renderGalaxies(); if (S.stack.length) renderPanel(); }
+
+  // ── 패널 ──
+  var inScope = function (x) { return S.branch === ALL || x.branch === S.branch; };
+  var brLabel = function () { return S.branch === ALL ? D.branches.join(', ') + ' 합산' : S.branch; };
+
+  function conRow(c, mark) {
+    return '<button type="button" class="row" data-con="' + esc(c.id) + '">' +
+      '<span class="dot ' + stClass(c) + (c.status === '관찰' || c.status === '씨앗' ? ' ring' : '') + '"></span>' +
+      '<span class="nm">' + esc(c.name) + '<small>' + esc(c.branch) + ' · ' + esc(galName(c.galaxy)) + (c.recent_4w ? ' · 최근 4주 ' + NI(c.recent_4w) : '') + '</small></span>' +
+      '<span class="st ' + stClass(c) + '">' + esc(mark || c.status) + '</span><span class="n num">' + c.star_ids.length + '</span></button>';
+  }
+  function conList(title, cons, emptyText, markFn) {
+    return '<div><div class="sect-k"><span class="t">' + esc(title) + '<b class="num">' + cons.length + '</b></span><span>최근 4주 별 수 순</span></div>' +
+      '<div class="rows">' + (cons.length ? cons.map(function (c) { return conRow(c, markFn && markFn(c)); }).join('') : '<div class="empty">' + esc(emptyText || '없음') + '</div>') + '</div></div>';
+  }
+  var cons = function (ids) { return ids.map(function (id) { return CON[id]; }).filter(Boolean).sort(recentFirst); };
+  function starRow(s) {
+    var rv = D.reviews[s.review_id] || {};
+    var sc = rv.rating != null ? N((+rv.rating).toFixed(1)) + '<span> / ' + N(rv.scale || 10) + '</span>' : '<span>—</span>';
+    return '<button type="button" class="row star" data-star="' + esc(s.id) + '"><span class="dot ' + polClass(s.polarity) + '"></span>' +
+      '<span class="d num">' + esc(md(s.date)) + '</span><span class="ch">' + esc(ch(s.channel)) + ' · ' + esc(s.phenomenon || '') + '</span><span class="sc">' + sc + '</span></button>';
+  }
+  function head(eyebrow, title, big, unit, line) {
+    return '<div><div class="eyebrow"><span>' + eyebrow + '</span></div><h2 class="p-title">' + esc(title) + '</h2>' +
+      (big != null ? '<div class="big"><b class="num">' + esc(big) + '</b>' + (unit ? '<span class="u">' + esc(unit) + '</span>' : '') + '</div>' : '') +
+      (line ? '<div class="line">' + line + '</div>' : '') + '</div>';
+  }
+  function table(headers, rows, sum) {
+    return '<table class="tbl"><thead><tr>' + headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>'; }).join('') +
+      (sum ? '<tr class="sum">' + sum.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>' : '') + '</tbody></table>';
+  }
+  var chName = function (r) { return (S.branch === ALL ? esc(r.branch) + ' · ' : '') + esc(ch(r.channel)); };
+
+  var VIEWS = {
+    north: function () {
+      var ns = D.scopes[S.branch].north;
+      var negC = D.constellations.filter(function (c) { return inScope(c) && c.polarity === 'neg' && c.status !== '씨앗'; }).sort(recentFirst);
+      var per = ns.period ? N(ymd(ns.period.from)) + '~' + N(md(ns.period.to)) + ' · ' + N(ns.period.weeks) + '주 · OTA ' + N(ns.channels) + '채널' : '';
+      var t = ns.by_channel.reduce(function (a, r) { a.t += r.texts; a.n += r.neg; a.d += r.delta; a.c += r.checkouts; return a; }, { t: 0, n: 0, d: 0, c: 0 });
+      return head('북극성 · ' + esc(brLabel()) + ' <span class="tag">추정</span>', '불편 없이 끝난 체류 비율', pct(ns.value), ns.value == null ? '' : '%', per) +
+        '<div><div class="sect-k"><span class="t">월별</span><span>주 라벨의 달 기준</span></div>' +
+        table(['달', '주 수', '비율'], ns.series.map(function (b) { return [esc(monthKo(b.label)), b.weeks == null ? '—' : N(b.weeks), b.value == null ? '—' : N(pct(b.value)) + '%']; })) + '</div>' +
+        '<div><div class="sect-k"><span class="t">채널</span></div>' +
+        table(['채널', '원문 리뷰', '부정 리뷰', '리뷰 증가분', '체크아웃'],
+          ns.by_channel.map(function (r) { return [chName(r), N(n0(r.texts)), N(n0(r.neg)), N(n0(r.delta)), N(n0(r.checkouts))]; }),
+          ['합계', N(n0(t.t)), N(n0(t.n)), N(n0(t.d)), N(n0(t.c))]) + '</div>' +
+        conList('불편 별자리', negC, '불편 별자리 없음');
+    },
+    solved: function () {
+      var s = D.scopes[S.branch].solved;
+      return head('핵심 · ' + esc(brLabel()), '구조 해결 수', String(s.value), '개', '3개월 재발 0건으로 성운이 된 별자리') +
+        conList('성운', cons(s.ids), '성운 별자리 없음') + conList('관찰 중', cons(s.observing_ids), '관찰 중 별자리 없음');
+    },
+    relapse: function () {
+      var r = D.scopes[S.branch].relapse;
+      var rel = {}; r.relapsed_ids.forEach(function (id) { rel[id] = 1; });
+      return head('핵심 · ' + esc(brLabel()), '재발률', frac(r), r.den ? '%' : '', '재발 ' + NI(r.num) + ' / 관찰에 들어간 별자리 ' + NI(r.den)) +
+        conList('관찰에 들어간 별자리', cons(r.ids), '관찰에 들어간 별자리 없음', function (c) { return rel[c.id] ? '재발 ' + (c.relapse_count || 1) + '회' : c.status; });
+    },
+    keep: function () {
+      var k = D.scopes[S.branch].keep;
+      return head('핵심 · ' + esc(brLabel()), '성과 유지율', frac(k), k.den ? '%' : '', '유지 ' + NI(k.num) + ' / 긍정 별자리 ' + NI(k.den)) +
+        conList('긍정 별자리', cons(k.ids), '긍정 별자리 없음');
+    },
+    ota: function () {
+      var o = D.scopes[S.branch].ota;
+      var last = o.series.length ? o.series[o.series.length - 1].label : null;
+      return head('가드레일 · ' + esc(brLabel()), 'OTA 평점', o.value == null ? '—' : o.value.toFixed(2), o.value == null ? '' : '/ 10',
+        '10점 환산 · 누적 리뷰 수 가중 평균' + (last ? ' · ' + N(ymd(last)) : '')) +
+        '<div><div class="sect-k"><span class="t">채널</span><span>기록일 기준 최신</span></div>' +
+        table(['채널', '평점', '기록일', '누적 리뷰'], o.channels.map(function (r) {
+          return [chName(r), r.score == null ? '—' : N((+r.score).toFixed(2)) + ' / ' + N(r.scale), N(md(r.recorded_at)), N(n0(r.review_count))];
+        })) + '</div>' +
+        '<div><div class="sect-k"><span class="t">주별</span><span>화~월</span></div>' +
+        table(['주', '평점'], o.series.slice().reverse().map(function (b) { return [N(weekRange(b.label)), b.value == null ? '—' : N(b.value.toFixed(2))]; })) + '</div>';
+    },
+    voc: function () {
+      var v = D.scopes[S.branch].voc;
+      return head('가드레일 · ' + esc(brLabel()), 'VOC 비율', pct(v.ratio), v.ratio == null ? '' : '%', '리뷰 증가분 ' + NI(n0(v.reviews)) + ' ÷ 체크아웃 ' + NI(n0(v.checkouts))) +
+        '<div><div class="sect-k"><span class="t">채널</span></div>' +
+        table(['채널', '비율', '리뷰 증가분', '체크아웃'], v.by_channel.map(function (r) {
+          return [chName(r), r.ratio == null ? '—' : N(pct(r.ratio)) + '%', N(n0(r.reviews)), N(n0(r.checkouts))];
+        })) + '</div>' +
+        '<div><div class="sect-k"><span class="t">주별</span><span>화~월</span></div>' +
+        table(['주', '비율', '리뷰 증가분', '체크아웃'], v.series.slice().reverse().map(function (b) {
+          return [N(weekRange(b.label)), b.value == null ? '—' : N(pct(b.value)) + '%', N(n0(b.reviews)), N(n0(b.checkouts))];
+        })) + '</div>';
+    },
+    gal: function (name) {
+      var g = D.scopes[S.branch].galaxies.filter(function (x) { return x.name === name; })[0] || { neg: 0, pos: 0 };
+      var negC = D.constellations.filter(function (c) { return inScope(c) && c.galaxy === name && c.polarity === 'neg' && c.status !== '씨앗'; }).sort(recentFirst);
+      var seeds = D.constellations.filter(function (c) { return inScope(c) && c.galaxy === name && c.polarity === 'neg' && c.status === '씨앗'; }).sort(recentFirst);
+      var singles = D.stars.filter(function (s) { return inScope(s) && s.galaxy === name && s.polarity === 'neg' && !s.constellation_id; })
+        .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+      var shown = singles.slice(0, S.more ? singles.length : 30);
+      return head('은하 · ' + esc(brLabel()), galName(name), n0(g.neg), '불편', '칭찬 ' + NI(n0(g.pos))) +
+        conList('불편 별자리', negC, '불편 별자리 없음') +
+        (seeds.length ? conList('씨앗', seeds) : '') +
+        '<div><div class="sect-k"><span class="t">단발 불편 별<b class="num">' + singles.length + '</b></span><span>최근 순</span></div>' +
+        '<div class="rows">' + (shown.length ? shown.map(starRow).join('') : '<div class="empty">없음</div>') + '</div>' +
+        (shown.length < singles.length ? '<button type="button" class="more" data-more="1"><span>나머지 ' + NI(singles.length - shown.length) + '개 보기</span></button>' : '') + '</div>';
+    },
+    con: function (id) {
+      var c = CON[id];
+      if (!c) return '<div class="empty">별자리 없음</div>';
+      var cls = stClass(c);
+      var chs = Object.keys(c.channels || {}).sort(function (a, b) { return c.channels[b] - c.channels[a]; }).map(function (k) { return esc(ch(k)) + ' ' + NI(c.channels[k]); }).join(' · ');
+      var st = c.star_ids.map(function (sid) { return STAR[sid]; }).filter(Boolean).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+      return '<div><div class="eyebrow"><span class="num">' + esc(c.id) + '</span><span>· ' + esc(c.galaxy) + '</span></div><h2 class="p-title">' + esc(c.name) + '</h2>' +
+        '<div class="badges"><span class="badge ' + cls + '"><span>' + esc(c.status) + (c.status === '재발' && c.relapse_count ? ' ' + NI(c.relapse_count) + '회' : '') + '</span></span><span class="badge ghost">' + esc(c.branch) + '</span>' + (c.polarity === 'pos' ? '<span class="badge ghost">긍정</span>' : '') + '</div></div>' +
+        '<dl class="facts"><dt>별</dt><dd>' + NI(c.star_ids.length) + '개</dd><dt>원천</dt><dd>' + (chs || '—') + '</dd>' +
+        '<dt>기간</dt><dd>' + NI(ymd(c.first_date)) + ' ~ ' + NI(ymd(c.last_date)) + '</dd>' +
+        (c.observation_start ? '<dt>관찰 시작</dt><dd>' + NI(ymd(c.observation_start)) + '</dd>' : '') +
+        '<dt>받는 쪽</dt><dd>' + esc(OWNER[c.owner] || c.owner || '—') + '</dd>' +
+        (c.task ? '<dt>수행과제</dt><dd>' + esc(c.task.title) + ' · ' + esc(c.task.status || '') + '</dd>' : '') + '</dl>' +
+        (c.summary ? '<p class="summary">' + esc(c.summary) + '</p>' : '') +
+        '<div><div class="sect-k"><span class="t">별<b class="num">' + st.length + '</b></span><span>최근 순</span></div><div class="rows">' + st.map(starRow).join('') + '</div></div>';
+    },
+    star: function (id) {
+      var s = STAR[id];
+      if (!s) return '<div class="empty">별 없음</div>';
+      var rv = D.reviews[s.review_id] || {};
+      var c = s.constellation_id ? CON[s.constellation_id] : null;
+      var dsTag = s.date_source === 'collected' ? '<span class="tag">수집일</span>' : s.date_source === 'month' ? '<span class="tag">월 기준</span>' : '';
+      var dateTxt = s.date_source === 'month' ? s.date.slice(0, 4) + '.' + s.date.slice(5, 7) : ymd(s.date);
+      var ko = rv.text_ko || '', orig = rv.text_orig || '';
+      var hasOrig = orig && orig.trim() && orig.trim() !== ko.trim();
+      var showOrig = S.tab === 'orig' && hasOrig;
+      var body = showOrig ? esc(orig) : markQuote(ko, s.quote);
+      var pc = polClass(s.polarity);
+      var mk = s.polarity === 'pos' ? 'var(--mk-pos)' : 'var(--mk-neg)';
+      var sib = (STARS_BY_REVIEW[s.review_id] || []).filter(function (x) { return x.id !== s.id; });
+      var sibRows = sib.map(function (x) {
+        var xc = x.constellation_id ? CON[x.constellation_id] : null;
+        return '<button type="button" class="row" data-star="' + esc(x.id) + '"><span class="dot ' + polClass(x.polarity) + '"></span><span class="nm">' + esc(x.phenomenon || '') + '<small>' + esc(galName(x.galaxy)) + ' · ' + (xc ? esc(xc.status) : '단발') + '</small></span><span class="st ' + polClass(x.polarity) + '">' + (x.polarity === 'pos' ? '칭찬' : '불편') + '</span><span class="n"></span></button>';
+      }).join('');
+      return '<div><div class="eyebrow"><span>' + esc(s.branch) + ' · ' + esc(ch(s.channel)) + ' ·</span><span class="num">' + esc(dateTxt) + '</span>' + dsTag + '</div>' +
+        '<div class="score"><b class="num">' + (rv.rating != null ? esc((+rv.rating).toFixed(1)) : '—') + '</b><span class="num">/ ' + esc(rv.scale || 10) + '</span></div></div>' +
+        '<div class="voice ' + pc + '"><div class="vk">' + (s.polarity === 'pos' ? '칭찬' : '불편') + ' · ' + esc(galName(s.galaxy)) + ' · ' + esc(c ? c.name : s.phenomenon || '') + (c ? '' : ' · 단발') + '</div>' +
+        '<blockquote>' + esc(s.quote || '') + '</blockquote>' + (s.relation_signal ? '<div class="sig">CR 신호 · ' + esc(SIG[s.relation_signal] || s.relation_signal) + '</div>' : '') + '</div>' +
+        '<div class="rev"><div class="sect-k"><span class="t">리뷰 전문</span>' + (hasOrig ? '' : '<span>원문 한국어</span>') + '</div>' +
+        (hasOrig ? '<div class="rev-tabs" role="group" aria-label="언어"><button type="button" data-tab="ko" aria-pressed="' + !showOrig + '">번역</button><button type="button" data-tab="orig" aria-pressed="' + showOrig + '">원문</button></div>' : '') +
+        '<p class="prose" style="--mk:' + mk + '">' + (body || '<span class="empty">본문 없음</span>') + '</p></div>' +
+        (c ? '<div><div class="sect-k"><span class="t">별자리</span></div><div class="rows">' + conRow(c) + '</div></div>' : '') +
+        (sib.length ? '<div><div class="sect-k"><span class="t">같은 리뷰의 다른 별<b class="num">' + sib.length + '</b></span></div><div class="rows">' + sibRows + '</div></div>' : '');
+    }
+  };
+  function markQuote(text, quote) {
+    var t = esc(text || ''), q = esc(quote || '');
+    if (!q || t.indexOf(q) < 0) return t;
+    return t.replace(q, function () { return '<mark>' + q + '</mark>'; });
+  }
+
+  function renderPanel() {
+    var top = S.stack[S.stack.length - 1];
+    var p = $('panel');
+    $('p-body').innerHTML = VIEWS[top.v](top.arg);
+    $('p-back').hidden = S.stack.length < 2;
+    if (p.hidden) {
+      p.hidden = false; $('scrim').hidden = false; p.classList.add('enter');
+      requestAnimationFrame(function () { requestAnimationFrame(function () { p.classList.remove('enter'); }); });
+    }
+  }
+  function open(v, arg, reset) {
+    if (reset) S.stack = [];
+    S.more = false; S.tab = 'ko';
+    S.stack.push({ v: v, arg: arg });
+    renderPanel(); $('p-scroll').scrollTop = 0;
+  }
+  function closePanel() {
+    var p = $('panel'); if (p.hidden) return;
+    S.stack = []; p.classList.add('enter'); $('scrim').hidden = true;
+    setTimeout(function () { if (!S.stack.length) p.hidden = true; }, 260);
+  }
+  function back() { if (S.stack.length > 1) { S.stack.pop(); S.more = false; renderPanel(); $('p-scroll').scrollTop = 0; } else closePanel(); }
+
+  // ── 조작 ──
+  $('cards').addEventListener('click', function (e) { var b = e.target.closest('[data-open]'); if (b) open(b.dataset.open, null, true); });
+  $('gals').addEventListener('click', function (e) { var b = e.target.closest('[data-gal]'); if (b) open('gal', b.dataset.gal, true); });
+  $('p-body').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-tab]'); if (t) { S.tab = t.dataset.tab; renderPanel(); return; }
+    var m = e.target.closest('[data-more]'); if (m) { S.more = true; renderPanel(); return; }
+    var c = e.target.closest('[data-con]'); if (c) { open('con', c.dataset.con); return; }
+    var s = e.target.closest('[data-star]'); if (s) { open('star', s.dataset.star); }
+  });
+  $('p-back').addEventListener('click', back);
+  $('p-close').addEventListener('click', closePanel);
+  $('scrim').addEventListener('click', closePanel);
+  window.addEventListener('keydown', function (e) { if (e.key === 'Escape') back(); });
+  $('seg').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-br]'); if (!b || b.dataset.br === S.branch) return;
+    S.branch = b.dataset.br; store.set('voc-metrics-branch', S.branch);
+    // 열린 목록은 새 지점 기준으로 다시 그린다(별·별자리 상세는 그대로)
+    renderAll();
+  });
+  document.querySelector('.thm-seg').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-theme]'); if (!b) return;
+    S.theme = b.dataset.theme; store.set('voc-metrics-theme', S.theme);
+    document.documentElement.className = S.theme;
+    var meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = S.theme === 'dark' ? '#121417' : '#ffffff';
+    renderHead();
+  });
+
+  renderAll();
+  window.__vocMetrics = { state: S, data: D };
+})();
+
+</script>
+</body>
+</html>

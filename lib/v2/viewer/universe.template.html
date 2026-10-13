@@ -331,6 +331,7 @@ button:focus-visible { outline: 2px solid var(--polar); outline-offset: 2px; }
   .glass, .panel { background: #0c1124; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
+.v2tabs{display:flex;align-items:center;gap:2px;height:38px;padding:3px;border-radius:999px;flex:none}.v2tabs a{display:flex;align-items:center;height:100%;padding:0 13px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink-2);text-decoration:none;font-family:var(--f-prose)}.v2tabs a.on{background:rgba(255,255,255,.14);color:var(--ink)}@media (hover:hover) and (pointer:fine){.v2tabs a:not(.on):hover{color:var(--ink)}}@media (max-width:720px){.v2tabs{height:34px}.v2tabs a{padding:0 10px;font-size:12.5px}.tools .v2tabs{margin-right:auto}}
 </style>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
@@ -346,6 +347,7 @@ button:focus-visible { outline: 2px solid var(--polar); outline-offset: 2px; }
   <header class="hud-top">
     <nav class="crumbs glass" id="crumbs" aria-label="경로"></nav>
     <div class="tools">
+      <nav class="v2tabs glass" aria-label="화면"><a class="on" id="v2tab-universe" href="/v2/universe" aria-current="page">우주</a><a id="v2tab-metrics" href="/v2/metrics">지표</a></nav>
       <span class="sample-tag" id="sample-tag" hidden>예시 데이터</span>
       <div class="seg glass" id="seg" role="radiogroup" aria-label="지점">
         <span class="seg-ind" aria-hidden="true"></span>
@@ -382,6 +384,7 @@ button:focus-visible { outline: 2px solid var(--polar); outline-offset: 2px; }
   <div class="boot-msg" id="boot-msg" hidden></div>
 </div>
 
+<script>(function(){if(location.pathname.indexOf('/embed/')!==0)return;var q=location.search;document.getElementById('v2tab-universe').href='/embed/v2-universe'+q;document.getElementById('v2tab-metrics').href='/embed/v2-metrics'+q;})();</script>
 <script type="application/json" id="voc-data">/*@@DATA@@*/</script>
 <script>
 /* 첫 화면: 3D가 뜨기 전에도 바로 밤하늘이 보이도록 2D로 먼저 그린다 */

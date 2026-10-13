@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VOC 지표</title>
+<meta name="theme-color" content="#121417">
+<script>try{var t=localStorage.getItem('voc-metrics-theme');if(t==='light')document.documentElement.className='light';}catch(e){}</script>
+<style>
+/*@@FONTS@@*/
+/*@@CSS@@*/
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <nav class="tabs" aria-label="화면">
+      <a class="tab" id="tab-universe" href="/v2/universe">우주</a>
+      <a class="tab on" id="tab-metrics" href="/v2/metrics" aria-current="page">지표</a>
+    </nav>
+    <div class="tools">
+      <div class="seg" id="seg" role="radiogroup" aria-label="지점"></div>
+      <div class="thm-seg" role="group" aria-label="화면 색">
+        <button type="button" class="thm" data-theme="dark" aria-pressed="true">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 8.6A5.4 5.4 0 0 1 5.4 2a5.4 5.4 0 1 0 6.6 6.6z"></path></svg><span>다크</span>
+        </button>
+        <button type="button" class="thm" data-theme="light" aria-pressed="false">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="2.6"></circle><path d="M7 1v1.4M7 11.6V13M1 7h1.4M11.6 7H13M2.8 2.8l1 1M10.2 10.2l1 1M2.8 11.2l1-1M10.2 3.8l1-1"></path></svg><span>라이트</span>
+        </button>
+      </div>
+      <span class="period" id="period"></span>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="head">
+      <div>
+        <div class="scope-k" id="scope-k"></div>
+        <h1>VOC 지표</h1>
+      </div>
+      <div class="hint"><span>숫자를 누르면 별자리와 별로</span></div>
+    </div>
+    <section class="cards" id="cards" aria-label="지표 6개"></section>
+    <section class="gal-sec" aria-labelledby="gal-h">
+      <div class="sec-h"><h2 id="gal-h">은하별 불편 별</h2><span class="sec-s" id="gal-s"></span></div>
+      <div class="gals" id="gals"></div>
+    </section>
+  </main>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="panel" id="panel" aria-live="polite" hidden>
+    <div class="p-bar">
+      <button type="button" class="p-btn" id="p-back" aria-label="뒤로" hidden>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <a class="p-uni" id="p-uni" href="/v2/universe"><span>우주에서 보기</span></a>
+      <button type="button" class="p-btn" id="p-close" aria-label="닫기">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="p-scroll" id="p-scroll"><div class="p-body" id="p-body"></div></div>
+  </aside>
+</div>
+<script type="application/json" id="voc-data">/*@@DATA@@*/</script>
+<script>
+/*@@JS@@*/
+</script>
+</body>
+</html>

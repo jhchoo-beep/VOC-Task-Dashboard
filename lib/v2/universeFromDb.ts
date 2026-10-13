@@ -566,6 +566,19 @@ export function otaRatingFrom(properties: PropertyRow[], scores: ScoreRow[], bra
   return out
 }
 
+/** 핵심 지표 계산(build-universe 와 같은 정의). 씨앗은 빼고 센다. 지점별 값은 그 지점 별자리만 넘기면 된다(지표 화면). */
+export function coreFrom(constellations: Pick<UniverseConstellation, 'polarity' | 'status' | 'observation_start' | 'relapse_count'>[]) {
+  const formed = constellations.filter(c => c.status !== SEED)
+  const negC = formed.filter(c => c.polarity === 'neg')
+  const posC = formed.filter(c => c.polarity === 'pos')
+  const observed = negC.filter(c => c.observation_start)
+  return {
+    structural_solved: negC.filter(c => c.status === '성운').length,
+    relapse_rate: { num: observed.filter(c => c.relapse_count > 0).length, den: observed.length },
+    keep_rate: { num: posC.filter(c => c.status === '유지').length, den: posC.length },
+  }
+}
+
 // ─── 조립(순수 함수) ─────────────────────────────────────────────
 
 /**
@@ -695,12 +708,7 @@ export function assembleUniverse(db: DbSnapshot, opts: { now?: Date } = {}): { u
   // ── 핵심 지표(build-universe 와 같은 정의) ──
   const negC = formed.filter(c => c.polarity === 'neg')
   const posC = formed.filter(c => c.polarity === 'pos')
-  const observed = negC.filter(c => c.observation_start)
-  const core = {
-    structural_solved: negC.filter(c => c.status === '성운').length,
-    relapse_rate: { num: observed.filter(c => c.relapse_count > 0).length, den: observed.length },
-    keep_rate: { num: posC.filter(c => c.status === '유지').length, den: posC.length },
-  }
+  const core = coreFrom(constellations)
 
   const voiceRatio = voiceRatioFromMetrics(db.metrics, db.properties)
   const universe: Universe = {
@@ -759,7 +767,19 @@ function chunk<T>(xs: T[], n: number): T[][] {
  * 운영 DB 에서 읽어 조립한다. 요청마다 새로 읽는다(캐시 없음).
  * 별이 0행이면(적재 전) 빈 우주 대신 state 'empty' 를 돌려준다. 새 표가 아직 없어도 'empty'(tables_missing).
  */
+export type SnapshotRead =
+  | { state: 'ready'; db: DbSnapshot }
+  | { state: 'empty'; reason: 'no_rows' | 'tables_missing'; tables: Record<string, number | null> }
+
 export async function loadUniverseFromDb(client: SupabaseClient, opts: { now?: Date; pageSize?: number } = {}): Promise<UniverseLoad> {
+  const read = await readDbSnapshot(client, opts)
+  if (read.state === 'empty') return read
+  const { universe, warnings } = assembleUniverse(read.db, { now: opts.now })
+  return { state: 'ready', universe, warnings }
+}
+
+/** 운영 DB 에서 조립에 쓰는 행을 모두 읽는다(SELECT 만). 우주 화면과 지표 화면이 같이 쓴다. */
+export async function readDbSnapshot(client: SupabaseClient, opts: { pageSize?: number } = {}): Promise<SnapshotRead> {
   const pageSize = opts.pageSize ?? PAGE
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const paged = <T>(table: string, columns: string, order: string[], keyOf: (r: T) => string | number, shape?: (q: any) => any) =>
@@ -833,9 +853,11 @@ export async function loadUniverseFromDb(client: SupabaseClient, opts: { now?: D
     countReviews(true),
   ])
 
-  const { universe, warnings } = assembleUniverse({
-    stars, constellations, events, metrics, reviews, tasks, properties, scores, channelCheckouts,
-    reviewCounts: { reviews: nReviews, reviews_with_text: nWithText },
-  }, { now: opts.now })
-  return { state: 'ready', universe, warnings }
+  return {
+    state: 'ready',
+    db: {
+      stars, constellations, events, metrics, reviews, tasks, properties, scores, channelCheckouts,
+      reviewCounts: { reviews: nReviews, reviews_with_text: nWithText },
+    },
+  }
 }

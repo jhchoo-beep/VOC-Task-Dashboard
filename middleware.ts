@@ -25,5 +25,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // fonts/ = public/fonts 의 공개 글꼴 파일(데이터 없음). 임베드 경로(로그인 없음)의 V2 지표 화면도 같은 글꼴을 받게 통과시킨다.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|fonts/).*)'],
 }
