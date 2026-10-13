@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   assembleUniverse, fetchAllPaged, loadUniverseFromDb, isMissingTableError, DbReadError,
-  northStarFromMetrics, voiceRatioFromMetrics, voiceRatioSummary, checkoutSourceOf, otaRatingFrom,
+  BRANCH_ORDER, northStarFromMetrics, voiceRatioFromMetrics, voiceRatioSummary, checkoutSourceOf, otaRatingFrom,
   COLUMNS, GALAXIES, NEG_STATUSES, POS_STATUSES,
   type DbSnapshot, type StarRow, type ConstellationRow, type MetricRow, type PropertyRow, type ScoreRow, type ReviewRow,
   type ChannelCheckoutRow,
@@ -314,12 +314,45 @@ describe('지표 — 월 행을 더해 universe.json(compute-metrics.ts)과 같�
   it('신설 Agoda 6·7월 실수치(V1 수기 체크아웃 시절) → 0.9362, 출처 문구는 수기 체크아웃, 값 없는 지점은 null', () => {
     const ns = northStarFromMetrics(NS_ROWS, PROPS, { branches: BR, checkoutSource: 'ota_channel_checkouts' })
     expect(ns.value).toBe(0.9362)
-    expect(ns.scope).toBe('신설·동대문 OTA 1채널 · 2026-06-02~2026-07-20 7주 · ota_channel_checkouts 수기 체크아웃 · 리뷰 1건=체류 1건 추정')
+    // 체크아웃이 없는 지점(동대문)은 전체 값에 들어가지 않으므로 범위 문구에 빼고 그 사실을 적는다
+    expect(ns.scope).toBe('신설 OTA 1채널 · 2026-06-02~2026-07-20 7주 · ota_channel_checkouts 수기 체크아웃 · 리뷰 1건=체류 1건 추정 · 체크아웃 데이터 없는 지점 제외: 동대문')
     expect(ns.inputs).toEqual({ text_reviews: 36, text_reviews_with_neg_star: 12, channel_reviews_delta: 167, channel_checkouts: 872, est_neg_stays: 55.7 })
     expect(ns.by_branch).toEqual({
       신설: { value: 0.9362, channels: 1, period: { from: '2026-06-02', to: '2026-07-20', weeks: 7 }, text_reviews: 36, text_reviews_with_neg_star: 12, channel_reviews_delta: 167, channel_checkouts: 872, est_neg_stays: 55.7 },
       동대문: null,
     })
+  })
+
+  it('네 지점: 전체 북극성은 체크아웃 있는 지점만으로 계산하고, 범위 문구에 그 지점만 적는다(데이터 없는 지점은 by_branch null + 제외 문구)', () => {
+    const P4: PropertyRow[] = [...PROPS,
+      { property_id: 11, branch: '고성', ota_name: 'Agoda', score_max: 10, active: true },
+      { property_id: 12, branch: '제주시티', ota_name: 'Agoda', score_max: 10, active: true }]
+    const wk = [{ week: '2026-06-08', reviews: 10, checkouts: 100 }]
+    const ROWS: MetricRow[] = [
+      chRow('신설', 'Agoda', '2026-06', { texts: 10, neg: 2, delta: 10, checkouts: 100, from: '2026-06-02', to: '2026-06-08', weeks: wk, src: 'wings' }),
+      chRow('고성', 'Agoda', '2026-06', { texts: 5, neg: 1, delta: 10, checkouts: 100, from: '2026-06-02', to: '2026-06-08', weeks: wk, src: 'wings' }),
+      chRow('제주시티', 'Agoda', '2026-06', { texts: 0, neg: 0, delta: 10, checkouts: 100, from: '2026-06-02', to: '2026-06-08', weeks: wk, src: 'wings' }),   // 원문 0건 → 값 없음
+    ]
+    const all4 = ['신설', '동대문', '고성', '제주시티']
+    const ns = northStarFromMetrics(ROWS, P4, { branches: all4, checkoutSource: 'wings' })
+    expect(ns.by_branch['신설']!.value).toBe(0.98)
+    expect(ns.by_branch['고성']!.value).toBe(0.98)
+    expect(ns.by_branch['동대문']).toBeNull()
+    expect(ns.by_branch['제주시티']).toBeNull()
+    expect(ns.value).toBe(0.98)
+    expect(ns.inputs!.channel_checkouts).toBe(200)           // 제주시티 100 은 분모에 넣지 않는다
+    expect(ns.scope).toBe('신설·고성 OTA 2채널 · 2026-06-02~2026-06-08 1주 · Wings 실 퇴실(연박 조각 제외) 체크아웃 · 리뷰 1건=체류 1건 추정 · 체크아웃 데이터 없는 지점 제외: 동대문·제주시티')
+    // 네 지점 모두 값이 있으면 제외 문구 없이 네 지점이 다 적힌다
+    const full = northStarFromMetrics([...ROWS,
+      chRow('동대문', 'Agoda', '2026-06', { texts: 4, neg: 1, delta: 10, checkouts: 100, from: '2026-06-02', to: '2026-06-08', weeks: wk, src: 'wings' }),
+      chRow('제주시티', 'Booking', '2026-06', { texts: 4, neg: 1, delta: 10, checkouts: 100, from: '2026-06-02', to: '2026-06-08', weeks: wk, src: 'wings' })],
+      [...P4, { property_id: 13, branch: '제주시티', ota_name: 'Booking', score_max: 10, active: true }].map(p => (p.branch === '동대문' ? { ...p, property_id: 10 } : p)), { branches: all4, checkoutSource: 'wings' })
+    expect(full.scope.startsWith('신설·동대문·고성·제주시티 OTA ')).toBe(true)
+    expect(full.scope).not.toContain('지점 제외')
+  })
+
+  it('지점 목록 순서 = 신설, 동대문, 고성, 제주시티 (BRANCH_ORDER) — 목록 밖 지점만 이름순으로 뒤에 붙는다', () => {
+    expect(BRANCH_ORDER).toEqual(['신설', '동대문', '고성', '제주시티'])
   })
 
   it('체크아웃이 있는 채널이 없으면 북극성은 숫자 없이(null) 범위 문구만, 지점별도 null', () => {

@@ -95,6 +95,16 @@ describe('buildMetricsView — 지점 필터가 6장·은하·보조 줄 전부�
     ])
     expect(v.scopes['동대문'].voc.series).toHaveLength(2)
   })
+  it('북극성 범위: 지점 범위는 그 지점, 전체는 체크아웃 있는 지점만(없는 지점은 제외로 표시)', () => {
+    expect(v.scopes['신설'].north).toMatchObject({ included: ['신설'], excluded: [] })
+    expect(v.scopes[ALL].north).toMatchObject({ included: ['신설', '동대문'], excluded: [] })
+    // 동대문 채널 행이 없는 스냅샷 → 동대문 북극성은 값 없음, 전체에서도 제외
+    const db2 = { ...snap(), metrics: METRICS.filter(r => r.branch !== '동대문') }
+    const v2 = viewOf(db2)
+    expect(v2.scopes['동대문'].north).toMatchObject({ value: null, checkouts: 0, included: [], excluded: ['동대문'] })
+    expect(v2.scopes[ALL].north).toMatchObject({ included: ['신설'], excluded: ['동대문'] })
+    expect(v2.scopes[ALL].north.value).toBe(v2.scopes['신설'].north.value)
+  })
   it('북극성 막대는 월별, 지점 필터를 따른다', () => {
     expect(v.scopes['신설'].north.series.map(b => b.label)).toEqual(['2026-09', '2026-10'])
     expect(v.scopes['동대문'].north.series.map(b => b.value)).toEqual([0.9, null])

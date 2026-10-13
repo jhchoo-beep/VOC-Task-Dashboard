@@ -31,7 +31,7 @@ if (!dataDir) {
   process.exit(1)
 }
 const asOf = argv.includes('--as-of') ? argv[argv.indexOf('--as-of') + 1] : '2026-10-12'
-const BRANCHES = ['신설', '동대문']
+const BRANCHES = argv.includes('--branches') ? argv[argv.indexOf('--branches') + 1].split(',') : ['신설', '동대문']   // 기본 = 첫 백필 두 지점, --branches 고성,제주시티 로 다른 지점을 따로 돌린다
 const SCOPE_MONTHS = ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10']
 // 짝짓기 창 = 범위 앞뒤 한 달까지(export-reviews-notion readMonths 와 같은 폭)
 const READ_MONTHS = ['2026-05', ...SCOPE_MONTHS, '2026-11']

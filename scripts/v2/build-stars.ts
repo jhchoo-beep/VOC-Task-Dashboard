@@ -17,7 +17,7 @@
  *   npx tsx scripts/v2/build-stars.ts <data 폴더>
  * ────────────────────────────────────────────────────────────────
  */
-import { readFileSync, writeFileSync, renameSync, readdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, renameSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const GALAXY_BY_CODE: Record<string, string> = {
@@ -74,9 +74,14 @@ const MANUAL_DUPLICATES: Record<string, { primary: string; why: string }> = {
   'fbfce83f': { primary: 'f20d1260', why: '트립닷컴 번역 두 벌' },
 }
 const dupFull = duplicateMap(resolved)
-for (const [d8, m] of Object.entries(MANUAL_DUPLICATES)) {
+// 다른 지점 묶음(예: 고성·제주시티)은 <data>/manual-duplicates.json 에 같은 모양으로 적는다.
+// 내장 목록은 그 data 폴더에 두 리뷰가 다 없으면(다른 지점 폴더) 건너뛰고, 한쪽만 있으면 오류다.
+const extraManual: Record<string, { primary: string; why: string }> =
+  existsSync(join(dataDir, 'manual-duplicates.json')) ? JSON.parse(readFileSync(join(dataDir, 'manual-duplicates.json'), 'utf8')) : {}
+for (const [d8, m] of [...Object.entries(MANUAL_DUPLICATES), ...Object.entries(extraManual)]) {
   const d = byId8.get(d8)
   const p = byId8.get(m.primary)
+  if (!d && !p && d8 in MANUAL_DUPLICATES) continue
   if (!d || !p) throw new Error(`수동 중복 지정 오류: ${d8} → ${m.primary}`)
   dupFull[d.id] = p.id
 }

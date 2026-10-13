@@ -36,7 +36,7 @@ export const GALAXY_ALIAS: Record<string, string> = { '직원서비스': '응대
 export const NEG_STATUSES = ['씨앗', '열림', '수행과제 진행', '관찰', '성운', '재발'] as const
 export const POS_STATUSES = ['씨앗', '유지', '흐려짐'] as const
 /** 은하 안 두 나선팔 순서(B 화면이 meta.branches 순서로 팔을 놓는다). 목록 밖 지점은 이름순으로 뒤에 붙는다. */
-export const BRANCH_ORDER = ['신설', '동대문']
+export const BRANCH_ORDER = ['신설', '동대문', '고성', '제주시티']
 
 const NS_LABEL = '불편 없이 끝난 체류 비율'
 const NS_NO_CHANNEL = '체크아웃 데이터가 있는 채널 없음'
@@ -482,8 +482,13 @@ export function northStarFromMetrics(
     return [b, a ? { value: a.value, channels: a.channels, period: a.period, ...a.inputs } : null]
   }))
   const src = opts.checkoutSource ? (CHECKOUT_LABEL[opts.checkoutSource] ?? `${opts.checkoutSource} 체크아웃`) : null
+  // 전체 값은 체크아웃이 있는 지점만으로 계산된다(원문 리뷰·체크아웃이 없는 채널은 합산에서 빠진다) — 범위 문구에 그 지점들만 적고,
+  // 빠진 지점은 따로 밝힌다.
+  const included = opts.branches.filter(b => byBranch[b])
+  const excluded = opts.branches.filter(b => !byBranch[b])
   const scope = overall
-    ? [`${opts.branches.join('·')} OTA ${overall.channels}채널`, `${overall.period.from}~${overall.period.to} ${overall.period.weeks}주`, src, '리뷰 1건=체류 1건 추정']
+    ? [`${included.join('·')} OTA ${overall.channels}채널`, `${overall.period.from}~${overall.period.to} ${overall.period.weeks}주`, src, '리뷰 1건=체류 1건 추정',
+        excluded.length ? `체크아웃 데이터 없는 지점 제외: ${excluded.join('·')}` : null]
       .filter(Boolean).join(' · ')
     : NS_NO_CHANNEL
   return {

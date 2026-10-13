@@ -35,6 +35,9 @@ export interface ScopeMetrics {
     period: { from: string; to: string; weeks: number } | null
     series: Bar[]                 // 월별
     by_channel: { branch: string; channel: string; texts: number; neg: number; delta: number; checkouts: number }[]
+    /** 이 범위의 북극성에 들어간 지점 / 체크아웃 데이터가 없어 빠진 지점(전체 = 체크아웃 있는 지점만으로 계산) */
+    included: string[]
+    excluded: string[]
   }
   solved: { value: number; observing: number; ids: string[]; observing_ids: string[] }
   relapse: { num: number; den: number; ids: string[]; relapsed_ids: string[] }
@@ -196,6 +199,8 @@ export function buildMetricsView(u: Universe, db: DbSnapshot): MetricsView {
         period: nsPeriod,
         series: northMonthly(db.metrics, db.properties, branches, branch),
         by_channel: byChannel,
+        included: (branch ? [branch] : branches).filter(b => ns.by_branch[b]),
+        excluded: (branch ? [branch] : branches).filter(b => !ns.by_branch[b]),
       },
       solved: {
         value: core.structural_solved,

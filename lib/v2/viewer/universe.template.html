@@ -296,12 +296,12 @@ button:focus-visible { outline: 2px solid var(--polar); outline-offset: 2px; }
   .crumbs { flex: 1 1 100%; order: 2; height: 34px; }
   .crumbs button, .crumbs .cur { height: 28px; padding: 0 8px; font-size: 12.5px; }
   .crumbs .cur { line-height: 28px; }
-  .tools { order: 1; flex: 1 1 100%; justify-content: flex-end; gap: 6px; }
+  .tools { order: 1; flex: 1 1 100%; justify-content: flex-end; gap: 6px; flex-wrap: wrap; row-gap: 6px; }
   .tools .sample-tag { margin-right: auto; }
   .btn { height: 34px; padding: 0 10px; }
   .btn .t { display: none; }
   .seg { height: 34px; }
-  .seg button { height: 26px; padding: 0 11px; font-size: 12.5px; }
+  .seg button { height: 26px; padding: 0 9px; font-size: 12px; }
   .seg-ind { height: 26px; }
   .panel {
     left: 0; right: 0; bottom: 0; top: auto; width: auto; height: var(--sheet-h, 46vh); max-height: calc(100% - 120px);
@@ -744,9 +744,9 @@ function starMaterial() {
 // 은하 원반 입자: uUnfold 0→1 이면 안쪽부터 바깥으로 나선이 풀리며 펼쳐진다
 function diskMaterial(dark = false) {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uTime: U.uTime, uViewH: U.uViewH, uMaxPx: { value: (dark ? 64 : 2.6) * PR }, uUnfold: { value: 1 }, uOpacity: { value: 1 }, uArmDim: { value: new THREE.Vector3(1, 1, 1) }, uMinPx: { value: 1.2 } },
+    uniforms: { uTime: U.uTime, uViewH: U.uViewH, uMaxPx: { value: (dark ? 64 : 2.6) * PR }, uUnfold: { value: 1 }, uOpacity: { value: 1 }, uArmDim: { value: new THREE.Vector4(1, 1, 1, 1) }, uMinPx: { value: 1.2 } },
     vertexShader: `
-      uniform float uTime, uViewH, uMaxPx, uUnfold, uOpacity, uMinPx; uniform vec3 uArmDim;
+      uniform float uTime, uViewH, uMaxPx, uUnfold, uOpacity, uMinPx; uniform vec4 uArmDim;
       attribute float aSize; attribute vec3 aColor; attribute float aAlpha; attribute float aR; attribute float aArm;
       varying vec3 vColor; varying float vAlpha;
       ${PXS}
@@ -759,7 +759,7 @@ function diskMaterial(dark = false) {
         pos.y *= p;
         vec4 mv = modelViewMatrix * vec4(pos, 1.0);
         float sz = pxs(mv, aSize);
-        float dim = aArm < 0.5 ? uArmDim.x : (aArm < 1.5 ? uArmDim.y : uArmDim.z);
+        float dim = aArm < 0.5 ? uArmDim.x : (aArm < 1.5 ? uArmDim.y : (aArm < 2.5 ? uArmDim.z : (aArm < 3.5 ? uArmDim.w : 1.0)));
         float a = aAlpha * uOpacity * p * dim;
         if (sz < uMinPx) { a *= sz / uMinPx; sz = uMinPx; }
         gl_PointSize = min(sz, uMaxPx);
@@ -1179,16 +1179,16 @@ function genDisk(G, N, detail) {
   const r = rngOf((detail ? 'dd' : 'db') + G.id), L = G.lay, R = G.R;
   const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), alpha = new Float32Array(N), aR = new Float32Array(N), arm = new Float32Array(N);
   const warm = new THREE.Color(1.0, 0.8, 0.56), young = new THREE.Color(0.6, 0.72, 1.0), pink = new THREE.Color(1.0, 0.42, 0.68), c = new THREE.Color();
-  const nb = Math.min(2, Math.max(2, M.branches.length));
+  const nb = Math.max(2, M.branches.length);   // 지점 수만큼 나선팔(팔 번호 0~3 만 지점 필터로 어두워진다)
   for (let i = 0; i < N; i++) {
     const u = r();
-    let x, y, z, rr, a, s, al, am = 2;
+    let x, y, z, rr, a, s, al, am = 4;   // 4 = 팔 밖(중심 팽대부·팔 사이 원반)
     if (u < 0.13) { // 중심 팽대부
       rr = Math.abs(gauss(r)) * R * 0.13; a = r() * Math.PI * 2;
       x = Math.cos(a) * rr; z = Math.sin(a) * rr; y = gauss(r) * R * 0.055 * Math.max(0.2, 1 - rr / (R * 0.25));
       c.copy(warm).lerp(COL.white, r() * 0.35); s = R * (0.005 + r() * 0.007); al = 0.3 + r() * 0.35;
     } else if (u < 0.74) { // 나선팔(지점)
-      const bi = r() < 0.5 ? 0 : 1; am = bi;
+      const bi = Math.min(nb - 1, Math.floor(r() * nb)); am = bi;
       const t = Math.pow(r(), 0.85);
       rr = L.rc * 0.55 + t * (R * 1.04 - L.rc * 0.55);
       const w = (0.2 + 0.24 * t) * (r() < 0.82 ? 1 : 2.4);
@@ -1223,8 +1223,9 @@ function genDisk(G, N, detail) {
 function genDust(G, N) {
   const r = rngOf('dust' + G.id), L = G.lay, R = G.R;
   const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), size = new Float32Array(N), alpha = new Float32Array(N), aR = new Float32Array(N), arm = new Float32Array(N);
+  const nb = Math.max(2, M.branches.length);
   for (let i = 0; i < N; i++) {
-    const bi = r() < 0.5 ? 0 : 1;
+    const bi = Math.min(nb - 1, Math.floor(r() * nb));
     const t = 0.12 + Math.pow(r(), 0.9) * 0.82, rr = L.rc + t * (R - L.rc);
     const a = L.armTheta(bi, rr) - (0.22 + 0.06 * t) + gauss(r) * 0.07;
     pos[i * 3] = Math.cos(a) * rr; pos[i * 3 + 1] = gauss(r) * R * 0.006 + R * 0.004; pos[i * 3 + 2] = Math.sin(a) * rr;
@@ -1668,6 +1669,8 @@ function nsView() {
   const br = S.branch && S.branch !== '전체' ? S.branch : null;
   const b = br && ns.by_branch ? ns.by_branch[br] : null;
   if (!br) return { ...ns, branch: null };
+  // 이 지점에 체크아웃 데이터가 없으면(by_branch 값 null) 전체 값을 대신 보여 주지 않는다 — 지점 필터와 값이 어긋나 보인다
+  if (!b && ns.by_branch && br in ns.by_branch) return { ...ns, branch: br, value: null, inputs: null, scope: '체크아웃 데이터 없음', nodata: true };
   if (!b) return { ...ns, branch: br, fallback: true };
   const scope = ns.scope ? String(ns.scope).replace(/^.*?OTA\s*\d+채널/, `${br} OTA ${b.channels ?? ''}채널`) : ns.scope;
   return { ...ns, value: b.value, inputs: b, scope, branch: br };
@@ -1696,7 +1699,7 @@ function buildDetailLabels(G) {
     mm.label = mk(mm.first ? L.rc * 0.5 : mm.rr, `${mo}월`, 'mon', 8);
   });
   D.weekLabel = mk(D.nowR + R * 0.05, '이번 주', 'mon', 9);
-  D.armLabels = M.branches.slice(0, 2).map((b, bi) => {
+  D.armLabels = M.branches.map((b, bi) => {
     const th = L.armTheta(bi, R * 0.98), rr = R * 1.1;
     return addLabel('arm', esc(b), (v) => G.inner.localToWorld(v.set(Math.cos(th) * rr, 0, Math.sin(th) * rr)), { place: 'center', prio: 30, data: { gid: G.id, branch: b } });
   });
@@ -2040,12 +2043,12 @@ function go(next, opts = {}) {
 // ── 지점 필터 ──
 function setBranch(b, silent) {
   S.branch = b;
-  ['br-all', 'br-ssd', 'br-ddm'].forEach((id) => { const el = $(id); if (el) el.setAttribute('aria-checked', el.dataset.br === b ? 'true' : 'false'); });
+  $('seg').querySelectorAll('button[data-br]').forEach((el) => el.setAttribute('aria-checked', el.dataset.br === b ? 'true' : 'false'));
   moveSegInd();
   GAL.forEach((G) => {
     updateTint(G);
-    const dim = new THREE.Vector3(1, 1, 1);
-    M.branches.slice(0, 2).forEach((br, i) => { dim.setComponent(i, branchOn(br) ? 1 : 0.32); });
+    const dim = new THREE.Vector4(1, 1, 1, 1);
+    M.branches.slice(0, 4).forEach((br, i) => { dim.setComponent(i, branchOn(br) ? 1 : 0.32); });
     G.base.material.uniforms.uArmDim.value.copy(dim);
     if (G.detail) { G.detail.disk.material.uniforms.uArmDim.value.copy(dim); G.detail.dust.material.uniforms.uArmDim.value.copy(dim); }
   });
@@ -2262,7 +2265,7 @@ function renderLegend() {
       <div class="lg-row"><span class="k">북극성으로 향하는 선</span><span class="it c-pos"><i class="ln"></i>유지</span><span class="it c-neb"><i class="ln"></i>성운</span><span class="it c-neg"><i class="ln dash"></i>재발</span></div>`;
   } else {
     lg.innerHTML = `<div class="lg-row"><span class="it c-neg"><i class="sw"></i>불편</span><span class="it c-pos"><i class="sw"></i>칭찬</span><span class="it c-neb"><i class="sw"></i>성운</span><span class="it c-neb"><i class="ln dash"></i>관찰</span><span class="it c-dust"><i class="sw seed"></i>씨앗</span><span class="it c-dust"><i class="sw" style="opacity:.55;box-shadow:none"></i>단발</span></div>
-      <div class="lg-row"><span class="k">가운데 6월 → 바깥 이번 주 · 두 팔 = ${M.branches.slice(0, 2).map(esc).join(' / ')}</span></div>`;
+      <div class="lg-row"><span class="k">가운데 6월 → 바깥 이번 주 · 팔 = ${M.branches.map(esc).join(' / ')}</span></div>`;
   }
 }
 function renderHint() {
@@ -2324,7 +2327,7 @@ function nsPanel() {
       ${chs.map((ch) => `<span class="c">${esc(chName(ch))}</span>${brs.map((b) => cell(b, ch)).join('')}`).join('')}</div>` : '<div class="foot-k">기록 없음</div>';
   const vr = (Array.isArray(g.voice_ratio) ? g.voice_ratio : []).filter((x) => branchOn(x.branch));
   const vrRows = vr.length ? vr.map((x) => `<div><span class="k">${esc(x.branch)} · ${esc(chName(x.channel))}</span><span class="v num">${pct(x.ratio)}%<small class="num">${x.weeks}주</small></span></div>`).join('') : '<div><span class="k">기록 없음</span><span class="v">—</span></div>';
-  return `<div><div class="eyebrow"><span class="c-polar">북극성</span>${ns.branch ? ` · ${esc(ns.branch)}${ns.fallback ? ' 값 없음, 전체 기준' : ''}` : ' · 신설, 동대문 합산'}${M.sample ? '<span class="tag">예시 데이터</span>' : ''}</div>
+  return `<div><div class="eyebrow"><span class="c-polar">북극성</span>${ns.branch ? ` · ${esc(ns.branch)}${ns.fallback ? ' 값 없음, 전체 기준' : ''}` : ` · ${M.branches.map(esc).join(', ')} 합산`}${M.sample ? '<span class="tag">예시 데이터</span>' : ''}</div>
       <h2 class="p-title">${esc(ns.label || '불편 없이 끝난 체류 비율')}</h2>
       <div class="big"><b class="num">${v}</b>${has ? '<span class="u">%</span>' : ''}${tags}</div>
       ${ns.scope ? `<div class="scope">${esc(ns.scope)}</div>` : ''}</div>
@@ -2492,7 +2495,19 @@ function moveSegInd() {
   ind.style.width = `${on.offsetWidth}px`;
   ind.style.transform = `translateX(${on.offsetLeft}px)`;
 }
+// 지점 전환 버튼: 데이터의 지점 목록으로 만든다(전체 + 지점들)
+function buildSeg() {
+  const seg = $('seg');
+  seg.querySelectorAll('button[data-br]').forEach((el) => el.remove());
+  ['전체', ...M.branches].forEach((b, i) => {
+    const el = document.createElement('button');
+    el.type = 'button'; el.setAttribute('role', 'radio'); el.id = i ? `br-${i}` : 'br-all'; el.dataset.br = b;
+    el.setAttribute('aria-checked', b === S.branch ? 'true' : 'false'); el.textContent = b;
+    seg.appendChild(el);
+  });
+}
 function bindUI() {
+  buildSeg();
   $('crumbs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-nav]'); if (!b) return;
     const k = b.dataset.nav;

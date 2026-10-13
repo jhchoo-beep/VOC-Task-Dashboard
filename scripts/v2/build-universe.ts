@@ -28,7 +28,9 @@ const asOf = argv.includes('--as-of') ? argv[argv.indexOf('--as-of') + 1] : '202
 const read = (f: string) => JSON.parse(readFileSync(join(dataDir, f), 'utf8'))
 
 export const GALAXIES = ['청결', '소음', '시설', '응대/환대/커뮤니티', '체크인/체크아웃', '위치/접근성', '어메니티', '가격', '기타']
-const BRANCHES = ['신설', '동대문']
+// 별 번호 시작점: 이미 적재된 번호 뒤에서 이어 붙일 때(예: 고성·제주시티는 2108) — 기존 별 ID 는 바꾸지 않는다
+const starOffset = argv.includes('--star-offset') ? Number(argv[argv.indexOf('--star-offset') + 1]) : 0
+const BRANCHES = argv.includes('--branches') ? argv[argv.indexOf('--branches') + 1].split(',') : ['신설', '동대문']
 const MONTHS = ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10']
 
 const resolved: any[] = read('reviews.resolved.json')
@@ -55,7 +57,7 @@ const stars: any[] = extracted.stars.map((s: any, i: number) => {
   return { ...s, phenomenon_raw: s.phenomenon, phenomenon: m ? m.to : s.phenomenon }
 })
 // 별 ID: 지점 → 날짜 → 리뷰 → 발췌 위치 순(stars.extracted 정렬 그대로)
-stars.forEach((s, i) => { s.id = `S-${String(i + 1).padStart(5, '0')}` })
+stars.forEach((s, i) => { s.id = `S-${String(i + 1 + starOffset).padStart(5, '0')}` })
 
 // 한 리뷰·한 극성·한 현상 = 별 하나(정의 「별 = 리뷰 속 목소리 1개」, DB 고유 키 voc_stars_one_voice).
 // A4 합침으로 같은 리뷰에 같은 현상 별이 둘 생기면 하나만 남긴다(2026-10-13, C-신설-033 3쌍).
@@ -101,7 +103,7 @@ function linkedTask(id8: string): (LinkedTask & { title: string; task_month: str
   }
   return {
     id: t.id, fullId: t.id, status: t.status, createdAt: created, completedAt, completedBasis,
-    title: t.title.replace(/^\[(신설|동대문)\] 수행과제 — /, ''), task_month: t.task_month,
+    title: t.title.replace(/^\[[^\]]+\] 수행과제 — /, ''), task_month: t.task_month,
   }
 }
 
@@ -261,6 +263,7 @@ const starsOut = stars.map(s => ({
 const universe = {
   meta: {
     as_of: asOf,
+    star_offset: starOffset,
     generated_at: new Date().toISOString(),
     branches: BRANCHES,
     period: { from: '2026-06-01', to: asOf },

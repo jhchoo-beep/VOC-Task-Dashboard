@@ -36,7 +36,7 @@ const checkoutSource = existsSync(join(dataDir, WINGS_FILE)) ? 'wings' : 'ota_ch
 const checkouts: any[] = read(checkoutSource === 'wings' ? WINGS_FILE : 'source/ota_channel_checkouts.json')
 const resolved: any[] = read('reviews.resolved.json')
 const extracted = read('stars.extracted.json')
-const BRANCHES = ['신설', '동대문']
+const BRANCHES = argv.includes('--branches') ? argv[argv.indexOf('--branches') + 1].split(',') : ['신설', '동대문']
 
 const negReviewIds = new Set(extracted.stars.filter((s: any) => s.polarity === 'neg').map((s: any) => s.review_id))
 const dupIds = new Set(Object.keys(extracted.duplicate_of))
@@ -142,7 +142,7 @@ const out = {
   north_star: {
     label: '불편 없이 끝난 체류 비율',
     value: overall?.value ?? null,
-    scope: overall ? `신설·동대문 OTA ${overall.channels.length}채널 · ${overall.period.from}~${overall.period.to} ${overall.period.weeks}주 · ${srcLabel} · 리뷰 1건=체류 1건 추정` : '체크아웃 데이터가 있는 채널 없음',
+    scope: overall ? `${BRANCHES.join("·")} OTA ${overall.channels.length}채널 · ${overall.period.from}~${overall.period.to} ${overall.period.weeks}주 · ${srcLabel} · 리뷰 1건=체류 1건 추정` : '체크아웃 데이터가 있는 채널 없음',
     is_estimate: true,
     by_branch: Object.fromEntries(Object.entries(byBranch).map(([b, a]) => [b, a ? { value: a.value, channels: a.channels.length, period: a.period, ...a.inputs } : null])),
     inputs: overall ? overall.inputs : null,

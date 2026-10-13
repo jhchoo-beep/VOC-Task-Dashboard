@@ -52,4 +52,12 @@ describe('3D 화면 템플릿 — 라우트가 돌려줄 문서의 뼈대', () =
   it('데이터를 넣기 전 템플릿은 300KB 아래(실데이터를 넣은 문서 3MB 상한의 여유 확보)', () => {
     expect(Buffer.byteLength(UNIVERSE_TEMPLATE, 'utf8')).toBeLessThan(300_000)
   })
+  it('지점 전환은 데이터의 지점 목록(4지점)으로 만든다 — 나선팔 4개 밝기, 전환 버튼 동적 생성, 체크아웃 없는 지점은 전체 값을 대신 보여 주지 않음', () => {
+    expect(UNIVERSE_TEMPLATE).toContain('uniform vec4 uArmDim')
+    expect(UNIVERSE_TEMPLATE).toContain("['전체', ...M.branches]")
+    expect(UNIVERSE_TEMPLATE).toContain('M.branches.slice(0, 4).forEach')
+    expect(UNIVERSE_TEMPLATE).not.toContain('M.branches.slice(0, 2)')
+    expect(UNIVERSE_TEMPLATE).toContain("scope: '체크아웃 데이터 없음'")
+    expect(UNIVERSE_TEMPLATE).not.toContain('신설, 동대문 합산')
+  })
 })

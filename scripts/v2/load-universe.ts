@@ -28,6 +28,8 @@ if (!dataDir || !outDir) {
   console.error('사용법: load-universe.ts <data 폴더> <out 폴더> [--stars-per-file N]')
   process.exit(1)
 }
+// --scoped: 검증 SQL 을 이 universe 의 지점 행만 세게 한다(표에 다른 지점 행이 이미 있을 때)
+const scoped = argv.includes('--scoped')
 const perFile = argv.includes('--stars-per-file') ? Number(argv[argv.indexOf('--stars-per-file') + 1]) : 450
 const read = (f: string) => JSON.parse(readFileSync(join(dataDir, f), 'utf8'))
 const u = read('universe.json')
@@ -68,7 +70,8 @@ for (let i = 0; i < cRows.length; i += 80) {
 
 // ── 20 별(현상 사전 + 압축 행, 발췌는 서버에서 substr) ──
 const extById = new Map<string, any>()
-ext.stars.forEach((s: any, i: number) => extById.set(`S-${String(i + 1).padStart(5, '0')}`, s))
+const starOffset: number = u.meta.star_offset ?? 0
+ext.stars.forEach((s: any, i: number) => extById.set(`S-${String(i + 1 + starOffset).padStart(5, '0')}`, s))
 const dictKey = (s: any) => `${s.polarity}|${s.galaxy}|${s.phenomenon}|${s.owner}`
 const dict = [...new Set<string>(u.stars.map(dictKey))].sort(BY_C)   // Set<string> 명시(타입만, 동작 같음)
 const dictIdx = new Map(dict.map((k, i) => [k, i + 1]))
@@ -87,7 +90,7 @@ const sRows = u.stars.map((s: any) => {
 const sCols = 'id, source, source_ref, review_id, branch, channel, star_date, date_source, iso_week, week_label, polarity, galaxy, phenomenon, quote, owner, relation_signal, constellation_id, extracted_by, updated_at'
 const sUpd = sCols.split(', ').filter(c => c !== 'id').map(c => `${c} = excluded.${c}`).join(', ')
 for (let i = 0; i < sRows.length; i += perFile) {
-  write(`20-stars-${String(i / perFile + 1).padStart(2, '0')}.sql`, `-- 별 ${i + 1}~${Math.min(i + perFile, sRows.length)}. 리뷰는 두 지점·범위(2026-06~10)·id 앞 8자로 찾는다(범위 723건 안에서 유일, 겹치면 upsert 가 같은 행 두 번 오류로 멈춤). 날짜 = ${DAY0} + d
+  write(`20-stars-${String(i / perFile + 1).padStart(2, '0')}.sql`, `-- 별 ${i + 1}~${Math.min(i + perFile, sRows.length)}. 리뷰는 지점(${u.meta.branches.join('·')})·범위(2026-06~10)·id 앞 8자로 찾는다(범위 안에서 유일, 겹치면 upsert 가 같은 행 두 번 오류로 멈춤). 날짜 = ${DAY0} + d
 with ph(i, polarity, galaxy, phenomenon, owner) as (values
   ${dictSql}
 ), v(n, id8, d, ds, wl, i, qs, ql, sig, cnum) as (values
@@ -104,7 +107,7 @@ select 'S-' || lpad(v.n::text, 5, '0'), 'ota_review', r.id::text, r.id, r.branch
   '${ACTOR}', now()
 from v
 join ph on ph.i = v.i
-join public.reviews r on r.branch in ('신설', '동대문')
+join public.reviews r on r.branch in (${u.meta.branches.map((b: string) => q(b)).join(', ')})
   and left(r.id::text, 8) = v.id8 and r.review_month between '2026-06' and '2026-10'
 on conflict (id) do update set ${sUpd};
 `)
@@ -171,17 +174,24 @@ const manifest = {
   stars: u.stars.length, constellations: u.constellations.length, events: events.length, metrics: metricRows.length,
   stars_quote_md5: aggStars, stars_meta_md5: aggStarMeta, constellations_md5: aggC, events_md5: aggE,
 }
+const brList = u.meta.branches.map((b: string) => q(b)).join(', ')
+const wS = scoped ? ` where branch in (${brList})` : ''
+const wSa = scoped ? ` and s.branch in (${brList})` : ''
+const wC = scoped ? ` where branch in (${brList})` : ''
+const wCa = scoped ? ` and c.branch in (${brList})` : ''
+const wE = scoped ? ` where constellation_id in (select id from public.voc_constellations where branch in (${brList}))` : ''
+const wM = scoped ? ` where branch in (${brList})` : ''
 write('90-verify.sql', `-- universe.json(${u.meta.generated_at}) 과 운영 표 대조. 모든 행의 ok 가 true 여야 한다
-select 'stars_count' as check, count(*)::text as actual, '${manifest.stars}' as expected, count(*) = ${manifest.stars} as ok from public.voc_stars
-union all select 'constellations_count', count(*)::text, '${manifest.constellations}', count(*) = ${manifest.constellations} from public.voc_constellations
-union all select 'events_count', count(*)::text, '${manifest.events}', count(*) = ${manifest.events} from public.voc_constellation_events
-union all select 'metrics_count', count(*)::text, '${manifest.metrics}', count(*) = ${manifest.metrics} from public.voc_metrics_monthly
-union all select 'stars_quote_md5', md5(string_agg(id || ':' || md5(quote), ',' order by id collate "C")), '${aggStars}', md5(string_agg(id || ':' || md5(quote), ',' order by id collate "C")) = '${aggStars}' from public.voc_stars
-union all select 'stars_meta_md5', x, '${aggStarMeta}', x = '${aggStarMeta}' from (select md5(string_agg(concat_ws('|', id, review_id::text, branch, channel, star_date::text, date_source, iso_week, week_label::text, polarity, galaxy, phenomenon, owner, coalesce(relation_signal, ''), coalesce(constellation_id, '')), ',' order by id collate "C")) as x from public.voc_stars) t
-union all select 'constellations_md5', x, '${aggC}', x = '${aggC}' from (select md5(string_agg(concat_ws('|', id, branch, polarity, galaxy, name, owner, status, star_count::text, summary, coalesce(task_id::text, '')), ',' order by id collate "C")) as x from public.voc_constellations) t
-union all select 'events_md5', x, '${aggE}', x = '${aggE}' from (select md5(string_agg(concat_ws('|', id, constellation_id, event_type, event_at::text, note), ',' order by id collate "C")) as x from public.voc_constellation_events) t
-union all select 'stars_without_review', count(*)::text, '0', count(*) = 0 from public.voc_stars s where not exists (select 1 from public.reviews r where r.id = s.review_id)
-union all select 'stars_constellation_star_count', count(*)::text, '0', count(*) = 0 from public.voc_constellations c where c.star_count <> (select count(*) from public.voc_stars s where s.constellation_id = c.id)
+select 'stars_count' as check, count(*)::text as actual, '${manifest.stars}' as expected, count(*) = ${manifest.stars} as ok from public.voc_stars${wS}
+union all select 'constellations_count', count(*)::text, '${manifest.constellations}', count(*) = ${manifest.constellations} from public.voc_constellations${wC}
+union all select 'events_count', count(*)::text, '${manifest.events}', count(*) = ${manifest.events} from public.voc_constellation_events${wE}
+union all select 'metrics_count', count(*)::text, '${manifest.metrics}', count(*) = ${manifest.metrics} from public.voc_metrics_monthly${wM}
+union all select 'stars_quote_md5', md5(string_agg(id || ':' || md5(quote), ',' order by id collate "C")), '${aggStars}', md5(string_agg(id || ':' || md5(quote), ',' order by id collate "C")) = '${aggStars}' from public.voc_stars${wS}
+union all select 'stars_meta_md5', x, '${aggStarMeta}', x = '${aggStarMeta}' from (select md5(string_agg(concat_ws('|', id, review_id::text, branch, channel, star_date::text, date_source, iso_week, week_label::text, polarity, galaxy, phenomenon, owner, coalesce(relation_signal, ''), coalesce(constellation_id, '')), ',' order by id collate "C")) as x from public.voc_stars${wS}) t
+union all select 'constellations_md5', x, '${aggC}', x = '${aggC}' from (select md5(string_agg(concat_ws('|', id, branch, polarity, galaxy, name, owner, status, star_count::text, summary, coalesce(task_id::text, '')), ',' order by id collate "C")) as x from public.voc_constellations${wC}) t
+union all select 'events_md5', x, '${aggE}', x = '${aggE}' from (select md5(string_agg(concat_ws('|', id, constellation_id, event_type, event_at::text, note), ',' order by id collate "C")) as x from public.voc_constellation_events${wE}) t
+union all select 'stars_without_review', count(*)::text, '0', count(*) = 0 from public.voc_stars s where not exists (select 1 from public.reviews r where r.id = s.review_id)${wSa}
+union all select 'stars_constellation_star_count', count(*)::text, '0', count(*) = 0 from public.voc_constellations c where c.star_count <> (select count(*) from public.voc_stars s where s.constellation_id = c.id)${wCa}
 union all select 'rls_enabled', count(*)::text, '4', count(*) = 4 from pg_class where relname in ('voc_stars','voc_constellations','voc_constellation_events','voc_metrics_monthly') and relrowsecurity
 union all select 'select_policies', count(*)::text, '4', count(*) = 4 from pg_policies where schemaname = 'public' and tablename like 'voc\\_%' and cmd = 'SELECT' and roles @> array['anon','authenticated']::name[]
 union all select 'write_policies', count(*)::text, '0', count(*) = 0 from pg_policies where schemaname = 'public' and tablename like 'voc\\_%' and cmd <> 'SELECT';
