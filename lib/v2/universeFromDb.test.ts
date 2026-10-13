@@ -276,7 +276,7 @@ const MULTI: MetricRow[] = [
   chRow('동대문', 'Trip.com', '2026-06', { texts: 20, neg: 5, delta: 40, checkouts: 330, from: '2026-06-02', to: '2026-06-08', weeks: [{ week: '2026-06-08', reviews: 40, checkouts: 330 }] }),
 ]
 const BR = ['신설', '동대문']
-const WINGS_SCOPE = '신설·동대문 OTA 2채널 · 2026-06-02~2026-07-06 2주 · Wings 실 퇴실(연박 조각 제외) 체크아웃 · 리뷰 1건=체류 1건 추정'
+const WINGS_SCOPE = '신설·동대문 OTA 2채널 · 2026-06-02~2026-07-06 2주 · Wings 실 퇴실 체크아웃(연박 조각은 신설, 동대문, 제주시티만 제외) · 리뷰 1건=체류 1건 추정'
 
 describe('지표 — 월 행을 더해 universe.json(compute-metrics.ts)과 같은 뜻으로', () => {
   it('북극성 = 1 − Σ(채널 부정 비율 × 채널 리뷰 증가분) ÷ Σ 채널 체크아웃 — 채널을 합산하고 지점별 값도 낸다', () => {
@@ -308,7 +308,7 @@ describe('지표 — 월 행을 더해 universe.json(compute-metrics.ts)과 같�
     const b = ns.by_branch['신설']!
     // universe/src/js/50-labels.js nsView() 와 같은 치환
     const shown = ns.scope.replace(/^.*?OTA\s*\d+채널/, `신설 OTA ${b.channels}채널`)
-    expect(shown).toBe('신설 OTA 1채널 · 2026-06-02~2026-07-06 2주 · Wings 실 퇴실(연박 조각 제외) 체크아웃 · 리뷰 1건=체류 1건 추정')
+    expect(shown).toBe('신설 OTA 1채널 · 2026-06-02~2026-07-06 2주 · Wings 실 퇴실 체크아웃(연박 조각은 신설, 동대문, 제주시티만 제외) · 리뷰 1건=체류 1건 추정')
   })
 
   it('신설 Agoda 6·7월 실수치(V1 수기 체크아웃 시절) → 0.9362, 출처 문구는 수기 체크아웃, 값 없는 지점은 null', () => {
@@ -341,7 +341,7 @@ describe('지표 — 월 행을 더해 universe.json(compute-metrics.ts)과 같�
     expect(ns.by_branch['제주시티']).toBeNull()
     expect(ns.value).toBe(0.98)
     expect(ns.inputs!.channel_checkouts).toBe(200)           // 제주시티 100 은 분모에 넣지 않는다
-    expect(ns.scope).toBe('신설·고성 OTA 2채널 · 2026-06-02~2026-06-08 1주 · Wings 실 퇴실(연박 조각 제외) 체크아웃 · 리뷰 1건=체류 1건 추정 · 체크아웃 데이터 없는 지점 제외: 동대문·제주시티')
+    expect(ns.scope).toBe('신설·고성 OTA 2채널 · 2026-06-02~2026-06-08 1주 · Wings 실 퇴실 체크아웃(연박 조각은 신설, 동대문, 제주시티만 제외) · 리뷰 1건=체류 1건 추정 · 체크아웃 데이터 없는 지점 제외: 동대문·제주시티')
     // 네 지점 모두 값이 있으면 제외 문구 없이 네 지점이 다 적힌다
     const full = northStarFromMetrics([...ROWS,
       chRow('동대문', 'Agoda', '2026-06', { texts: 4, neg: 1, delta: 10, checkouts: 100, from: '2026-06-02', to: '2026-06-08', weeks: wk, src: 'wings' }),

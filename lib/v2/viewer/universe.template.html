@@ -331,6 +331,14 @@ button:focus-visible { outline: 2px solid var(--polar); outline-offset: 2px; }
   .glass, .panel { background: #0c1124; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
+/* 단발 별 접힘 목록 */
+details.singles > summary { list-style: none; cursor: pointer; user-select: none; }
+details.singles > summary::-webkit-details-marker { display: none; }
+details.singles > summary .t::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(-45deg); transition: transform .18s ease; }
+details.singles[open] > summary .t::before { transform: translateY(-3px) rotate(45deg); }
+details.singles > summary:focus-visible { outline: 1px solid var(--hair-2); outline-offset: 2px; }
+details.singles > .rows { margin-top: 2px; }
+
 .v2tabs{display:flex;align-items:center;gap:2px;height:38px;padding:3px;border-radius:999px;flex:none}.v2tabs a{display:flex;align-items:center;height:100%;padding:0 13px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink-2);text-decoration:none;font-family:var(--f-prose)}.v2tabs a.on{background:rgba(255,255,255,.14);color:var(--ink)}@media (hover:hover) and (pointer:fine){.v2tabs a:not(.on):hover{color:var(--ink)}}@media (max-width:720px){.v2tabs{height:34px}.v2tabs a{padding:0 10px;font-size:12.5px}.tools .v2tabs{margin-right:auto}}
 </style>
 <script type="importmap">
@@ -2356,8 +2364,25 @@ function galPanel(G) {
     <div><div class="sect-k"><span class="t">칭찬 별자리<b class="num">${poss.length}</b></span><span>최근 4주 별 수 순</span></div>
       <div class="rows">${poss.length ? poss.map(row).join('') : '<div class="foot-k" style="padding:10px 0">없음</div>'}</div></div>
     ${seeds.length ? `<div><div class="sect-k"><span class="t">씨앗<b class="num">${seeds.length}</b></span></div><div class="rows">${seeds.map(row).join('')}</div></div>` : ''}
-    <div class="foot-k">단발 별 <span class="num">${st.singles}</span></div>`;
+    ${singlesBlock(G, st)}`;
 }
+
+// 단발 별(별자리에 붙지 않은 별) — 접힌 채로 시작, 펼치면 별마다 한 줄, 누르면 리뷰 전문(별 패널)
+let SINGLES_OPEN = '';
+function singlesBlock(G, st) {
+  if (!st.singles) return '<div class="foot-k">단발 별 <span class="num">0</span></div>';
+  const ss = G.stars.filter((s) => branchOn(s.branch) && !s.con)
+    .sort((a, b) => (a.polarity === 'pos') - (b.polarity === 'pos') || b.day - a.day || (a.id < b.id ? 1 : -1));
+  const nNeg = ss.filter((s) => s.polarity !== 'pos').length;
+  const rows = ss.map((s) => {
+    const rv = M.reviews[s.review_id] || {};
+    const sc = rv.rating != null ? ` · ${fmtScore(rv.rating, rv.scale)}/${rv.scale || 10}` : '';
+    return `<button type="button" class="row" data-star="${esc(s.id)}"><span class="dot ${polClass(s.polarity)}"></span><span class="nm">${esc(s.phenomenon || '')}<small><span class="num">${fmtMD(s.date)}</span> · ${esc(chName(s.channel))}${sc}${S.branch === '전체' ? ` · ${esc(s.branch)}` : ''}</small></span><span class="st ${polClass(s.polarity)}">${s.polarity === 'pos' ? '칭찬' : '불편'}</span><span class="n"></span></button>`;
+  }).join('');
+  const key = G.g.id + ':' + S.branch;
+  return `<details class="singles" data-key="${esc(key)}"${SINGLES_OPEN === key ? ' open' : ''}><summary class="sect-k"><span class="t">단발 별<b class="num">${st.singles}</b></span><span>불편 <span class="num">${nNeg}</span> · 칭찬 <span class="num">${st.singles - nNeg}</span> · 최근 순</span></summary><div class="rows">${rows}</div></details>`;
+}
+document.addEventListener('toggle', (e) => { const d = e.target; if (d && d.classList && d.classList.contains('singles')) SINGLES_OPEN = d.open ? d.dataset.key : ''; }, true);
 
 function monthBars(c, cls) {
   const ms = M.months, counts = ms.map((m) => (c.monthly && c.monthly[m]) || 0), mx = Math.max(1, ...counts);

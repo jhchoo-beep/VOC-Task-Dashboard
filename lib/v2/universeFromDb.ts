@@ -433,7 +433,7 @@ function channelAggregates(rows: MetricRow[], properties: PropertyRow[]): Channe
 
 /** 체크아웃 출처 표시(north_star.scope). compute-metrics.ts 와 같은 문구. */
 const CHECKOUT_LABEL: Record<string, string> = {
-  wings: 'Wings 실 퇴실(연박 조각 제외) 체크아웃',
+  wings: 'Wings 실 퇴실 체크아웃(연박 조각은 신설, 동대문, 제주시티만 제외)',
   ota_channel_checkouts: 'ota_channel_checkouts 수기 체크아웃',
 }
 

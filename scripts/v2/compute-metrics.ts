@@ -137,7 +137,7 @@ const byBranch = Object.fromEntries(BRANCHES.map(b => [b, aggregate(northDetail.
 const skipped = northDetail.filter(d => !d.all || d.all.est_neg_stays == null).map(d => `${d.branch} ${d.channel}`)
 const noCheckout = props.filter(p => BRANCHES.includes(p.branch) && p.active && !northDetail.some(d => d.property_id === p.property_id)).map(p => `${p.branch} ${p.ota_name}`)
 const voiceSum = (rows: any[]) => { const r = rows.reduce((a, v) => a + v.reviews, 0), c = rows.reduce((a, v) => a + v.checkouts, 0); return c ? { ratio: Math.round((r / c) * 10000) / 10000, reviews: r, checkouts: c } : null }
-const srcLabel = checkoutSource === 'wings' ? 'Wings 실 퇴실(연박 조각 제외) 체크아웃' : 'ota_channel_checkouts 수기 체크아웃'
+const srcLabel = checkoutSource === 'wings' ? 'Wings 실 퇴실 체크아웃(연박 조각은 신설, 동대문, 제주시티만 제외)' : 'ota_channel_checkouts 수기 체크아웃'
 const out = {
   north_star: {
     label: '불편 없이 끝난 체류 비율',
