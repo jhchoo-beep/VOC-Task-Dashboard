@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   assembleUniverse, fetchAllPaged, loadUniverseFromDb, isMissingTableError, DbReadError,
-  northStarFromMetrics, voiceRatioFromMetrics, otaRatingFrom,
+  northStarFromMetrics, voiceRatioFromMetrics, voiceRatioSummary, checkoutSourceOf, otaRatingFrom,
   COLUMNS, GALAXIES, NEG_STATUSES, POS_STATUSES,
   type DbSnapshot, type StarRow, type ConstellationRow, type MetricRow, type PropertyRow, type ScoreRow, type ReviewRow,
+  type ChannelCheckoutRow,
 } from './universeFromDb'
 
 // ── 합성 행 ──────────────────────────────────────────────────────
@@ -14,6 +15,8 @@ const PROPS: PropertyRow[] = [
   { property_id: 9, branch: '신설', ota_name: 'Airbnb', score_max: 5, active: true },
   { property_id: 10, branch: '동대문', ota_name: 'Agoda', score_max: 10, active: true },
   { property_id: 11, branch: '고성', ota_name: 'Agoda', score_max: 10, active: true },
+  { property_id: 21, branch: '신설', ota_name: '여기어때', score_max: 10, active: true },
+  { property_id: 26, branch: '동대문', ota_name: 'Trip.com', score_max: 10, active: true },
 ]
 
 const star = (o: Partial<StarRow> & { id: string }): StarRow => ({
@@ -34,7 +37,7 @@ const review = (o: Partial<ReviewRow> & { id: string }): ReviewRow => ({
 })
 
 const snapshot = (o: Partial<DbSnapshot>): DbSnapshot => ({
-  stars: [], constellations: [], events: [], metrics: [], reviews: [], tasks: [], properties: PROPS, scores: [],
+  stars: [], constellations: [], events: [], metrics: [], reviews: [], tasks: [], properties: PROPS, scores: [], channelCheckouts: [],
   reviewCounts: { reviews: 723, reviews_with_text: 674 }, ...o,
 })
 
@@ -252,29 +255,121 @@ describe('assembleUniverse — 행을 계약으로', () => {
 })
 
 // ── 지표 ─────────────────────────────────────────────────────────
-describe('지표 — 월 행을 더해 universe.json 과 같은 뜻으로', () => {
-  it('북극성 = 1 − (원문 리뷰 중 부정 비율 × 채널 리뷰 증가분) ÷ 채널 체크아웃. 신설 Agoda 6·7월 실수치 → 0.9362', () => {
-    const ns = northStarFromMetrics(NS_ROWS, PROPS)
+/** voc_metrics_monthly 채널 행(load-universe 가 넣는 모양). 주 목록 = 그 달에 라벨이 든 주. */
+const chRow = (branch: string, channel: string, month: string, x: {
+  texts: number; neg: number; delta: number; checkouts: number; from: string; to: string
+  weeks: { week: string; reviews: number; checkouts: number }[]; src?: string
+}): MetricRow => ({
+  branch, month, channel,
+  inputs: {
+    period: { from: x.from, to: x.to, weeks: x.weeks.length, week_labels: x.weeks.map(w => w.week) },
+    text_reviews: x.texts, text_reviews_with_neg_star: x.neg, channel_reviews_delta: x.delta, channel_checkouts: x.checkouts,
+    weeks: x.weeks, ...(x.src ? { checkout_source: x.src } : {}),
+  },
+})
+// 두 지점 세 채널 — 신설 여기어때는 원문 리뷰 0건(부정 비율을 모르는 채널)
+const MULTI: MetricRow[] = [
+  { branch: '신설', month: '2026-06', channel: '전체', inputs: {} },
+  chRow('신설', 'Agoda', '2026-06', { texts: 6, neg: 2, delta: 25, checkouts: 200, from: '2026-06-02', to: '2026-06-08', weeks: [{ week: '2026-06-08', reviews: 25, checkouts: 200 }] }),
+  chRow('신설', 'Agoda', '2026-07', { texts: 4, neg: 2, delta: 25, checkouts: 200, from: '2026-06-30', to: '2026-07-06', weeks: [{ week: '2026-07-06', reviews: 25, checkouts: 200 }] }),
+  chRow('신설', '여기어때', '2026-06', { texts: 0, neg: 0, delta: 5, checkouts: 100, from: '2026-06-02', to: '2026-06-08', weeks: [{ week: '2026-06-08', reviews: 5, checkouts: 100 }] }),
+  chRow('동대문', 'Trip.com', '2026-06', { texts: 20, neg: 5, delta: 40, checkouts: 330, from: '2026-06-02', to: '2026-06-08', weeks: [{ week: '2026-06-08', reviews: 40, checkouts: 330 }] }),
+]
+const BR = ['신설', '동대문']
+const WINGS_SCOPE = '신설·동대문 OTA 2채널 · 2026-06-02~2026-07-06 2주 · Wings 실 퇴실(연박 조각 제외) 체크아웃 · 리뷰 1건=체류 1건 추정'
+
+describe('지표 — 월 행을 더해 universe.json(compute-metrics.ts)과 같은 뜻으로', () => {
+  it('북극성 = 1 − Σ(채널 부정 비율 × 채널 리뷰 증가분) ÷ Σ 채널 체크아웃 — 채널을 합산하고 지점별 값도 낸다', () => {
+    const ns = northStarFromMetrics(MULTI, PROPS, { branches: BR, checkoutSource: 'wings' })
+    // 신설 Agoda 추정 부정 체류 = 4/10 × 50 = 20, 동대문 Trip.com = 5/20 × 40 = 10 → 1 − 30/730
     expect(ns).toEqual({
       label: '불편 없이 끝난 체류 비율',
-      value: 0.9362,
-      scope: '신설 Agoda만(체크아웃 데이터가 있는 유일한 채널) · 2026-06-02~2026-07-20 7주 · 리뷰 1건=체류 1건 추정',
+      value: 0.9589,
+      scope: WINGS_SCOPE,
       is_estimate: true,
-      inputs: { text_reviews: 36, text_reviews_with_neg_star: 12, neg_ratio: 0.3333, channel_reviews_delta: 167, channel_checkouts: 872, est_neg_stays: 55.7 },
+      by_branch: {
+        신설: { value: 0.95, channels: 1, period: { from: '2026-06-02', to: '2026-07-06', weeks: 2 }, text_reviews: 10, text_reviews_with_neg_star: 4, channel_reviews_delta: 50, channel_checkouts: 400, est_neg_stays: 20 },
+        동대문: { value: 0.9697, channels: 1, period: { from: '2026-06-02', to: '2026-06-08', weeks: 1 }, text_reviews: 20, text_reviews_with_neg_star: 5, channel_reviews_delta: 40, channel_checkouts: 330, est_neg_stays: 10 },
+      },
+      inputs: { text_reviews: 30, text_reviews_with_neg_star: 9, channel_reviews_delta: 90, channel_checkouts: 730, est_neg_stays: 30 },
+      checkout_source: 'wings',
     })
   })
 
-  it('체크아웃이 있는 채널이 없으면 북극성은 숫자 없이(null) 범위 문구만', () => {
-    const ns = northStarFromMetrics(NS_ROWS.filter(r => r.channel === '전체'), PROPS)
-    expect(ns.value).toBeNull()
-    expect(ns.inputs).toBeNull()
-    expect(ns.scope).toBe('체크아웃 데이터가 있는 채널 없음')
+  it('원문 리뷰 0건 채널은 분자뿐 아니라 분모(체크아웃)에서도 뺀다 — 넣으면 「불편 없음」으로 부풀려진다', () => {
+    const ns = northStarFromMetrics(MULTI, PROPS, { branches: BR, checkoutSource: 'wings' })
+    expect(ns.inputs!.channel_checkouts).toBe(730)          // 여기어때 100 을 넣으면 830
+    expect(ns.value).toBeLessThan(1 - 30 / 830)              // 넣었을 때 값 0.9639 보다 낮게(부풀리지 않음)
+    expect(ns.by_branch['신설']!.channels).toBe(1)
   })
 
-  it('목소리 비율 = 주별 리뷰 증가분 합 ÷ 체크아웃 합(V1 작성률 계산), 주 수와 기간', () => {
-    expect(voiceRatioFromMetrics(NS_ROWS, PROPS)).toEqual([
-      { branch: '신설', channel: 'Agoda', ratio: 0.1915, weeks: 7, reviews: 167, checkouts: 872, period: { from: '2026-06-02', to: '2026-07-20' } },
+  it('지점 필터 화면은 scope 머리 「… OTA N채널」을 지점 값으로 바꿔 쓴다 — 그 형식이 유지된다', () => {
+    const ns = northStarFromMetrics(MULTI, PROPS, { branches: BR, checkoutSource: 'wings' })
+    const b = ns.by_branch['신설']!
+    // universe/src/js/50-labels.js nsView() 와 같은 치환
+    const shown = ns.scope.replace(/^.*?OTA\s*\d+채널/, `신설 OTA ${b.channels}채널`)
+    expect(shown).toBe('신설 OTA 1채널 · 2026-06-02~2026-07-06 2주 · Wings 실 퇴실(연박 조각 제외) 체크아웃 · 리뷰 1건=체류 1건 추정')
+  })
+
+  it('신설 Agoda 6·7월 실수치(V1 수기 체크아웃 시절) → 0.9362, 출처 문구는 수기 체크아웃, 값 없는 지점은 null', () => {
+    const ns = northStarFromMetrics(NS_ROWS, PROPS, { branches: BR, checkoutSource: 'ota_channel_checkouts' })
+    expect(ns.value).toBe(0.9362)
+    expect(ns.scope).toBe('신설·동대문 OTA 1채널 · 2026-06-02~2026-07-20 7주 · ota_channel_checkouts 수기 체크아웃 · 리뷰 1건=체류 1건 추정')
+    expect(ns.inputs).toEqual({ text_reviews: 36, text_reviews_with_neg_star: 12, channel_reviews_delta: 167, channel_checkouts: 872, est_neg_stays: 55.7 })
+    expect(ns.by_branch).toEqual({
+      신설: { value: 0.9362, channels: 1, period: { from: '2026-06-02', to: '2026-07-20', weeks: 7 }, text_reviews: 36, text_reviews_with_neg_star: 12, channel_reviews_delta: 167, channel_checkouts: 872, est_neg_stays: 55.7 },
+      동대문: null,
+    })
+  })
+
+  it('체크아웃이 있는 채널이 없으면 북극성은 숫자 없이(null) 범위 문구만, 지점별도 null', () => {
+    const ns = northStarFromMetrics(NS_ROWS.filter(r => r.channel === '전체'), PROPS, { branches: BR, checkoutSource: null })
+    expect(ns).toMatchObject({ value: null, inputs: null, scope: '체크아웃 데이터가 있는 채널 없음', by_branch: { 신설: null, 동대문: null }, checkout_source: null })
+  })
+
+  it('체크아웃 출처: 행이 적고 있으면 그 값, 아니면 V1 수기 표와 주별로 맞춰 본다(전부 같으면 수기 표, 하나라도 다르면 Wings)', () => {
+    const v1: ChannelCheckoutRow[] = [
+      ['2026-06-08', 119], ['2026-06-15', 123], ['2026-06-22', 123], ['2026-06-29', 113], ['2026-07-06', 128], ['2026-07-13', 119], ['2026-07-20', 147],
+    ].map(([w, n], i) => ({ id: i + 1, property_id: 1, week_start: w as string, checkout_count: n as number }))
+    expect(checkoutSourceOf(NS_ROWS, PROPS, v1)).toBe('ota_channel_checkouts')
+    expect(checkoutSourceOf(NS_ROWS, PROPS, v1.map(c => (c.week_start === '2026-07-20' ? { ...c, checkout_count: 140 } : c)))).toBe('wings')
+    expect(checkoutSourceOf(MULTI, PROPS, v1)).toBe('wings')            // 수기 표에 없는 채널·주
+    const declared = MULTI.map(r => (r.channel === '전체' ? r : { ...r, inputs: { ...r.inputs, checkout_source: 'ota_channel_checkouts' } }))
+    expect(checkoutSourceOf(declared, PROPS, [])).toBe('ota_channel_checkouts')   // 행에 적힌 값이 우선
+    expect(checkoutSourceOf(MULTI.filter(r => r.channel === '전체'), PROPS, v1)).toBeNull()
+  })
+
+  it('VOC 비율(옛 이름 목소리 비율) = 주별 리뷰 증가분 합 ÷ 체크아웃 합(V1 작성률 계산) — 채널별과 전체·지점 합계', () => {
+    const vr = voiceRatioFromMetrics(MULTI, PROPS)
+    expect(vr).toEqual([
+      { branch: '신설', channel: 'Agoda', ratio: 0.125, weeks: 2, reviews: 50, checkouts: 400, period: { from: '2026-06-02', to: '2026-07-06' } },
+      { branch: '신설', channel: '여기어때', ratio: 0.05, weeks: 1, reviews: 5, checkouts: 100, period: { from: '2026-06-02', to: '2026-06-08' } },
+      { branch: '동대문', channel: 'Trip.com', ratio: 0.1212, weeks: 1, reviews: 40, checkouts: 330, period: { from: '2026-06-02', to: '2026-06-08' } },
     ])
+    // 원문 0건 채널도 VOC 비율에는 들어간다(리뷰 수 ÷ 체크아웃 — 원문이 필요 없는 지표)
+    const sum = voiceRatioSummary(vr, BR)
+    expect(Object.keys(sum)).toEqual(['전체', '신설', '동대문'])
+    expect(sum).toEqual({
+      전체: { ratio: 0.1145, reviews: 95, checkouts: 830 },
+      신설: { ratio: 0.11, reviews: 55, checkouts: 500 },
+      동대문: { ratio: 0.1212, reviews: 40, checkouts: 330 },
+    })
+    expect(voiceRatioSummary([], BR)).toEqual({ 전체: null, 신설: null, 동대문: null })
+  })
+
+  it('조립 결과에 지점별 북극성·체크아웃 출처·VOC 비율 합계가 들어간다(화면 지점 필터가 쓰는 자리)', () => {
+    const { universe: u } = assembleUniverse(snapshot({
+      stars: [star({ id: 'S-00001' }), star({ id: 'S-00002', branch: '동대문' })],
+      metrics: MULTI,
+      channelCheckouts: [],
+    }))
+    expect(u.north_star.value).toBe(0.9589)
+    expect(Object.keys(u.north_star.by_branch)).toEqual(u.meta.branches)
+    expect(u.north_star.by_branch['동대문']!.value).toBe(0.9697)
+    expect(u.north_star.checkout_source).toBe('wings')
+    expect(u.north_star.scope).toBe(WINGS_SCOPE)
+    expect(u.guardrails.voice_ratio_summary['전체']).toEqual({ ratio: 0.1145, reviews: 95, checkouts: 830 })
+    expect(Object.keys(u.guardrails)).toEqual(['ota_rating', 'voice_ratio', 'voice_ratio_summary'])
   })
 
   it('OTA 평점: 지점 채널마다 기준일 이전 최신 스냅샷(기준일 뒤 스냅샷은 쓰지 않음), property_id 순, 다른 지점 제외', () => {

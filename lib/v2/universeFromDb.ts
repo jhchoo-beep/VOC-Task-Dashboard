@@ -14,7 +14,10 @@
  *    raw_reviews 는 읽지 않는다).
  * 🔴 키와 값의 뜻은 scripts/v2/build-universe.ts 가 만든 universe.json 과 같다. 다른 점:
  *    - 설명 문구만 있는 칸(core.basis, north_star.not_computed, guardrails.voice_ratio_not_computed)과
- *      DB 에 원천이 없는 숫자(meta.counts.duplicate_reviews)는 넣지 않는다.
+ *      DB 에 원천이 없는 백필 기록(meta.counts.duplicate_reviews·merged_duplicate_stars, meta.voice_dedup)은 넣지 않는다.
+ *    - 북극성 체크아웃 출처(north_star.checkout_source)는 월 지표 행이 적고 있으면 그 값, 아니면 V1 수기 표
+ *      (ota_channel_checkouts)와 주별 체크아웃을 맞춰 본다 — 전부 같으면 그 표, 하나라도 다르면 Wings
+ *      (compute-metrics.ts 의 원천은 이 둘뿐).
  *    - 가드레일 OTA 평점은 기준일(as_of) 이전 스냅샷 중 최신(기준일과 화면 숫자가 어긋나지 않게).
  *    - 기존 표의 은하 값 「직원서비스」는 「응대/환대/커뮤니티」로 바꿔 부른다(새 표는 이미 새 이름).
  * ────────────────────────────────────────────────────────────────
@@ -53,6 +56,7 @@ export const COLUMNS = {
   tasks: 'id, title, status, task_month',
   properties: 'property_id, branch, ota_name, score_max, active',
   scores: 'id, property_id, overall_score, review_count, recorded_at',
+  channelCheckouts: 'id, property_id, week_start, checkout_count',
 } as const
 
 // ─── DB 행 ───────────────────────────────────────────────────────
@@ -115,6 +119,7 @@ export interface MetricInputs {
   channel_reviews_delta?: number
   channel_checkouts?: number
   weeks?: MetricWeek[]
+  checkout_source?: string
 }
 export interface MetricRow {
   branch: string
@@ -136,6 +141,8 @@ export interface TaskRow { id: string; title: string; status: string; task_month
 export interface PropertyRow { property_id: number; branch: string; ota_name: string; score_max: number; active: boolean | null }
 export interface ScoreRow { id: number; property_id: number; overall_score: number | string | null; review_count: number | null; recorded_at: string }
 export interface ReviewCounts { reviews: number; reviews_with_text: number }
+/** V1 수기 체크아웃 표(ota_channel_checkouts) — 북극성 체크아웃 출처를 가리는 데만 쓴다. */
+export interface ChannelCheckoutRow { id: number; property_id: number; week_start: string; checkout_count: number }
 
 export interface DbSnapshot {
   stars: StarRow[]
@@ -146,6 +153,7 @@ export interface DbSnapshot {
   tasks: TaskRow[]
   properties: PropertyRow[]
   scores: ScoreRow[]
+  channelCheckouts: ChannelCheckoutRow[]
   reviewCounts: ReviewCounts
 }
 
@@ -220,23 +228,32 @@ export interface UniverseGalaxy {
   seeds: number
 }
 
+export interface NorthStarInputs {
+  text_reviews: number
+  text_reviews_with_neg_star: number
+  channel_reviews_delta: number
+  channel_checkouts: number
+  est_neg_stays: number
+}
+/** 지점별 북극성(화면 지점 필터가 쓴다). channels = 합산에 들어간 채널 수. */
+export interface BranchNorthStar extends NorthStarInputs {
+  value: number
+  channels: number
+  period: { from: string; to: string; weeks: number }
+}
 export interface NorthStar {
   label: string
   value: number | null
   scope: string
   is_estimate: boolean
-  inputs: {
-    text_reviews: number
-    text_reviews_with_neg_star: number
-    neg_ratio: number | null
-    channel_reviews_delta: number
-    channel_checkouts: number
-    est_neg_stays: number | null
-  } | null
+  by_branch: Record<string, BranchNorthStar | null>
+  inputs: NorthStarInputs | null
+  checkout_source: string | null
 }
 
 export interface OtaRating { branch: string; channel: string; score: number | null; scale: number; recorded_at: string; review_count: number | null }
 export interface VoiceRatio { branch: string; channel: string; ratio: number | null; weeks: number; reviews: number; checkouts: number; period: { from: string; to: string } }
+export interface VoiceRatioSum { ratio: number; reviews: number; checkouts: number }
 export interface Fraction { num: number; den: number }
 
 export interface Universe {
@@ -264,7 +281,7 @@ export interface Universe {
   }
   north_star: NorthStar
   core: { structural_solved: number; relapse_rate: Fraction; keep_rate: Fraction }
-  guardrails: { ota_rating: OtaRating[]; voice_ratio: VoiceRatio[] }
+  guardrails: { ota_rating: OtaRating[]; voice_ratio: VoiceRatio[]; voice_ratio_summary: Record<string, VoiceRatioSum | null> }
   galaxies: UniverseGalaxy[]
   constellations: UniverseConstellation[]
   stars: UniverseStar[]
@@ -414,41 +431,105 @@ function channelAggregates(rows: MetricRow[], properties: PropertyRow[]): Channe
     cmp(`${x.branch}|${x.channel}`, `${y.branch}|${y.channel}`))
 }
 
+/** 체크아웃 출처 표시(north_star.scope). compute-metrics.ts 와 같은 문구. */
+const CHECKOUT_LABEL: Record<string, string> = {
+  wings: 'Wings 실 퇴실(연박 조각 제외) 체크아웃',
+  ota_channel_checkouts: 'ota_channel_checkouts 수기 체크아웃',
+}
+
 /**
- * 북극성(첫 가동 추정, 확정 결정 9) — 월 행의 산출 근거(inputs)를 채널별로 더해 다시 계산한다.
- *   1 − Σ채널(원문 리뷰 중 부정 별 있는 리뷰 비율 × 그 채널 전체 리뷰 증가분) ÷ Σ채널 OTA 채널 체크아웃
- * 채널이 하나면 compute-metrics.ts 의 값과 같은 계산이다(채널 여럿이면 합산 — 판단 기록).
+ * 북극성 합산(compute-metrics.ts aggregate 와 같은 정의) — 원문 리뷰가 있어 부정 비율을 낼 수 있는 채널만
+ * 분자·분모에 넣는다: 1 − Σ(채널 부정 비율 × 채널 리뷰 증가분) ÷ Σ 채널 체크아웃.
+ * 원문 리뷰 0건인 채널은 체크아웃도 분모에서 뺀다(넣으면 「불편 없음」으로 부풀려진다).
+ * 기간 = 채널 기간의 처음~끝, 주 수 = 채널 주 수 중 최댓값.
  */
-export function northStarFromMetrics(rows: MetricRow[], properties: PropertyRow[]): NorthStar {
-  const aggs = channelAggregates(rows, properties).filter(a => a.texts > 0 && a.checkouts > 0)
-  if (aggs.length === 0) return { label: NS_LABEL, value: null, scope: NS_NO_CHANNEL, is_estimate: true, inputs: null }
-  const texts = aggs.reduce((s, a) => s + a.texts, 0)
-  const neg = aggs.reduce((s, a) => s + a.neg, 0)
-  const delta = aggs.reduce((s, a) => s + a.delta, 0)
-  const checkouts = aggs.reduce((s, a) => s + a.checkouts, 0)
-  const estNeg = aggs.reduce((s, a) => s + (a.neg / a.texts) * a.delta, 0)
-  const from = aggs.map(a => a.from).filter((v): v is string => !!v).sort()[0] ?? ''
-  const to = aggs.map(a => a.to).filter((v): v is string => !!v).sort().pop() ?? ''
-  const scope = aggs.length === 1
-    ? `${aggs[0].branch} ${aggs[0].channel}만(체크아웃 데이터가 있는 유일한 채널) · ${from}~${to} ${aggs[0].periodWeeks}주 · 리뷰 1건=체류 1건 추정`
-    : `${aggs.map(a => `${a.branch} ${a.channel}`).join('·')}(체크아웃 데이터가 있는 채널) · ${from}~${to} · 리뷰 1건=체류 1건 추정`
+function aggregateNorth(aggs: ChannelAgg[]) {
+  const ok = aggs.filter(a => a.texts > 0)
+  const co = ok.reduce((s, a) => s + a.checkouts, 0)
+  if (ok.length === 0 || co <= 0) return null
+  const est = ok.reduce((s, a) => s + (a.neg / a.texts) * a.delta, 0)
+  const froms = ok.map(a => a.from).filter((v): v is string => !!v).sort()
+  const tos = ok.map(a => a.to).filter((v): v is string => !!v).sort()
+  const inputs: NorthStarInputs = {
+    text_reviews: ok.reduce((s, a) => s + a.texts, 0),
+    text_reviews_with_neg_star: ok.reduce((s, a) => s + a.neg, 0),
+    channel_reviews_delta: ok.reduce((s, a) => s + a.delta, 0),
+    channel_checkouts: co,
+    est_neg_stays: round(est, 1),
+  }
   return {
-    label: NS_LABEL,
-    value: round(1 - estNeg / checkouts, 4),
-    scope,
-    is_estimate: true,
-    inputs: {
-      text_reviews: texts,
-      text_reviews_with_neg_star: neg,
-      neg_ratio: round(neg / texts, 4),
-      channel_reviews_delta: delta,
-      channel_checkouts: checkouts,
-      est_neg_stays: round(estNeg, 1),
-    },
+    value: round(1 - est / co, 4),
+    channels: ok.length,
+    period: { from: froms[0] ?? '', to: tos[tos.length - 1] ?? '', weeks: Math.max(...ok.map(a => a.periodWeeks)) },
+    inputs,
   }
 }
 
-/** 목소리 비율(V1 리뷰 작성률과 같은 계산) — 채널별 주 행(inputs.weeks)을 더한다. */
+/**
+ * 북극성(첫 가동 추정, 확정 결정 9) — voc_metrics_monthly 채널 행의 산출 근거(inputs)를 채널별로 더한 뒤
+ * compute-metrics.ts 와 같은 방식으로 합산한다. 전체 값과 지점별 값(by_branch — 화면 지점 필터가 쓴다).
+ * scope 는 「<지점들> OTA N채널 · 기간 N주 · 체크아웃 출처 · 리뷰 1건=체류 1건 추정」. 화면이 앞부분
+ * 「… OTA N채널」을 지점 값으로 바꿔 쓰므로 이 머리 형식을 지킨다.
+ */
+export function northStarFromMetrics(
+  rows: MetricRow[], properties: PropertyRow[],
+  opts: { branches: string[]; checkoutSource: string | null },
+): NorthStar {
+  const aggs = channelAggregates(rows, properties)
+  const overall = aggregateNorth(aggs)
+  const byBranch: Record<string, BranchNorthStar | null> = Object.fromEntries(opts.branches.map(b => {
+    const a = aggregateNorth(aggs.filter(x => x.branch === b))
+    return [b, a ? { value: a.value, channels: a.channels, period: a.period, ...a.inputs } : null]
+  }))
+  const src = opts.checkoutSource ? (CHECKOUT_LABEL[opts.checkoutSource] ?? `${opts.checkoutSource} 체크아웃`) : null
+  const scope = overall
+    ? [`${opts.branches.join('·')} OTA ${overall.channels}채널`, `${overall.period.from}~${overall.period.to} ${overall.period.weeks}주`, src, '리뷰 1건=체류 1건 추정']
+      .filter(Boolean).join(' · ')
+    : NS_NO_CHANNEL
+  return {
+    label: NS_LABEL,
+    value: overall ? overall.value : null,
+    scope,
+    is_estimate: true,
+    by_branch: byBranch,
+    inputs: overall ? overall.inputs : null,
+    checkout_source: opts.checkoutSource,
+  }
+}
+
+/**
+ * 북극성 체크아웃 출처. 월 지표 행이 출처를 적고 있으면(inputs.checkout_source) 그 값.
+ * 적혀 있지 않으면 V1 수기 표(ota_channel_checkouts)와 주별 체크아웃을 맞춰 본다. 모든 채널·주가 같으면
+ * 'ota_channel_checkouts', 하나라도 다르거나 수기 표에 없으면 'wings'(compute-metrics.ts 의 원천은 이 둘뿐).
+ * 채널 행이 없으면 null.
+ */
+export function checkoutSourceOf(rows: MetricRow[], properties: PropertyRow[], v1: ChannelCheckoutRow[]): string | null {
+  const ch = rows.filter(r => r.channel !== '전체' && r.inputs && typeof r.inputs.text_reviews === 'number')
+  if (ch.length === 0) return null
+  const declared = [...new Set(ch.map(r => r.inputs!.checkout_source).filter((v): v is string => !!v))]
+  if (declared.length === 1) return declared[0]
+  const pid = new Map(properties.map(p => [`${p.branch}|${p.ota_name}`, p.property_id]))
+  const manual = new Map(v1.map(c => [`${c.property_id}|${c.week_start}`, c.checkout_count]))
+  for (const r of ch) {
+    const id = pid.get(`${r.branch}|${r.channel}`)
+    for (const w of r.inputs!.weeks ?? []) {
+      if (id == null || manual.get(`${id}|${w.week}`) !== w.checkouts) return 'wings'
+    }
+  }
+  return 'ota_channel_checkouts'
+}
+
+/** VOC 비율(가드레일) 합계 — 전체·지점별 리뷰 증가분 합 ÷ 체크아웃 합(compute-metrics.ts voice_ratio_summary). */
+export function voiceRatioSummary(rows: VoiceRatio[], branches: string[]): Record<string, VoiceRatioSum | null> {
+  const sum = (xs: VoiceRatio[]): VoiceRatioSum | null => {
+    const r = xs.reduce((s, v) => s + v.reviews, 0)
+    const c = xs.reduce((s, v) => s + v.checkouts, 0)
+    return c ? { ratio: round(r / c, 4), reviews: r, checkouts: c } : null
+  }
+  return { 전체: sum(rows), ...Object.fromEntries(branches.map(b => [b, sum(rows.filter(v => v.branch === b))])) }
+}
+
+/** VOC 비율(가드레일, 옛 이름 목소리 비율 — V1 리뷰 작성률과 같은 계산) — 채널별 주 행(inputs.weeks)을 더한다. */
 export function voiceRatioFromMetrics(rows: MetricRow[], properties: PropertyRow[]): VoiceRatio[] {
   return channelAggregates(rows, properties)
     .filter(a => a.weeks.size > 0)
@@ -621,6 +702,7 @@ export function assembleUniverse(db: DbSnapshot, opts: { now?: Date } = {}): { u
     keep_rate: { num: posC.filter(c => c.status === '유지').length, den: posC.length },
   }
 
+  const voiceRatio = voiceRatioFromMetrics(db.metrics, db.properties)
   const universe: Universe = {
     meta: {
       as_of: asOf,
@@ -644,11 +726,12 @@ export function assembleUniverse(db: DbSnapshot, opts: { now?: Date } = {}): { u
       week_basis: WEEK_BASIS,
       window: { from: windowStart(asOf), to: asOf },
     },
-    north_star: northStarFromMetrics(db.metrics, db.properties),
+    north_star: northStarFromMetrics(db.metrics, db.properties, { branches, checkoutSource: checkoutSourceOf(db.metrics, db.properties, db.channelCheckouts) }),
     core,
     guardrails: {
       ota_rating: otaRatingFrom(db.properties, db.scores, branches, asOf),
-      voice_ratio: voiceRatioFromMetrics(db.metrics, db.properties),
+      voice_ratio: voiceRatio,
+      voice_ratio_summary: voiceRatioSummary(voiceRatio, branches),
     },
     galaxies,
     constellations,
@@ -737,18 +820,21 @@ export async function loadUniverseFromDb(client: SupabaseClient, opts: { now?: D
     return count ?? 0
   }
 
-  const [reviews, tasks, scores, nReviews, nWithText] = await Promise.all([
+  const [reviews, tasks, scores, channelCheckouts, nReviews, nWithText] = await Promise.all([
     readByIds<ReviewRow>('reviews', COLUMNS.reviews, reviewIds),
     readByIds<TaskRow>('tasks', COLUMNS.tasks, taskIds),
     propIds.length
       ? paged<ScoreRow>('ota_scores', COLUMNS.scores, ['id'], r => r.id, q => q.in('property_id', propIds).lte('recorded_at', asOf))
       : Promise.resolve([] as ScoreRow[]),
+    propIds.length
+      ? paged<ChannelCheckoutRow>('ota_channel_checkouts', COLUMNS.channelCheckouts, ['id'], r => r.id, q => q.in('property_id', propIds))
+      : Promise.resolve([] as ChannelCheckoutRow[]),
     countReviews(false),
     countReviews(true),
   ])
 
   const { universe, warnings } = assembleUniverse({
-    stars, constellations, events, metrics, reviews, tasks, properties, scores,
+    stars, constellations, events, metrics, reviews, tasks, properties, scores, channelCheckouts,
     reviewCounts: { reviews: nReviews, reviews_with_text: nWithText },
   }, { now: opts.now })
   return { state: 'ready', universe, warnings }

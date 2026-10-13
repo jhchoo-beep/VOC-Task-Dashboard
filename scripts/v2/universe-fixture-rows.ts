@@ -6,7 +6,7 @@
  * 적재 뒤에는 compare-db-universe.ts --source db 로 실제 표를 읽는다.
  *
  * 읽는 파일(<data>): universe.json, metrics.json, reviews.resolved.json,
- *                   source/tasks.json, source/ota_properties.json, source/ota_scores.json
+ *                   source/tasks.json, source/ota_properties.json, source/ota_scores.json, source/ota_channel_checkouts.json
  * ────────────────────────────────────────────────────────────────
  */
 import { readFileSync } from 'node:fs'
@@ -24,6 +24,7 @@ export function rowsFromUniverseFiles(dataDir: string): DbSnapshot {
   const tasks: any[] = read('source/tasks.json')
   const props: any[] = read('source/ota_properties.json')
   const scores: any[] = read('source/ota_scores.json')
+  const v1Checkouts: any[] = read('source/ota_channel_checkouts.json')
 
   const constellations: ConstellationRow[] = u.constellations.map((c: any) => ({
     id: c.id, branch: c.branch, polarity: c.polarity, galaxy: c.galaxy, name: c.name, owner: c.owner, status: c.status,
@@ -74,6 +75,7 @@ export function rowsFromUniverseFiles(dataDir: string): DbSnapshot {
 
   return {
     stars, constellations, events, metrics: metricRows, reviews, tasks: taskRows, properties, scores: scoreRows,
+    channelCheckouts: v1Checkouts.map(c => ({ id: c.id, property_id: c.property_id, week_start: c.week_start, checkout_count: c.checkout_count })),
     reviewCounts: { reviews: resolved.length, reviews_with_text: resolved.filter(r => r.has_text).length },
   }
 }

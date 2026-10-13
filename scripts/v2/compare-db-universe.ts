@@ -28,6 +28,8 @@ const outPath = opt('--out', `C:/Users/MGRV/.claude/Output/2026-10-12_voc-v2-bui
 const EXPECTED: Record<string, string> = {
   'meta.generated_at': '생성 시각 — 조립할 때마다 다름',
   'meta.counts.duplicate_reviews': 'A 의 중복 리뷰 판정 수 — DB 에 원천 없음(화면 안 씀)',
+  'meta.counts.merged_duplicate_stars': 'A 의 합침 뒤 중복 별 제거 수 — DB 에 원천 없음(화면 안 씀)',
+  'meta.voice_dedup': 'A 의 합침 뒤 중복 별 제거 기록(뺀 별 ID) — DB 에 원천 없음(화면 안 씀)',
   'core.basis': '설명 문구 — DB 에 원천 없음(화면 안 씀)',
   'north_star.not_computed': '설명 문구 — DB 에 원천 없음(화면 안 씀)',
   'guardrails.voice_ratio_not_computed': '설명 문구 — DB 에 원천 없음(화면 안 씀)',
