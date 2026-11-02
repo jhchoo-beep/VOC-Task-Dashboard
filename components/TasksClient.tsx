@@ -333,15 +333,17 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
           userSelect: 'none',
         }}
       >
-        <span style={{ fontSize: 14 }}>{isMisc ? '📁' : '📌'}</span>
+        {/* 제목 묶음 — 아이콘과 제목이 한 덩어리로 움직여 아이콘만 따로 줄바꿈되지 않게 */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: '1 1 420px', minWidth: 0 }}>
+        <span style={{ fontSize: 14, flexShrink: 0, lineHeight: '20px' }}>{isMisc ? '📁' : '📌'}</span>
         {/* 트리거명 + 링크 아이콘 */}
-        <span style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, flexShrink: 1 }}>
+        <span style={{ fontWeight: 700, fontSize: 14, lineHeight: '20px', display: 'block', minWidth: 0, flex: 1, wordBreak: 'keep-all' }}>
           {trigger}
-          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{tasks.length}건</span>
+          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', marginLeft: 6 }}>{tasks.length}건</span>
           {triggerLink?.url && (
             <a href={triggerLink.url} target="_blank" rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--accent)', fontSize: 11, textDecoration: 'none', fontWeight: 400 }}>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--accent)', fontSize: 11, textDecoration: 'none', fontWeight: 400, marginLeft: 6, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
               <ExternalLink size={11} />
               {triggerLink.label || '참고'}
             </a>
@@ -349,13 +351,16 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
           {!isMisc && !embed && (
             <button
               onClick={e => { e.stopPropagation(); setLinkUrl(triggerLink?.url ?? ''); setLinkLabel(triggerLink?.label ?? ''); setShowLinkEdit(v => !v) }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, display: 'inline-flex', alignItems: 'center' }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, marginLeft: 4, display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}
               title="링크 편집"
             >
               <Link size={11} />
             </button>
           )}
         </span>
+        </div>
+        {/* 배지·컨트롤 묶음 — 좁은 화면에서는 통째로 둘째 줄로 내려가 카드마다 같은 모양 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 auto', minWidth: 0 }}>
         {/* 지점 배지 */}
         {branches.length > 0 && (
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -429,6 +434,7 @@ function TriggerGroupSection({ trigger, tasks, collapsed, onToggleCollapse, expa
           {collapsed ? '수행과제 보기' : '접기'}
           <ChevronDown size={11} style={{ transform: collapsed ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
         </span>
+        </div>
         </div>
       </div>
 
