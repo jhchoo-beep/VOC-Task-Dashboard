@@ -249,8 +249,9 @@ function DiscussionCard({ r, cr, triage, embed, on }: {
       padding: '14px 20px', marginBottom: 10,
       borderLeft: `3px solid ${avgBelow ? 'var(--critical)' : 'var(--medium)'}`,
     }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 16, fontWeight: 700 }}>
+      {/* 머리줄 칸 배치는 globals.css .wr-head — 카드마다 같은 세로줄에 수치가 선다 */}
+      <div className="wr-head">
+        <span className="wr-title" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 16, fontWeight: 700, minWidth: 0 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: branchColor(r.branch) }} />
           {r.branch} {r.otaName}
           {r.granularity === 'month' && (
@@ -259,15 +260,13 @@ function DiscussionCard({ r, cr, triage, embed, on }: {
             </span>
           )}
         </span>
-        {/* 수치와 버튼을 한 줄에 둔다 — 원인 한 줄이 빠진 뒤 버튼만 남은 둘째 줄은 여백일 뿐이다 */}
-        <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
+          <span style={{ fontSize: 13, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
             평균{' '}
             <b style={{ color: avgBelow ? 'var(--critical)' : 'var(--done)', fontWeight: 700 }}>{fmt(r.weekAvg)}</b>
             {' · '}{r.reviewCount}건
           </span>
           {belowN > 0 ? (
-            <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap' }}>
               <span style={{ fontSize: 13, color: 'var(--text-3)' }}>미달</span>
               <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--critical)', lineHeight: 1 }}>
                 {belowN}건
@@ -276,12 +275,13 @@ function DiscussionCard({ r, cr, triage, embed, on }: {
           ) : (
             // 평균은 미달인데 미달 리뷰 원문이 0건 = 원문을 확보하지 못한 채널이다.
             // 숫자 자리를 0으로 채우면 '미달 리뷰가 없다'로 읽힌다.
-            <Chip>원문 미확보</Chip>
+            <span><Chip>원문 미확보</Chip></span>
           )}
           {/* 판단 내역을 접힌 채로 상시 노출 — 카드를 열어야 아는 요약은 요약이 아니다
               (2026-08-11 재헌: "일일이 카드를 열어서 확인해야 한다"). 0건 칩은 가라앉히고
               건수 있는 칩은 채워서, 훑기만 해도 카드별 판단 분포가 읽히게 한다. */}
-          {sum && belowN > 0 && (
+          {/* 판단 칸은 비어도 자리를 지킨다 — 빠지면 버튼이 앞 칸으로 당겨져 세로줄이 깨진다 */}
+          {sum && belowN > 0 ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               {TRIAGE_VERDICTS.map(v => (
                 <span key={v} style={{
@@ -301,8 +301,9 @@ function DiscussionCard({ r, cr, triage, embed, on }: {
                 }}>대기 {sum.대기}</span>
               )}
             </span>
-          )}
+          ) : <span />}
           <button
+            className="wr-btn"
             onClick={() => setOpen(o => !o)}
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
@@ -314,7 +315,6 @@ function DiscussionCard({ r, cr, triage, embed, on }: {
             {open ? '리뷰 닫기' : '리뷰 보기'}
             <ChevronDown size={13} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
           </button>
-        </span>
       </div>
 
       {open && (
@@ -653,7 +653,8 @@ export default function WeeklyReportClient({
             // 🔴 key에 week를 포함해야 한다. propertyId만 쓰면 같은 채널이 주가 바뀌어도 같은
             //    인스턴스로 재사용돼 펼침 상태가 따라온다 — 회의에서 주를 넘기면 지난 주에 열어
             //    둔 카드가 펼쳐진 채로 시작해 '논의 카드 한 벌이 한 화면'이 깨진다.
-            cards.map(r => (
+            <div className="wr-cards">
+            {cards.map(r => (
               <DiscussionCard
                 key={`${week}-${r.propertyId}`}
                 r={r}
@@ -662,7 +663,8 @@ export default function WeeklyReportClient({
                 embed={embed}
                 on={triageOn}
               />
-            ))
+            ))}
+            </div>
           )}
 
           {/* key에 week를 줘야 한다 — 안 주면 주가 바뀌어도 리마운트되지 않아
