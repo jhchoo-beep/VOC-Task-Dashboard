@@ -71,7 +71,7 @@ export default function Kr4Calendar({ data, mode, sel, branchSel, onMode, onPick
           {months.map(x => <button key={x} style={CHIP(x === M)} onClick={() => setCalMonth(x)}>{+x.slice(5)}월</button>)}
         </div>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table className="kr4-cal" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             {mode === 'w' ? ['화', '수', '목', '금', '토', '일', '월'].map(d => <th key={d} style={th}>{d}</th>) : <th style={{ ...th, textAlign: 'left' }}>월</th>}

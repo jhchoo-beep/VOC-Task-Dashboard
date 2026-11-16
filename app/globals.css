@@ -256,6 +256,16 @@ html, body {
   .tasks-progress-bar    { width: 100% !important; }
   .tasks-progress-counts { justify-content: space-around !important; gap: 8px !important; width: 100% !important; }
 
+  /* KR4 주간 점수: 2열 배치(인라인 grid-template-columns)를 1열로 */
+  .kr4-grid { grid-template-columns: minmax(0, 1fr) !important; }
+
+  /* KR4 ⓘ 안내 상자: 화면 폭 안에 들어오게 (열린 상자가 오른쪽으로 잘림) */
+  .kr4-info { position: static !important; }
+  .kr4-info-box { left: 14px !important; right: 14px !important; width: auto !important; max-width: none !important; top: auto !important; margin-top: 6px; }
+
+  /* KR4 달력: 7일 + 평균 열이 좁은 폭에서 잘리지 않게 칸 여백·글자 축소 */
+  .kr4-cal th, .kr4-cal td { padding-left: 1px !important; padding-right: 1px !important; font-size: 11px !important; }
+
   /* 가로 스크롤 방지 */
   .main-content { overflow-x: hidden !important; }
 }

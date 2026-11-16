@@ -34,7 +34,7 @@ export default function Kr4WeeklyClient({ rows, collectedThrough, updatedAt, ota
   const stamp = updatedAt ? new Date(new Date(updatedAt).getTime() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ') : ''
 
   return (
-    <div style={{ padding: '28px 32px' }}>
+    <div className="page-pad" style={{ padding: '28px 32px' }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>Stay OTA 리뷰 평점</div>
         <h1 className="font-display" style={{ fontSize: 26, fontWeight: 800 }}>KR4 STAY VOC 주간 점수</h1>

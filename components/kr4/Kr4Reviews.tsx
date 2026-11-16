@@ -105,7 +105,7 @@ export default function Kr4Reviews({ data, mode, sel, branchSel, F, setF }: {
         ))}
       </div>
       <div style={{ overflow: 'auto', maxHeight: 640, border: '1px solid var(--border)', borderRadius: 8 }}>
-        <table style={{ tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <table style={{ tableLayout: 'fixed', width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 14 }}>
           <colgroup>{W.map((w, i) => <col key={i} style={{ width: w }} />)}<col /></colgroup>
           <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 1, boxShadow: '0 1px 0 var(--border)' }}>
             <tr>
