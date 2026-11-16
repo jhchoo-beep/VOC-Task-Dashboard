@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { LayoutDashboard, FileText, BarChart2, CheckSquare, TrendingUp, LogOut, Database, ExternalLink, Trophy, Star, Sun, Moon, CalendarRange } from 'lucide-react'
+import { LayoutDashboard, FileText, BarChart2, CheckSquare, TrendingUp, LogOut, Database, ExternalLink, Trophy, Star, Sun, Moon, CalendarRange, ClipboardCheck } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 
 const EXTERNAL_LINKS: { href: string; icon: any; label: string }[] = []
@@ -29,6 +29,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Data Analysis',
     items: [
       { href: '/weekly-report', icon: CalendarRange, label: '주간 리포트',      mobileLabel: '주간' },
+      { href: '/kr4-weekly',  icon: ClipboardCheck,  label: 'KR4 STAY VOC 주간 점수', mobileLabel: 'KR4' },
       { href: '/report',      icon: BarChart2,       label: '월간 리포트',      mobileLabel: '리포트' },
       { href: '/analytics',   icon: TrendingUp,      label: '분석 & 트렌드',    mobileLabel: '분석' },
       { href: '/achievement', icon: Trophy,          label: '성과 & 개선 이력', mobileLabel: '성과' },
