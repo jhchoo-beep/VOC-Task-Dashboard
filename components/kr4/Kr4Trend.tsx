@@ -14,8 +14,8 @@ const GRAY = 'var(--text-3)'
 interface Series { id: string; label: string; color: string; width: number; vals: (number | null)[]; cnt: number[]; main: boolean }
 interface Row { k: string; name: string; [id: string]: string | number | null }
 
-// 점 옆 점수 라벨 = 현재 HTML 의 valLabels 와 같은 규칙: 모든 선의 모든 점 오른쪽(+9px), 같은 칸에서 14px 안으로 겹치면 아래로 밀어 냄, 굵은 선(3 이상)은 굵게
-function ValLabels({ rows, series }: { rows: Row[]; series: Series[] }) {
+// 점 옆 점수 라벨 = 현재 HTML 의 valLabels 와 같은 규칙: 모든 선의 모든 점 오른쪽(점 반지름+6px — 고른 기간 점 r=8, 나머지 r=4), 같은 칸에서 14px 안으로 겹치면 아래로 밀어 냄, 굵은 선(3 이상)은 굵게
+function ValLabels({ rows, series, sel }: { rows: Row[]; series: Series[]; sel: string[] }) {
   const xs = useXAxisScale(), ys = useYAxisScale()
   if (!xs || !ys) return null
   return (
@@ -25,7 +25,7 @@ function ValLabels({ rows, series }: { rows: Row[]; series: Series[] }) {
           const v = row[s.id]
           const x = xs(row.name), y = ys(v as number)
           return typeof v === 'number' && typeof x === 'number' && typeof y === 'number'
-            ? [{ x: x + 9, y, t: v.toFixed(2), c: s.color, b: s.width >= 3, key: `${j}-${s.id}` }] : []
+            ? [{ x: x + (sel.includes(row.k) ? 8 : 4) + 6, y, t: v.toFixed(2), c: s.color, b: s.width >= 3, key: `${j}-${s.id}` }] : []
         }).sort((a, b) => a.y - b.y)
         for (let k = 1; k < L.length; k++) if (L[k].y - L[k - 1].y < 14) L[k].y = L[k - 1].y + 14
         return L.map(l => (
@@ -158,7 +158,7 @@ export default function Kr4Trend({ data, mode, sel, branchSel, cmpOn, cmpN, onCm
                 }}
                 activeDot={{ r: 9 }} isAnimationActive={false} />
             ))}
-            <ValLabels rows={rows} series={series} />
+            <ValLabels rows={rows} series={series} sel={sel} />
           </LineChart>
         </ResponsiveContainer>}
       </div>

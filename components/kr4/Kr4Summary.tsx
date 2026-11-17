@@ -53,13 +53,15 @@ export default function Kr4Summary({ data, mode, sel, branchSel, onHid }: { data
       {row('hid', <button title="누르면 아래 리뷰 상세가 가려진 리뷰만으로 걸러짐" onClick={onHid} style={{ all: 'unset', cursor: 'pointer', textDecoration: 'underline dotted' }}>가려진 리뷰(9.0 이상인데 불만 적힘) {M.hid}건</button>, M.pk ? `가려진 리뷰 ${M.phid}건` : '')}
       {M.cn && <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '4px 0' }}>{M.cn}</div>}
       {M.mv && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-          {row('mvh', <b style={{ color: 'var(--text-1)' }}>{M.mv.label} ({left})</b>, <b style={{ color: 'var(--text-1)' }}>{M.cmp}</b>)}
+        <details open style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+          <summary style={{ cursor: 'pointer', listStyle: 'none', userSelect: 'none' }} title="누르면 접고 폅니다">
+            {row('mvh', <b style={{ color: 'var(--text-1)' }}><span className="kr4-chev" aria-hidden="true" /> {M.mv.label} ({left})</b>, <b style={{ color: 'var(--text-1)' }}>{M.cmp}</b>)}
+          </summary>
           {M.mv.rows.map(x => row(x.c,
             <span style={{ opacity: x.n ? 1 : 0.45 }}>{x.c} <b>{x.n}건</b> {x.n > x.p && <span style={{ color: 'var(--critical)' }}>▲</span>}{x.n < x.p && <span style={{ color: 'var(--done)' }}>▼</span>}</span>,
             <span style={{ opacity: x.p ? 1 : 0.45 }}>{x.c} {x.p}건</span>, { padding: '2px 0' }))}
           {M.mv.side && <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 8 }}><b style={{ color: 'var(--text-1)' }}>{M.mv.side.lab}</b> {M.mv.side.t}</div>}
-        </div>
+        </details>
       )}
       {M.ov && <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>{M.ov}</div>}
       {!M.n && <div style={{ fontSize: 12, color: 'var(--text-3)' }}>선택한 기간에 리뷰가 없습니다 ({f2(null)}).</div>}

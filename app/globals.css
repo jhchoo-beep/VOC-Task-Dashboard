@@ -309,3 +309,5 @@ html, body {
   .wr-head { grid-template-columns: 96px 86px minmax(0, 1fr) 92px; }
   .wr-head > .wr-title { grid-column: 1 / -1; }
 }
+.kr4-chev::before { content: "▾"; display: inline-block; width: 1em; }
+details:not([open]) > summary .kr4-chev::before { content: "▸"; }

@@ -15,11 +15,11 @@ export default function Kr4Heat({ data, mode, sel, branchSel, cmpOn, cmpN, F, on
   const sc = keys.map((k, j) => (isSel(k) ? j : -1)).filter(j => j >= 0)
   const sumc = (f: (r: Kr4Rec) => boolean) => sc.reduce((s, j) => s + cols[j].filter(f).length, 0)
   const many = keys.length > 5
-  const th = (k: string): React.CSSProperties => ({
-    textAlign: 'center', fontWeight: isSel(k) ? 700 : 500, fontSize: 12, padding: '2px 0', whiteSpace: 'nowrap', lineHeight: 1.3,
-    color: isSel(k) ? 'var(--accent)' : 'var(--text-3)', boxShadow: isSel(k) ? 'inset 0 -3px var(--accent)' : undefined,
-    background: isPrev(k) ? 'rgba(127,127,127,.12)' : undefined,
-  })
+  // 헤더 3종을 같은 모양(위쪽 둥근 칸 + 아래 3px 띠)으로: 고른 기간 = 파랑 칸·파랑 띠, 붙인 직전 기간 = 회색 칸, 합계 = 진한 글자·회색 칸·진한 띠
+  const thBase: React.CSSProperties = { textAlign: 'center', fontSize: 12, padding: '4px 0 5px', whiteSpace: 'nowrap', lineHeight: 1.35, borderRadius: '6px 6px 0 0' }
+  const th = (k: string): React.CSSProperties => (isSel(k)
+    ? { ...thBase, fontWeight: 700, color: 'var(--accent)', background: 'rgba(43,127,224,.12)', boxShadow: 'inset 0 -3px var(--accent)' }
+    : { ...thBase, fontWeight: 500, color: isPrev(k) ? 'var(--text-3)' : 'var(--text-2)', background: isPrev(k) ? 'rgba(127,127,127,.12)' : undefined })
   const lab = (k: string) => (mode === 'w'
     ? <><span>{md(addDays(k, -6))}</span><br /><span>~{md(k)}{k >= data.last ? '*' : ''}</span></>
     : <>{+k.slice(5)}월</>)
@@ -45,7 +45,7 @@ export default function Kr4Heat({ data, mode, sel, branchSel, cmpOn, cmpN, F, on
           <tr>
             <th style={{ width: 74 }} />
             {keys.map(k => <th key={k} style={th(k)}>{isPrev(k) && !many && <i style={{ fontStyle: 'normal', fontSize: 10 }}>직전 </i>}{lab(k)}</th>)}
-            {multi && <th style={{ fontWeight: 700, fontSize: 12, background: 'rgba(127,127,127,.12)' }}>합계<br /><span style={{ fontSize: 10, fontWeight: 400 }}>고른 기간</span></th>}
+            {multi && <th style={{ ...thBase, fontWeight: 700, color: 'var(--text-1)', background: 'rgba(127,127,127,.16)', boxShadow: 'inset 0 -3px var(--text-2)' }}>합계<br /><span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-2)' }}>고른 기간</span></th>}
           </tr>
         </thead>
         <tbody>
@@ -79,7 +79,10 @@ export default function Kr4Heat({ data, mode, sel, branchSel, cmpOn, cmpN, F, on
           </tr>
         </tbody>
       </table>
-      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8 }}>칸 = 그 기간 그 점수대 리뷰 건수, 진할수록 많음 · 칸을 누르면 아래 리뷰 상세가 그 기간·점수대로 걸러짐</div>
+      <ul style={{ fontSize: 11, color: 'var(--text-3)', margin: '8px 0 0', paddingLeft: 16, lineHeight: 1.6 }}>
+        <li>칸 = 그 기간 그 점수대 리뷰 건수, 진할수록 많음</li>
+        <li>칸을 누르면 아래 리뷰 상세가 그 기간·점수대로 걸러짐</li>
+      </ul>
     </div>
   )
 }
