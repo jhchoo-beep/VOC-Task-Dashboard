@@ -14,7 +14,7 @@ const GRAY = 'var(--text-3)'
 interface Series { id: string; label: string; color: string; width: number; vals: (number | null)[]; cnt: number[]; main: boolean }
 interface Row { k: string; name: string; [id: string]: string | number | null }
 
-// 점 옆 점수 라벨 = 현재 HTML 의 valLabels 와 같은 규칙: 모든 선의 모든 점 오른쪽(점 반지름+6px — 고른 기간 점 r=8, 나머지 r=4), 같은 칸에서 14px 안으로 겹치면 아래로 밀어 냄, 굵은 선(3 이상)은 굵게
+// 점 옆 점수 라벨 = 현재 HTML 의 valLabels 와 같은 규칙: 모든 선의 모든 점 위쪽(점 반지름+9px — 선이 글자를 가리지 않게, 고른 기간 점 r=8, 나머지 r=4), 같은 칸에서 14px 안으로 겹치면 위쪽 라벨을 더 위로 밀어 냄, 굵은 선(3 이상)은 굵게
 function ValLabels({ rows, series, sel }: { rows: Row[]; series: Series[]; sel: string[] }) {
   const xs = useXAxisScale(), ys = useYAxisScale()
   if (!xs || !ys) return null
@@ -25,11 +25,13 @@ function ValLabels({ rows, series, sel }: { rows: Row[]; series: Series[]; sel: 
           const v = row[s.id]
           const x = xs(row.name), y = ys(v as number)
           return typeof v === 'number' && typeof x === 'number' && typeof y === 'number'
-            ? [{ x: x + (sel.includes(row.k) ? 8 : 4) + 6, y, t: v.toFixed(2), c: s.color, b: s.width >= 3, key: `${j}-${s.id}` }] : []
+            ? [{ x, y: y - (sel.includes(row.k) ? 8 : 4) - 9, below: y + (sel.includes(row.k) ? 8 : 4) + 9, t: v.toFixed(2), c: s.color, b: s.width >= 3, key: `${j}-${s.id}` }] : []
         }).sort((a, b) => a.y - b.y)
-        for (let k = 1; k < L.length; k++) if (L[k].y - L[k - 1].y < 14) L[k].y = L[k - 1].y + 14
+        // 한 칸에 선이 여러 개면 가장 낮은 점의 라벨은 점 아래로, 나머지는 점 위쪽(겹치면 위쪽 라벨을 더 위로) — 점이 겹쳐도 글자가 다른 점 밑에 깔리지 않게
+        if (L.length > 1) L[L.length - 1].y = L[L.length - 1].below
+        for (let k = L.length - 3; k >= 0; k--) if (L[k + 1].y - L[k].y < 14) L[k].y = L[k + 1].y - 14
         return L.map(l => (
-          <text key={l.key} x={l.x} y={l.y} dominantBaseline="middle" textAnchor="start" fill={l.c}
+          <text key={l.key} x={j === 0 ? l.x - 4 : l.x} y={l.y} dominantBaseline="middle" textAnchor={j === 0 ? 'start' : 'middle'} fill={l.c}
             style={{ fontSize: 12, fontWeight: l.b ? 700 : 500, paintOrder: 'stroke', stroke: 'var(--bg-card)', strokeWidth: 3, strokeLinejoin: 'round' }}>{l.t}</text>
         ))
       })}

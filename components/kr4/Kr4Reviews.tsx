@@ -104,7 +104,7 @@ export default function Kr4Reviews({ data, mode, sel, branchSel, F, setF }: {
           <span key={k} style={{ display: 'inline-block', padding: '0 8px', borderRadius: 4, marginLeft: 6, background: ROW_BG[k], color: 'var(--text-1)' }}>{l}</span>
         ))}
       </div>
-      <div style={{ overflow: 'auto', maxHeight: 640, border: '1px solid var(--border)', borderRadius: 8 }}>
+      <div style={{ overflow: 'auto', maxHeight: 640, minHeight: pop ? 400 : undefined, border: '1px solid var(--border)', borderRadius: 8 }}>   {/* 열 필터 팝업이 잘리지 않게(결과 0건이어도 닫을 수 있게) */}
         <table style={{ tableLayout: 'fixed', width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 14 }}>
           <colgroup>{W.map((w, i) => <col key={i} style={{ width: w }} />)}<col /></colgroup>
           <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 1, boxShadow: '0 1px 0 var(--border)' }}>
