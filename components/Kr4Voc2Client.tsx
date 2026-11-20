@@ -5,6 +5,9 @@ import {
   type V2Cell, type V2Tone,
 } from '../lib/kr4v2'
 import type { Kr4v2Props } from '../lib/kr4v2Data'
+import type { Kr4Props } from '../lib/kr4Data'
+import { buildKr4Data, latestKey, type Kr4Row } from '../lib/kr4'
+import Kr4Cards from './kr4/Kr4Cards'
 
 // KR4 STAY VOC 2.0 주간 리포트 — 선택 상태는 주 하나. 달 누적은 그 주가 끝나는 날까지의 같은 달 리뷰.
 const TONE: Record<V2Tone, string> = { ok: 'var(--done)', over: 'var(--critical)', none: 'var(--text-3)' }
@@ -64,7 +67,21 @@ function IndexTable({ cols, label, cell }: { cols: string[]; label: (c: string) 
   )
 }
 
-export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice }: Kr4v2Props) {
+// 목적(신규 리뷰 평점 9.0)은 KR4 주간 점수(kr4_reviews)의 카드를 그대로 쓰고, 지표(불편 지수)는 V2 분석으로 계산한다.
+// 🔴 점수는 V2 분석 리뷰로 다시 계산하지 않는다 — 같은 화면에 기준이 다른 평균이 두 개 뜬다.
+function Heading({ k, title, sub }: { k: string; title: string; sub: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', margin: '18px 0 10px' }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>{k}</span>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>{title}</h2>
+      <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{sub}</span>
+    </div>
+  )
+}
+
+export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 }: Kr4v2Props & { kr4: Kr4Props }) {
+  const kd = useMemo(() => buildKr4Data(kr4.rows as Kr4Row[], kr4.collectedThrough ?? undefined), [kr4])
+  const [branchSel, setBranchSel] = useState<string[]>([])
   const weeks = useMemo(() => weeksOf(reviews), [reviews])
   const months = useMemo(() => monthsOf(reviews), [reviews])
   const [week, setWeek] = useState(() => weeks[weeks.length - 1] ?? '')
@@ -82,10 +99,10 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice }: Kr
   return (
     <div className="page-pad" style={{ padding: '28px 32px', maxWidth: 1180 }}>
       <header style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>Stay OTA 리뷰 · STAY VOC 2.0 불편 지수</div>
+        <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>Stay OTA 리뷰 · 목적 9.0 · 지표 불편 지수</div>
         <h1 className="font-display" style={{ fontSize: 26, fontWeight: 800 }}>KR4 STAY VOC 2.0 주간 리포트</h1>
         <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, ...num }}>
-          {md(lastDate)} 리뷰까지 분석 · 분석 리뷰 {reviews.length.toLocaleString('en-US')}건{stamp ? ` · 분석 ${md(stamp)}` : ''} · 목표 불편 지수 {V2_TARGET} 미만
+          {md(lastDate)} 리뷰까지 분석 · 분석 리뷰 {reviews.length.toLocaleString('en-US')}건{stamp ? ` · 분석 ${md(stamp)}` : ''}
         </p>
       </header>
 
@@ -102,6 +119,14 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice }: Kr
         })}
       </div>
 
+      <Heading k="목적" title="신규 리뷰 평점" sub="Target 9.0 · KR4 STAY VOC 주간 점수와 같은 값" />
+      {kd.recs.length
+        ? <Kr4Cards data={kd} ota={{ props: kr4.ota.props, scores: kr4.ota.scores }} mode="w"
+            sel={[kd.weeks.includes(week) ? week : latestKey(kd, 'w')]} branchSel={branchSel}
+            onPick={b => setBranchSel(cur => (b == null || cur.includes(b) ? [] : [b]))} />
+        : <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{kr4.notice ?? '점수 데이터가 없습니다.'}</p>}
+
+      <Heading k="지표" title="불편 지수" sub={`리뷰 100건당 불편 수 · 목표 ${V2_TARGET} 미만`} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
         {V2_BRANCHES.map(b => {
           const m = cellOf(monthToDate(reviews, b, week))
@@ -123,12 +148,8 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice }: Kr
                 리뷰 {m.n}건 · 불편 {m.neg}개
               </div>
               <dl style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 5, columnGap: 10, fontSize: 12 }}>
-                <dt style={{ color: 'var(--text-3)' }}>이번 주</dt>
+                <dt style={{ color: 'var(--text-3)' }}>고른 주</dt>
                 <dd style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><Idx c={w} /> <span style={{ ...num, fontSize: 11, color: 'var(--text-3)' }}>{w.n ? `${w.n}건` : ''}</span></dd>
-                <dt style={{ color: 'var(--text-3)' }}>리뷰 평균</dt>
-                <dd style={{ ...num, textAlign: 'right', fontWeight: 600, color: m.avg == null ? 'var(--text-3)' : m.avg >= 9 ? 'var(--done)' : 'var(--critical)' }}>
-                  {m.avg == null ? '–' : m.avg.toFixed(2)}
-                </dd>
               </dl>
               <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>가장 많은 불편</div>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', marginTop: 2, lineHeight: 1.4 }}>

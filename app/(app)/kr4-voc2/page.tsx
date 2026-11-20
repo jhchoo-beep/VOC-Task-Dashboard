@@ -2,9 +2,10 @@
 export const dynamic = 'force-dynamic'
 
 import { getKr4v2Props } from '@/lib/kr4v2Data'
+import { getKr4Props } from '@/lib/kr4Data'
 import Kr4Voc2Client from '@/components/Kr4Voc2Client'
 
 export default async function Kr4Voc2Page() {
-  const props = await getKr4v2Props()
-  return <Kr4Voc2Client {...props} />
+  const [props, kr4] = await Promise.all([getKr4v2Props(), getKr4Props()])
+  return <Kr4Voc2Client {...props} kr4={kr4} />
 }
