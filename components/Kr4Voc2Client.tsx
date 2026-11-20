@@ -6,8 +6,8 @@ import {
 } from '../lib/kr4v2'
 import type { Kr4v2Props } from '../lib/kr4v2Data'
 import type { Kr4Props } from '../lib/kr4Data'
-import { buildKr4Data, latestKey, type Kr4Row } from '../lib/kr4'
-import Kr4Cards from './kr4/Kr4Cards'
+import { avg, buildKr4Data, f2, kpiCells, latestKey, prevKeys, rowsFor, tone, type Kr4Data, type Kr4Row, type OtaProperty, type OtaScore } from '../lib/kr4'
+import { TONE_COLOR } from './kr4/Kr4Shared'
 
 // KR4 STAY VOC 2.0 주간 리포트 — 선택 상태는 주 하나. 달 누적은 그 주가 끝나는 날까지의 같은 달 리뷰.
 const TONE: Record<V2Tone, string> = { ok: 'var(--done)', over: 'var(--critical)', none: 'var(--text-3)' }
@@ -79,9 +79,44 @@ function Heading({ k, title, sub }: { k: string; title: string; sub: string }) {
   )
 }
 
+// 점수 카드 — KR4 주간 점수와 같은 계산(lib/kr4 kpiCells·rowsFor·prevKeys)을 쓰고, 좁은 폭에서도 줄바꿈되지 않게 값을 세로로 쌓는다.
+// 지점 카드는 아래 불편 지수 카드와 같은 칸에 놓아 위아래로 같은 지점이 오게 한다(전체는 위에 한 줄).
+function scoreOf(kd: Kr4Data, wk: string, b: string | null) {
+  const bs = b == null ? [] : [b]
+  const [ota, mon] = kpiCells(kd, { props: [], scores: [] }, b)
+  const sel = [kd.weeks.includes(wk) ? wk : latestKey(kd, 'w')]
+  const rs = rowsFor(kd, 'w', sel, bs)
+  const pk = prevKeys(kd, 'w', sel)
+  const a = avg(rs), p = pk ? avg(rowsFor(kd, 'w', pk, bs)) : null
+  return { ota, mon, wk: a, wn: rs.length, d: a != null && p != null ? a - p : null }
+}
+const Delta = ({ d }: { d: number | null }) =>
+  d == null ? null : <span style={{ ...num, fontSize: 11, fontWeight: 600, color: d < 0 ? 'var(--critical)' : 'var(--done)' }}>{d >= 0 ? '+' : ''}{d.toFixed(2)}</span>
+
+function ScoreBlock({ kd, ota, wk, b }: { kd: Kr4Data; ota: { props: OtaProperty[]; scores: OtaScore[] }; wk: string; b: string | null }) {
+  const s = scoreOf(kd, wk, b)
+  const o = kpiCells(kd, ota, b)[0]
+  const big = (v: number | null) => <span style={{ ...num, fontSize: 28, fontWeight: 800, lineHeight: 1.1, color: TONE_COLOR[tone(v)] }}>{f2(v)}</span>
+  const sm = (v: number | null) => <b style={{ ...num, fontSize: 13, color: TONE_COLOR[tone(v)] }}>{f2(v)}</b>
+  const n = (x: number) => <span style={{ ...num, fontSize: 11, color: 'var(--text-3)' }}>{x.toLocaleString('en-US')}건</span>
+  return (
+    <>
+      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 10 }}>{s.mon.label}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>{big(s.mon.v)}{n(s.mon.n)}</div>
+      <dl style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 5, columnGap: 10, fontSize: 12 }}>
+        <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>고른 주</dt>
+        <dd style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{s.wk == null ? <span style={{ color: 'var(--text-3)' }}>리뷰 없음</span> : <>{sm(s.wk)} {n(s.wn)}</>}</dd>
+        <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>직전 대비</dt>
+        <dd style={{ textAlign: 'right' }}>{s.d == null ? <span style={{ color: 'var(--text-3)' }}>–</span> : <Delta d={s.d} />}</dd>
+        <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }} title="OTA 사이트에 표시된 누적 평점과 리뷰 수. 5점 만점 채널은 2배 환산, 리뷰 수 가중.">OTA 평점</dt>
+        <dd style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{o.v == null ? '–' : <>{sm(o.v)} {n(o.n)}</>}</dd>
+      </dl>
+    </>
+  )
+}
+
 export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 }: Kr4v2Props & { kr4: Kr4Props }) {
   const kd = useMemo(() => buildKr4Data(kr4.rows as Kr4Row[], kr4.collectedThrough ?? undefined), [kr4])
-  const [branchSel, setBranchSel] = useState<string[]>([])
   const weeks = useMemo(() => weeksOf(reviews), [reviews])
   const months = useMemo(() => monthsOf(reviews), [reviews])
   const [week, setWeek] = useState(() => weeks[weeks.length - 1] ?? '')
@@ -120,10 +155,29 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
       </div>
 
       <Heading k="목적" title="신규 리뷰 평점" sub="Target 9.0 · KR4 STAY VOC 주간 점수와 같은 값" />
-      {kd.recs.length
-        ? <Kr4Cards data={kd} ota={{ props: kr4.ota.props, scores: kr4.ota.scores }} mode="w"
-            sel={[kd.weeks.includes(week) ? week : latestKey(kd, 'w')]} branchSel={branchSel}
-            onPick={b => setBranchSel(cur => (b == null || cur.includes(b) ? [] : [b]))} />
+      {kd.recs.length ? (() => {
+        const all = scoreOf(kd, week, null)
+        const ota = { props: kr4.ota.props, scores: kr4.ota.scores }
+        const o = kpiCells(kd, ota, null)[0]
+        return (
+          <>
+            <div className="card" style={{ padding: '10px 16px', marginBottom: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 18, rowGap: 4, fontSize: 12, color: 'var(--text-3)' }}>
+              <b style={{ fontSize: 13, color: 'var(--text-1)' }}>4개 지점 전체</b>
+              <span>{all.mon.label} <b style={{ ...num, fontSize: 15, color: TONE_COLOR[tone(all.mon.v)] }}>{f2(all.mon.v)}</b> <span style={num}>{all.mon.n}건</span></span>
+              <span>고른 주 <b style={{ ...num, fontSize: 15, color: TONE_COLOR[tone(all.wk)] }}>{f2(all.wk)}</b> <span style={num}>{all.wn}건</span> <Delta d={all.d} /></span>
+              <span>OTA 표시 평점 <b style={{ ...num, color: TONE_COLOR[tone(o.v)] }}>{f2(o.v)}</b></span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+              {V2_BRANCHES.map(b => (
+                <article key={b} className="card" style={{ padding: '14px 16px' }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{b}</h3>
+                  <ScoreBlock kd={kd} ota={ota} wk={week} b={b} />
+                </article>
+              ))}
+            </div>
+          </>
+        )
+      })()
         : <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{kr4.notice ?? '점수 데이터가 없습니다.'}</p>}
 
       <Heading k="지표" title="불편 지수" sub={`리뷰 100건당 불편 수 · 목표 ${V2_TARGET} 미만`} />
@@ -148,7 +202,7 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
                 리뷰 {m.n}건 · 불편 {m.neg}개
               </div>
               <dl style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 5, columnGap: 10, fontSize: 12 }}>
-                <dt style={{ color: 'var(--text-3)' }}>고른 주</dt>
+                <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>고른 주</dt>
                 <dd style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><Idx c={w} /> <span style={{ ...num, fontSize: 11, color: 'var(--text-3)' }}>{w.n ? `${w.n}건` : ''}</span></dd>
               </dl>
               <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>가장 많은 불편</div>
