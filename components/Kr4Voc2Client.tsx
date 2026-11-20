@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import {
-  V2_BRANCHES, V2_TARGET, cellOf, inMonth, inWeek, monthOf, monthToDate, monthsOf, topComplaints, v2Tone, weekStart, weeksOf,
+  V2_BRANCHES, cellOf, inMonth, inWeek, monthOf, monthToDate, monthsOf, topComplaints, v2Tone, weekStart, weeksOf,
   type V2Cell, type V2Tone,
 } from '../lib/kr4v2'
 import type { Kr4v2Props } from '../lib/kr4v2Data'
@@ -74,7 +74,7 @@ function Heading({ k, title, sub }: { k: string; title: string; sub: string }) {
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', margin: '18px 0 10px' }}>
       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>{k}</span>
       <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>{title}</h2>
-      <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{sub}</span>
+      {sub && <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{sub}</span>}
     </div>
   )
 }
@@ -104,7 +104,7 @@ function ScoreBlock({ kd, ota, wk, b }: { kd: Kr4Data; ota: { props: OtaProperty
       <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 10 }}>{s.mon.label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>{big(s.mon.v)}{n(s.mon.n)}</div>
       <dl style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 5, columnGap: 10, fontSize: 12 }}>
-        <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>고른 주</dt>
+        <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>해당 주</dt>
         <dd style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{s.wk == null ? <span style={{ color: 'var(--text-3)' }}>리뷰 없음</span> : <>{sm(s.wk)} {n(s.wn)}</>}</dd>
         <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>직전 대비</dt>
         <dd style={{ textAlign: 'right' }}>{s.d == null ? <span style={{ color: 'var(--text-3)' }}>–</span> : <Delta d={s.d} />}</dd>
@@ -115,7 +115,7 @@ function ScoreBlock({ kd, ota, wk, b }: { kd: Kr4Data; ota: { props: OtaProperty
   )
 }
 
-export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 }: Kr4v2Props & { kr4: Kr4Props }) {
+export default function Kr4Voc2Client({ reviews, stars, notice, kr4 }: Kr4v2Props & { kr4: Kr4Props }) {
   const kd = useMemo(() => buildKr4Data(kr4.rows as Kr4Row[], kr4.collectedThrough ?? undefined), [kr4])
   const weeks = useMemo(() => weeksOf(reviews), [reviews])
   const months = useMemo(() => monthsOf(reviews), [reviews])
@@ -126,19 +126,12 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
   }
 
   const recent = weeks.slice(-8)
-  const lastDate = reviews.reduce((a, r) => (r.review_date > a ? r.review_date : a), '')
-  // toLocaleString 은 서버와 브라우저 로케일이 달라 하이드레이션이 어긋난다 — KST(+9h)로 직접 만든다
-  const stamp = analyzedAt ? new Date(new Date(analyzedAt).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : ''
   const month = monthOf(week)
 
   return (
     <div className="page-pad" style={{ padding: '28px 32px', maxWidth: 1180 }}>
       <header style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>Stay OTA 리뷰 · 목적 9.0 · 지표 불편 지수</div>
         <h1 className="font-display" style={{ fontSize: 26, fontWeight: 800 }}>KR4 STAY VOC 2.0 주간 리포트</h1>
-        <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, ...num }}>
-          {md(lastDate)} 리뷰까지 분석 · 분석 리뷰 {reviews.length.toLocaleString('en-US')}건{stamp ? ` · 분석 ${md(stamp)}` : ''}
-        </p>
       </header>
 
       <div role="group" aria-label="주 고르기" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
@@ -154,7 +147,7 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
         })}
       </div>
 
-      <Heading k="목적" title="신규 리뷰 평점" sub="Target 9.0 · KR4 STAY VOC 주간 점수와 같은 값" />
+      <Heading k="목적" title="신규 리뷰 평점" sub="" />
       {kd.recs.length ? (() => {
         const all = scoreOf(kd, week, null)
         const ota = { props: kr4.ota.props, scores: kr4.ota.scores }
@@ -164,7 +157,7 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
             <div className="card" style={{ padding: '10px 16px', marginBottom: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 18, rowGap: 4, fontSize: 12, color: 'var(--text-3)' }}>
               <b style={{ fontSize: 13, color: 'var(--text-1)' }}>4개 지점 전체</b>
               <span>{all.mon.label} <b style={{ ...num, fontSize: 15, color: TONE_COLOR[tone(all.mon.v)] }}>{f2(all.mon.v)}</b> <span style={num}>{all.mon.n}건</span></span>
-              <span>고른 주 <b style={{ ...num, fontSize: 15, color: TONE_COLOR[tone(all.wk)] }}>{f2(all.wk)}</b> <span style={num}>{all.wn}건</span> <Delta d={all.d} /></span>
+              <span>해당 주 <b style={{ ...num, fontSize: 15, color: TONE_COLOR[tone(all.wk)] }}>{f2(all.wk)}</b> <span style={num}>{all.wn}건</span> <Delta d={all.d} /></span>
               <span>OTA 표시 평점 <b style={{ ...num, color: TONE_COLOR[tone(o.v)] }}>{f2(o.v)}</b></span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
@@ -180,7 +173,7 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
       })()
         : <p style={{ fontSize: 12, color: 'var(--text-3)' }}>{kr4.notice ?? '점수 데이터가 없습니다.'}</p>}
 
-      <Heading k="지표" title="불편 지수" sub={`리뷰 100건당 불편 수 · 목표 ${V2_TARGET} 미만`} />
+      <Heading k="지표" title="불편 지수" sub="" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
         {V2_BRANCHES.map(b => {
           const m = cellOf(monthToDate(reviews, b, week))
@@ -191,7 +184,6 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
             <article key={b} className="card" style={{ padding: '14px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{b}</h3>
-                {b === '고성' && <span style={{ fontSize: 10, color: 'var(--text-3)' }}>분기로 판단</span>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 10 }}>{mLabel(month)} 누적 불편 지수</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
@@ -202,7 +194,7 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
                 리뷰 {m.n}건 · 불편 {m.neg}개
               </div>
               <dl style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 5, columnGap: 10, fontSize: 12 }}>
-                <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>고른 주</dt>
+                <dt style={{ color: 'var(--text-3)', whiteSpace: 'nowrap' }}>해당 주</dt>
                 <dd style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><Idx c={w} /> <span style={{ ...num, fontSize: 11, color: 'var(--text-3)' }}>{w.n ? `${w.n}건` : ''}</span></dd>
               </dl>
               <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>가장 많은 불편</div>
@@ -214,7 +206,7 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
         })}
       </div>
 
-      <Section title={`${mLabel(month)} 가장 많은 불편`} sub={`${md(month + '-01')}–${md(week)} 리뷰 기준. 건수 많은 순, 같으면 그 불편이 나온 리뷰의 평균 점수가 낮은 순입니다. 수행과제 후보입니다.`}>
+      <Section title={`${mLabel(month)} 가장 많은 불편`}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
           {V2_BRANCHES.map(b => {
             const list = topComplaints(monthToDate(reviews, b, week), stars, 5)
@@ -241,20 +233,13 @@ export default function Kr4Voc2Client({ reviews, stars, analyzedAt, notice, kr4 
         </div>
       </Section>
 
-      <Section title="주별 불편 지수" sub="최근 8주. 리뷰가 10건 미만인 칸은 흐리게 보입니다(한두 건에 크게 흔들립니다).">
+      <Section title="주별 불편 지수">
         <IndexTable cols={recent} label={w => md(w)} cell={(b, w) => cellOf(inWeek(reviews, b, w))} />
       </Section>
 
-      <Section title="월별 불편 지수" sub="수행과제는 달 누적으로 정합니다. 이번 달은 마지막 분석일까지의 값입니다.">
+      <Section title="월별 불편 지수">
         <IndexTable cols={months} label={mLabel} cell={(b, m) => cellOf(inMonth(reviews, b, m))} />
       </Section>
-
-      <section style={{ marginTop: 16, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.7 }}>
-        <h2 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>기준</h2>
-        <p>불편 지수 = 불편 수 ÷ 분석한 리뷰 수 × 100. 리뷰 한 건에 불편이 셋이면 셋으로 세고, 점수와 상관없이 셉니다.</p>
-        <p>분석한 리뷰 = 수집한 OTA 리뷰를 STAY VOC 2.0 기준으로 하나씩 읽은 리뷰입니다. 불편이 없거나 글이 없는 리뷰도 분모에 들어갑니다.</p>
-        <p>목표 = 지점마다 매달 불편 지수 50 미만, 결과 목표 = 신규 리뷰 평균 9.0입니다. 주는 화요일부터 월요일까지입니다.</p>
-      </section>
     </div>
   )
 }
