@@ -17,7 +17,9 @@ const TABS: { href: string; label: string; match: (p: string) => boolean }[] = [
 type Theme = 'dark' | 'light'
 
 export default function V2Header() {
-  const path = usePathname() ?? '/v2'
+  const raw = usePathname() ?? '/v2'
+  const embed = raw.startsWith('/embed/')
+  const path = embed ? raw.slice('/embed'.length) : raw   // 임베드도 같은 탭이 켜지게
   const [theme, setTheme] = useState<Theme>('dark')
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function V2Header() {
             <span className="lbl">라이트</span>
           </button>
         </div>
-        <Link href="/dashboard" className="chip-line">1.0 화면</Link>
+        {!embed && <Link href="/dashboard" className="chip-line">1.0 화면</Link>}
       </div>
     </header>
   )

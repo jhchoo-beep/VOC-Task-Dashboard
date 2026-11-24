@@ -8,6 +8,7 @@ import {
 } from '@/lib/v2/metrics'
 import type { ReviewText } from '@/lib/v2/data'
 import { SearchIcon, f1, f2, mLabel, md, toneClass } from './parts'
+import { v2Href } from './EmbedLinks'
 
 type Tab = 'rank' | 'reviews' | 'low'
 type TrendStar = { phenomenon: string; date: string; branch: string }
@@ -86,7 +87,7 @@ export default function DiscomfortConsole(p: Props) {
             </Link>
           ))}
         </div>
-        <select className="select" aria-label="기준 달" value={p.month} onChange={e => router.push(href({ month: e.target.value }))}>
+        <select className="select" aria-label="기준 달" value={p.month} onChange={e => router.push(v2Href(href({ month: e.target.value })))}>
           {[...p.months].reverse().map(m => <option key={m} value={m}>{m.slice(0, 4)}년 {mLabel(m)}</option>)}
         </select>
         <label className="search">
