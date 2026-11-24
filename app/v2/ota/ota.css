@@ -1,0 +1,141 @@
+/* STAY VOC 2.0 OTA 점수 화면 전용. app/v2/v2.css 의 토큰을 쓰고, 새 규칙은 .v2 .ota-… 안에서만 만든다. */
+
+/* 지점 색(그래프 계열) — 지점에 고정. 라이트·다크 각자 단계로 골라 대비·색각 검사를 통과한 값
+   (라이트: 흰 바탕 기준 제주시티·고성이 3:1 아래라 범례 칩과 왼쪽 목록이 같이 붙는다) */
+.v2 .ota-root {
+  --ota-b1: #2a78d6; --ota-b2: #eb6834; --ota-b3: #1baf7a; --ota-b4: #eda100;
+  --ota-seq: #256abf; --ota-seq-ink: #ffffff;
+}
+.v2[data-theme='dark'] .ota-root {
+  --ota-b1: #3987e5; --ota-b2: #d95926; --ota-b3: #199e70; --ota-b4: #c98500;
+  --ota-seq: #6da7ec; --ota-seq-ink: #0b1320;
+}
+
+.v2 .ota-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; flex: none; vertical-align: 1px; }
+.v2 .ota-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* 지표 줄: 전 지점일 때 칸을 누르면 그 지점으로 */
+.v2 .ota-kpi-btn { padding: 14px 28px; text-align: left; transition: background-color .12s; }
+.v2 .ota-kpi-btn:hover { background: var(--panel); }
+.v2 .ota-kpi-btn .k { display: flex; align-items: center; }
+
+/* 왼쪽 목록: 채널 · 누적 리뷰 · 전 주 · 점수 */
+.v2 .ota-lh, .v2 .li.ota-li { display: grid; grid-template-columns: minmax(0, 1fr) 64px 56px 60px; align-items: center; gap: 8px; }
+.v2 .ota-lh { padding: 8px 18px; border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 700; color: var(--dim); flex: none; }
+.v2 .ota-lh span:not(:first-child) { text-align: right; }
+.v2 .li.ota-li { flex-direction: row; padding: 10px 18px; }
+.v2 .li.ota-li.grp { padding-top: 13px; padding-bottom: 13px; }
+.v2 .li.ota-li.ch { padding-left: 33px; }
+.v2 .ota-li-n { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.v2 .ota-li-t { display: flex; align-items: center; font-size: 14px; font-weight: 700; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2 .li.ota-li.grp .ota-li-t { font-size: 15px; }
+.v2 .ota-li-m { font-size: 12px; font-weight: 600; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2 .ota-li-r { font-size: 12px; font-weight: 600; color: var(--mute); text-align: right; }
+.v2 .ota-li-d { font-size: 12px; font-weight: 700; text-align: right; }
+.v2 .ota-li-s { text-align: right; }
+.v2 .ota-li-s .score { font-size: 14px; font-weight: 700; padding: 3px 7px; }
+
+/* 칩(채널 고르기·지점 범례·하락 지점·VOC 기간) */
+.v2 .ota-chips, .v2 .ota-legend, .v2 .ota-drops { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.v2 .ota-chips { margin-bottom: 12px; }
+.v2 .ota-legend { margin-bottom: 8px; }
+.v2 .ota-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 6px 11px; border-radius: 999px; background: var(--seg); color: var(--mute); white-space: nowrap; transition: background-color .15s, color .15s; }
+.v2 .ota-chip:hover { color: var(--ink); }
+.v2 .ota-chip.on { background: var(--ink); color: var(--bg); }
+.v2 .ota-chip.off { opacity: .5; }
+.v2 .ota-chip:disabled { cursor: default; opacity: .35; }
+.v2 .ota-chip i, .v2 .ota-legend > span i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.v2 .ota-legend > span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--mute); margin-right: 8px; }
+.v2 .ota-legend > span i.dash { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--dim); }
+
+/* 그래프 */
+.v2 .ota-block { margin-top: 4px; }
+.v2 .ota-chart { width: 100%; min-width: 0; }
+.v2 .ota-chart .recharts-cartesian-axis-tick-value, .v2 .ota-chart .recharts-label { font-family: var(--v2-num), var(--v2-sans), sans-serif; font-weight: 600; }
+.v2 .ota-chart .recharts-surface:focus, .v2 .ota-chart .recharts-wrapper:focus { outline: none; }
+.v2 .ota-none { padding: 32px 0; text-align: center; font-size: 13px; font-weight: 600; color: var(--dim); }
+.v2 .ota-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; border-radius: 12px; padding: 18px 20px; background: var(--panel); }
+.v2 .ota-empty b { font-size: 14px; font-weight: 700; color: var(--mute); }
+.v2 .ota-drops { margin-top: 10px; }
+.v2 .ota-drops-k { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--dim); margin-right: 4px; }
+.v2 .ota-drops .ota-chip.on { background: var(--sel); color: var(--ink); box-shadow: inset 0 0 0 1px var(--selbar); }
+
+.v2 .ota-tip { min-width: 150px; border-radius: 10px; padding: 9px 11px; background: var(--panel); box-shadow: 0 0 0 1px var(--line), 0 6px 20px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 4px; }
+.v2 .ota-tip-t { font-size: 11px; font-weight: 700; color: var(--dim); margin-bottom: 2px; }
+.v2 .ota-tip-r { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--mute); }
+.v2 .ota-tip-r i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.v2 .ota-tip-r b { margin-left: auto; color: var(--ink); font-weight: 700; }
+.v2 .ota-tip-r .dim { min-width: 40px; text-align: right; }
+
+/* 저평점 리뷰(하락 점) */
+.v2 .ota-drill { margin-top: 18px; border-radius: 12px; padding: 16px; box-shadow: inset 0 0 0 1px var(--line); }
+.v2 .ota-drill-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.v2 .ota-drill-t { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 18px; font-weight: 700; }
+.v2 .ota-drill-list { max-height: 440px; overflow: auto; }
+.v2 .ota-row-ctl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+
+/* 채널 상세 서브탭 */
+.v2 .ota-subtabs { padding: 0; margin: 22px 0 18px; overflow-x: auto; scrollbar-width: none; align-items: center; }
+.v2 .ota-subtabs::-webkit-scrollbar { display: none; }
+.v2 .ota-subtabs .tabb:first-child { padding-left: 2px; }
+.v2 .ota-subtabs-r { margin-left: auto; flex: none; }
+
+/* 표 */
+.v2 .ota-scroll-x { overflow-x: auto; max-width: 100%; }
+.v2 .ota-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.v2 .ota-tbl th { text-align: right; font-size: 11px; font-weight: 700; color: var(--dim); padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.v2 .ota-tbl td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--line2); font-weight: 600; color: var(--mute); }
+.v2 .ota-tbl :is(th, td):first-child { text-align: left; }
+.v2 .ota-tbl b { color: var(--ink); }
+
+.v2 .ota-heat { border-collapse: separate; border-spacing: 3px; font-size: 12px; min-width: 100%; }
+.v2 .ota-heat th { font-size: 11px; font-weight: 700; color: var(--dim); white-space: nowrap; padding: 0 4px 4px; }
+.v2 .ota-heat thead th { text-align: center; min-width: 52px; }
+.v2 .ota-heat tbody th { text-align: right; padding-right: 10px; }
+.v2 .ota-heat td { padding: 0; text-align: center; }
+.v2 .ota-heat-avg td { padding-bottom: 6px; }
+.v2 .ota-heat-avg .score { display: inline-block; min-width: 46px; text-align: center; font-size: 13px; font-weight: 700; padding: 4px 6px; }
+.v2 .ota-heat-c { display: block; border-radius: 6px; padding: 7px 4px; font-size: 12px; font-weight: 700; color: var(--ink); }
+.v2 .ota-heat-c.hi { color: var(--ota-seq-ink); }
+.v2 .ota-heat-c.zero { background: var(--panel); color: var(--dim); font-weight: 500; }
+
+.v2 .ota-memo { border-radius: 10px; padding: 12px 14px; background: var(--panel); font-size: 13px; font-weight: 500; line-height: 1.7; color: var(--ink); white-space: pre-wrap; }
+
+/* VOC */
+.v2 .ota-voc-band { margin-top: 18px; }
+.v2 .ota-voc-h { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; color: var(--dim); margin-bottom: 10px; }
+.v2 .ota-voc-h::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.v2 .ota-voc-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.v2 .ota-voc-cols.one { grid-template-columns: minmax(0, 1fr); }
+.v2 .ota-voc-k { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.v2 .ota-voc-list { display: flex; flex-direction: column; gap: 4px; }
+.v2 .ota-kw { border-radius: 8px; padding: 7px 10px; font-size: 13px; font-weight: 600; line-height: 1.45; color: var(--ink); }
+.v2 .ota-kw.ok { background: var(--ok-s); }
+.v2 .ota-kw.warn { background: var(--warn-s); }
+
+/* 데이터 입력 */
+.v2 .ota-modal-bg { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.5); }
+.v2 .ota-modal { width: 520px; max-width: 100%; max-height: 86vh; overflow: auto; border-radius: 16px; padding: 22px 24px; background: var(--bg); box-shadow: 0 0 0 1px var(--line), 0 18px 48px rgba(0,0,0,.35); }
+.v2 .ota-modal-t { margin: 4px 0 18px !important; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.v2 .ota-f { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; min-width: 0; }
+.v2 .ota-f > span { font-size: 12px; font-weight: 700; color: var(--mute); }
+.v2 .ota-in { width: 100%; height: 38px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--seg); color: var(--ink); font-size: 14px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+.v2 .ota-in:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.v2 .ota-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
+.v2 .ota-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 10px; }
+.v2 .ota-voc-in { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.v2 .ota-voc-row { display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 8px; width: 100%; }
+.v2 .ota-err { margin-top: 12px; border-radius: 8px; padding: 10px 12px; background: var(--warn-s); color: var(--warn); font-size: 13px; font-weight: 700; }
+.v2 .ota-modal-f { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.v2 .ota-root .act:disabled { opacity: .45; cursor: not-allowed; }
+
+@media (max-width: 820px) {
+  .v2 .ota-voc-cols { grid-template-columns: minmax(0, 1fr); }
+  .v2 .ota-voc-row { grid-template-columns: 1fr 1fr; }
+  .v2 .ota-grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 400px) {
+  .v2 .ota-lh, .v2 .li.ota-li { grid-template-columns: minmax(0, 1fr) 52px 60px; }
+  .v2 .ota-lh span:nth-child(2), .v2 .ota-li-r { display: none; }
+}
