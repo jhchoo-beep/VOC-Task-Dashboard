@@ -1,0 +1,146 @@
+/* STAY VOC 2.0 수행과제 전용. 공용 클래스(app/v2/v2.css)는 고치지 않고 여기서 .v2 .tk-* 로만 더한다. 색은 v2.css 변수만 쓴다. */
+
+.v2 .tk-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.v2 .tk-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.v2 .tk-clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.v2 .tk-clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.v2 .tk-small { font-size: 13px; font-weight: 600; }
+.v2 .tk-break { word-break: break-all; }
+.v2 .tk-note { padding: 10px 0; font-size: 13px; font-weight: 600; color: var(--dim); }
+.v2 .tk-note.inline { padding: 0; }
+
+/* 상단 바 */
+.v2 .tk-search { width: 200px; }
+
+/* 상태·심각도 표 */
+.v2 .tk-st, .v2 .tk-sev { display: inline-block; font-size: 11px; font-weight: 700; line-height: 1.5; padding: 1px 7px; border-radius: 5px; white-space: nowrap; }
+.v2 .tk-st.doing { background: var(--know-s); color: var(--know); }
+.v2 .tk-st.todo { background: var(--na-s); color: var(--mute); }
+.v2 .tk-st.done { background: var(--ok-s); color: var(--ok); }
+.v2 .tk-st.hold { color: var(--dim); box-shadow: inset 0 0 0 1px var(--bar); }
+.v2 .tk-sev.c { background: var(--warn-s); color: var(--warn); }
+.v2 .tk-sev.h { color: var(--warn); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent); }
+.v2 .tk-sev.m, .v2 .tk-sev.l { background: var(--na-s); color: var(--mute); }
+
+/* 지표 줄: 완료율 막대 */
+.v2 .tk-kbar { display: block; height: 4px; margin-top: 6px; border-radius: 2px; background: var(--bar); overflow: hidden; max-width: 220px; }
+.v2 .tk-kbar i { display: block; height: 100%; background: var(--ok); border-radius: 2px; }
+
+/* 왼쪽 목록 */
+.v2 .tk-row.sub { padding-left: 38px; }
+.v2 .tk-row-sub { font-size: 12px; font-weight: 600; color: var(--dim); }
+.v2 .tk-grp { border-bottom: 1px solid var(--line); }
+.v2 .tk-grp-h { background: var(--side); border-bottom: 1px solid var(--line2); }
+.v2 .tk-grp-btn { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 12px 18px 10px; transition: background-color .12s; }
+.v2 .tk-grp-btn:hover { background: var(--panel); }
+.v2 .tk-grp-t { padding-left: 20px; font-size: 14px; font-weight: 700; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.v2 .tk-gbar { display: block; height: 3px; margin: 4px 0 0 20px; border-radius: 2px; background: var(--bar); overflow: hidden; }
+.v2 .tk-gbar i { display: block; height: 100%; background: var(--know); }
+.v2 .tk-gbar i.full { background: var(--ok); }
+.v2 .tk-grp-link { display: inline-block; margin: -2px 0 10px 38px; font-size: 12px; }
+.v2 .tk-chev { flex: none; color: var(--mute); transform: rotate(-90deg); transition: transform .2s; }
+.v2 .tk-chev.open { transform: none; }
+
+/* 가운데: 고른 과제 */
+.v2 .tk-sec { margin-top: 22px; }
+.v2 .tk-text { max-width: 76ch; font-size: 14px; font-weight: 500; line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
+.v2 .tk-logs { margin-top: 12px; }
+.v2 .tk-log.k-이슈 { box-shadow: inset 3px 0 0 var(--warn); }
+.v2 .tk-log.k-해결 { box-shadow: inset 3px 0 0 var(--ok); }
+.v2 .tk-author { color: var(--ink); }
+.v2 .tk-log .tk-x { margin-left: auto; }
+.v2 .tk-x { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; font-size: 16px; line-height: 1; color: var(--dim); }
+.v2 .tk-x:hover { color: var(--warn); background: var(--panel-h); }
+.v2 .tk-x.big { width: 30px; height: 30px; font-size: 22px; }
+.v2 .tk-body { font-size: 14px; font-weight: 500; line-height: 1.65; word-break: break-word; }
+.v2 .tk-body > div { white-space: pre-wrap; }
+.v2 .tk-bl { display: flex; gap: 6px; }
+.v2 .tk-bl > span:first-child { flex: none; color: var(--dim); }
+.v2 .tk-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.v2 .tk-photo { position: relative; display: block; width: 88px; height: 88px; }
+.v2 .tk-photo.sm { width: 64px; height: 64px; }
+.v2 .tk-photo img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 8px; outline: 1px solid var(--line); outline-offset: -1px; background: var(--panel); }
+.v2 .tk-photo-x { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; background: var(--ink); color: var(--bg); }
+
+/* 입력 칸 */
+.v2 .tk-in { width: 100%; height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--seg); font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink); outline: none; box-shadow: inset 0 0 0 1px transparent; transition: box-shadow .12s; }
+.v2 .tk-in:focus { box-shadow: inset 0 0 0 1.5px var(--focus); }
+.v2 .tk-in::placeholder { color: var(--dim); }
+.v2 select.tk-in.tk-unset { color: var(--dim); }
+.v2 textarea.tk-in { height: auto; padding: 9px 10px; line-height: 1.6; }
+.v2 .tk-ta { min-height: 60px; resize: none; overflow-y: auto; }
+.v2 .act:disabled { opacity: .45; cursor: default; filter: none; }
+.v2 .act.on { box-shadow: inset 0 0 0 1px var(--ink); }
+.v2 .seg:disabled { cursor: default; opacity: .6; }
+.v2 .seg.k-issue.on { color: var(--warn); }
+.v2 .seg.k-done.on { color: var(--ok); }
+
+/* 진행 사항 입력 */
+.v2 .tk-comp { display: flex; flex-direction: column; gap: 10px; margin-top: 2px; padding: 12px; border-radius: 12px; background: var(--panel); }
+.v2 .tk-comp .tk-in { background: var(--bg); }
+.v2 .tk-comp .act:not(.pri) { background: var(--bg); }
+.v2 .tk-comp .act:not(.pri):hover { background: var(--panel-h); }
+.v2 .tk-comp-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.v2 .tk-author-in { width: 140px; height: 34px; }
+.v2 .tk-comp-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.v2 .tk-push { margin-left: auto; min-width: 72px; }
+.v2 .tk-linkbox { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--line); }
+.v2 .tk-row-acts { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+
+/* 오른쪽 */
+.v2 .tk-st-segs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.v2 .tk-st-segs .seg { text-align: center; }
+.v2 .tk-kv { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px 10px; margin: 0; font-size: 13px; }
+.v2 .tk-kv dt { padding-top: 1px; font-size: 12px; font-weight: 700; color: var(--dim); }
+.v2 .tk-kv dd { margin: 0; min-width: 0; font-weight: 600; word-break: break-word; }
+.v2 .tk-trigs { display: flex; flex-direction: column; gap: 8px; }
+.v2 .tk-trig { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--line); }
+.v2 .tk-trig-t { font-size: 13px; font-weight: 700; line-height: 1.45; word-break: break-word; }
+.v2 .tk-trig-a { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.v2 .tk-mini { font-size: 12px; font-weight: 700; color: var(--mute); }
+.v2 .tk-mini:hover { color: var(--ink); text-decoration: underline; }
+.v2 .tk-outs { display: flex; flex-direction: column; gap: 6px; }
+.v2 .tk-side-acts { display: flex; gap: 8px; }
+.v2 .tk-danger { color: var(--warn); }
+
+/* 등록·수정 창 */
+.v2 .tk-modal-bg { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(0, 0, 0, .5); }
+.v2 .tk-modal-bg.top { z-index: 110; }
+.v2 .tk-modal { display: flex; flex-direction: column; width: 100%; max-width: 640px; max-height: calc(100vh - 48px); border-radius: 16px; overflow: hidden; background: var(--bg); box-shadow: 0 20px 60px rgba(0, 0, 0, .35), inset 0 0 0 1px var(--line); }
+.v2 .tk-modal-h { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px 12px 22px; border-bottom: 1px solid var(--line); font-size: 16px; }
+.v2 .tk-modal-b { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; }
+.v2 .tk-modal-f { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 22px; border-top: 1px solid var(--line); }
+.v2 .tk-modal .tk-ta { min-height: 76px; resize: vertical; }
+.v2 .tk-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.v2 .tk-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.v2 .tk-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.v2 .tk-label { font-size: 12px; font-weight: 700; color: var(--dim); }
+.v2 .tk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.v2 .tk-chip { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--seg); color: var(--mute); }
+.v2 .tk-chip:hover { color: var(--ink); }
+.v2 .tk-chip.on { background: var(--pri); color: var(--pri-ink); }
+.v2 .tk-chip-x { display: inline-flex; align-items: center; gap: 6px; }
+.v2 .tk-chip-x button { color: inherit; opacity: .75; font-size: 14px; line-height: 1; }
+.v2 .tk-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.v2 .tk-inline .tk-in { flex: 1; min-width: 160px; }
+.v2 .tk-picked { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; padding: 10px 12px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--line); }
+.v2 .tk-picked > .tk-mini { align-self: flex-start; }
+.v2 .tk-picked .rv-meta .tk-mini { margin-left: auto; }
+.v2 .tk-wide { width: 100%; }
+.v2 .tk-picker { max-width: 680px; height: min(80vh, 760px); }
+.v2 .tk-picker-f { flex: none; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.v2 .tk-picker-list { flex: 1; min-height: 0; overflow: auto; }
+.v2 .tk-picker-list .tk-note { padding: 14px 18px; }
+
+@media (max-width: 1100px) {
+  .v2 .tk-bar { height: auto; flex-wrap: wrap; row-gap: 10px; padding-top: 10px; padding-bottom: 10px; }
+}
+@media (max-width: 820px) {
+  .v2 .tk-search { width: 100%; }
+}
+@media (max-width: 560px) {
+  .v2 .tk-grid2, .v2 .tk-grid3 { grid-template-columns: minmax(0, 1fr); }
+  .v2 .tk-modal-bg { padding: 10px; }
+  .v2 .tk-modal { max-height: calc(100vh - 20px); }
+  .v2 .tk-author-in { width: 100%; }
+}
