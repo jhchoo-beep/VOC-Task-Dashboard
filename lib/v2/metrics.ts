@@ -20,6 +20,7 @@ export interface Rev {
   branch: string
   channel: string
   date: string          // YYYY-MM-DD
+  week?: string         // 주 라벨 = 화~월 주의 끝 월요일(voc_review_analysis.week_label)
   score: number | null  // 10점 환산
   hasText: boolean
   neg: number

@@ -14,7 +14,7 @@ async function pageAll<T>(build: (from: number, to: number) => PromiseLike<{ dat
   return out
 }
 
-interface RevRow { review_id: string; branch: string; channel: string | null; review_date: string; score10: number | string | null; has_text: boolean | null; neg_count: number | null; pos_count: number | null }
+interface RevRow { review_id: string; branch: string; channel: string | null; review_date: string; week_label: string | null; score10: number | string | null; has_text: boolean | null; neg_count: number | null; pos_count: number | null }
 interface StarRow { id: string; review_id: string; branch: string; channel: string | null; star_date: string; galaxy: string | null; phenomenon: string; owner: string | null; quote: string | null }
 
 export interface V2Base {
@@ -28,7 +28,7 @@ export async function getV2Base(): Promise<V2Base> {
   try {
     const [revRows, starRows, last] = await Promise.all([
       pageAll<RevRow>((a, b) => supabase.from('voc_review_analysis')
-        .select('review_id,branch,channel,review_date,score10,has_text,neg_count,pos_count').order('review_id').range(a, b)),
+        .select('review_id,branch,channel,review_date,week_label,score10,has_text,neg_count,pos_count').order('review_id').range(a, b)),
       pageAll<StarRow>((a, b) => supabase.from('voc_stars')
         .select('id,review_id,branch,channel,star_date,galaxy,phenomenon,owner,quote').eq('polarity', 'neg').order('id').range(a, b)),
       supabase.from('voc_review_analysis').select('analyzed_at').order('analyzed_at', { ascending: false }).limit(1)
@@ -36,7 +36,7 @@ export async function getV2Base(): Promise<V2Base> {
     ])
     return {
       revs: revRows.map(r => ({
-        id: r.review_id, branch: r.branch, channel: r.channel ?? '', date: r.review_date,
+        id: r.review_id, branch: r.branch, channel: r.channel ?? '', date: r.review_date, week: r.week_label ?? undefined,
         score: r.score10 == null ? null : Number(r.score10), hasText: !!r.has_text,
         neg: r.neg_count ?? 0, pos: r.pos_count ?? 0,
       })),
