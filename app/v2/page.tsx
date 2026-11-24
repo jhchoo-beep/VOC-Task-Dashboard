@@ -93,7 +93,7 @@ export default async function V2Home({ searchParams }: { searchParams: Promise<{
         </div>
 
         <Link href="/v2/tasks" className="tile">
-          <span className="tile-k">수행과제</span>
+          <span className="tile-k">수행과제 · 전체 기간</span>
           <span className="tile-rows">
             <span className="tile-row"><span>진행중</span><b className="num">{tcount('진행중')}</b></span>
             <span className="tile-row"><span>시작전</span><b className="num">{tcount('시작전')}</b></span>

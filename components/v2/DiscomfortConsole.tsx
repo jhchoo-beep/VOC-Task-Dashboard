@@ -189,7 +189,7 @@ export default function DiscomfortConsole(p: Props) {
               </div>
               <div>
                 <div className="sec-k">수행과제</div>
-                <Link className="act pri" href={`/v2/tasks?new=1&branch=${encodeURIComponent(selRank.branches.length === 1 ? selRank.branches[0] : p.scope === ALL ? '' : p.scope)}&title=${encodeURIComponent(selRank.phenomenon)}`}>수행과제로 등록</Link>
+                <Link className="act pri" href={`/v2/tasks?new=1&branch=${encodeURIComponent(selRank.branches.length === 1 ? selRank.branches[0] : p.scope === ALL ? '' : p.scope)}&title=${encodeURIComponent(selRank.phenomenon)}&month=${p.month}`}>수행과제로 등록</Link>
               </div>
             </>
           )}
