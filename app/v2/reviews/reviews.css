@@ -1,0 +1,80 @@
+/* STAY VOC 2.0 리뷰 원문 탭 전용. 공용 토큰·콘솔 틀은 app/v2/v2.css, 여기는 .v2 .rvw-… 만 둔다. */
+
+.v2 .rvw-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.v2 .select:disabled { opacity: .5; }
+.v2 .rvw .v2-kpis, .v2 .rvw .v2-panes { transition: opacity .2s; }
+.v2 .rvw[aria-busy='true'] .v2-kpis, .v2 .rvw[aria-busy='true'] .v2-panes { opacity: .5; }
+
+/* 목록 위 도구 줄 */
+.v2 .rvw-tools { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.v2 .rvw-sel { height: 30px; max-width: 132px; padding: 0 8px; border: 0; border-radius: 7px; background: var(--seg); font-size: 12px; font-weight: 700; color: var(--ink); }
+.v2 .rvw-btn { height: 30px; padding: 0 10px; border-radius: 7px; background: var(--seg); font-size: 12px; font-weight: 700; color: var(--mute); white-space: nowrap; transition: color .15s, background-color .15s; }
+.v2 .rvw-btn:hover { color: var(--ink); }
+.v2 .rvw-btn.pri { background: var(--pri); color: var(--pri-ink); }
+.v2 .rvw-btn.pri:hover { filter: brightness(1.08); }
+.v2 .rvw-btn:disabled, .v2 .act:disabled { opacity: .45; cursor: default; filter: none; }
+.v2 .rvw-tools-r { margin-left: auto; display: flex; gap: 6px; }
+
+/* 목록 줄 */
+.v2 .rvw-ell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2 .rvw-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.v2 .rvw-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.v2 .rvw-more { display: block; width: calc(100% - 36px); margin: 14px 18px 20px; padding: 10px; border-radius: 8px; background: var(--panel); font-size: 13px; font-weight: 700; color: var(--mute); text-align: center; }
+.v2 .rvw-more:hover { background: var(--panel-h); color: var(--ink); }
+
+/* 가운데 상세 */
+.v2 .rvw-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.v2 .rvw-acts { display: flex; gap: 6px; margin-top: 8px; }
+.v2 .rvw-danger { color: var(--warn); }
+.v2 .rvw-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.v2 .rvw-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.v2 .rvw-toggle { margin-left: auto; font-size: 12px; }
+.v2 .rvw-body { font-size: 14px; line-height: 1.75; color: var(--ink); overflow-wrap: anywhere; }
+.v2 a.rvw-link:hover { background: var(--panel); }
+
+/* 오른쪽 */
+.v2 .rvw-stat2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.v2 .rvw-na { border-radius: 10px; padding: 14px; background: var(--na-s); color: var(--na); font-size: 14px; font-weight: 700; }
+.v2 .rvw-dl { margin: 0; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--line); }
+.v2 .rvw-dl > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line2); }
+.v2 .rvw-dl > div:first-child { border-top: 0; }
+.v2 .rvw-dl dt { font-size: 12px; font-weight: 700; color: var(--dim); }
+.v2 .rvw-dl dd { margin: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+
+/* 추가·수정 창 */
+.v2 .rvw-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(0, 0, 0, .5); }
+.v2 .rvw-dialog { width: 100%; max-width: 600px; max-height: calc(100vh - 48px); display: flex; flex-direction: column; border-radius: 16px; background: var(--bg); box-shadow: 0 12px 40px rgba(0, 0, 0, .3), inset 0 0 0 1px var(--line); }
+.v2 .rvw-dialog.wide { max-width: 680px; }
+.v2 .rvw-dialog-h { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.v2 .rvw-dialog-h h2 { font-size: 17px; font-weight: 700; }
+.v2 .rvw-x { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: var(--mute); }
+.v2 .rvw-x:hover { background: var(--panel); color: var(--ink); }
+.v2 .rvw-dialog-b { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+.v2 .rvw-dialog-f { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--line); }
+.v2 .rvw-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.v2 .rvw-field-k { font-size: 12px; font-weight: 700; color: var(--dim); }
+.v2 .rvw-input { width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--seg); box-shadow: inset 0 0 0 1px var(--line); font-size: 14px; color: var(--ink); }
+.v2 textarea.rvw-input { padding: 10px; line-height: 1.6; resize: vertical; }
+.v2 .rvw-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.v2 .rvw-mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.v2 .rvw-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.v2 .rvw-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.v2 .rvw-auto { display: flex; flex-wrap: wrap; gap: 8px 28px; padding: 12px 14px; border-radius: 10px; background: var(--panel); }
+.v2 .rvw-auto .k { display: block; font-size: 11px; font-weight: 700; color: var(--dim); }
+.v2 .rvw-auto b { font-size: 15px; font-weight: 700; }
+.v2 .rvw-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+.v2 .rvw-tg { padding: 6px 11px; border-radius: 999px; background: var(--seg); font-size: 12px; font-weight: 700; color: var(--mute); }
+.v2 .rvw-tg:hover { color: var(--ink); }
+.v2 .rvw-tg.on { background: var(--pri); color: var(--pri-ink); }
+.v2 .rvw-modeseg { align-self: flex-start; }
+.v2 .rvw-drop { padding: 26px; border-radius: 10px; box-shadow: inset 0 0 0 2px var(--line); background: var(--panel); font-size: 14px; font-weight: 700; color: var(--mute); text-align: center; }
+.v2 .rvw-drop:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--selbar); }
+.v2 .rvw-err { font-size: 12px; font-weight: 700; color: var(--warn); }
+.v2 .rvw-progress { margin-right: auto; font-size: 12px; font-weight: 700; color: var(--know); }
+.v2 .rvw-dialog-f .rvw-err { margin-right: auto; }
+
+@media (max-width: 820px) {
+  .v2 .rvw-overlay { padding: 12px; }
+  .v2 .rvw-dialog { max-height: calc(100vh - 24px); }
+  .v2 .rvw-grid2, .v2 .rvw-grid3 { grid-template-columns: minmax(0, 1fr); }
+}
