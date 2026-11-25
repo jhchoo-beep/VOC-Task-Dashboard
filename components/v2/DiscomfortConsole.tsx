@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import {
   ALL, BRANCHES, TARGET_INDEX, cellOf, indexWithout, isLowPraise, monthOf, periodLabel, rankComplaints, scoreTone, toneOf,
@@ -31,6 +31,8 @@ interface Props {
 const SNIP = 220
 
 export default function DiscomfortConsole(p: Props) {
+  // 노션 임베드는 보기 전용이라 등록 버튼을 두지 않는다(눌러도 등록 창이 열리지 않는 수행과제 임베드로만 간다)
+  const embed = (usePathname() ?? '').startsWith('/embed/')
   const router = useRouter()
   const [tab, setTab] = useState<Tab>(p.initialTab)
   const [q, setQ] = useState('')
@@ -187,10 +189,10 @@ export default function DiscomfortConsole(p: Props) {
                 <div className="t">{selRank.galaxy} · 고칠 수 있는 주체 {selRank.owner || '미정'}</div>
                 <div className="s">{scopeName} {period} 리뷰 <span className="num">{selRank.reviews}</span>건에서 <span className="num">{selRank.count}</span>건</div>
               </div>
-              <div>
+              {!embed && <div>
                 <div className="sec-k">수행과제</div>
                 <Link className="act pri" href={`/v2/tasks?new=1&branch=${encodeURIComponent(selRank.branches.length === 1 ? selRank.branches[0] : p.scope === ALL ? '' : p.scope)}&title=${encodeURIComponent(selRank.phenomenon)}&month=${p.month}`}>수행과제로 등록</Link>
-              </div>
+              </div>}
             </>
           )}
           {selRev && (
